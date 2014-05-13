@@ -1,4 +1,3 @@
 mock
 numpy
-sphinx
 sphinxcontrib-bibtex
