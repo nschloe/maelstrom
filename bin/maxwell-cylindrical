@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 #  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
 #  All rights reserved.
@@ -26,7 +27,7 @@ from dolfin import parameters, XDMFFile, plot, interactive, Measure, \
     FunctionSpace, Expression, triangle, begin, end, SubMesh, project, \
     Function, assemble, grad, as_vector, File, DOLFIN_EPS, info
 
-from pymhd.materials_database import MATERIAL_PARAMETERS as params
+import pymhd.materials_database as md
 import pymhd.maxwell_cylindrical as cmx
 import pymhd.problems as probs
 
@@ -198,7 +199,6 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
         coarse_solver='pinv'
         )
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _apply_inverse_prec_exact(rhs):
         x_init = np.zeros((n, 1), dtype=complex)
         out = krypy.linsys.cg(Pc, rhs, x_init,
@@ -221,7 +221,6 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     m, n = Ac.shape
     b = np.random.rand(n) + 1j * np.random.rand(n)
     for k, cycles in enumerate(Cycles):
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         def _apply_inverse_prec_cycles(rhs):
             x_init = np.zeros((n, 1), dtype=complex)
             x = np.empty((n, 1), dtype=complex)
@@ -237,7 +236,7 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
             #amg_prec = ml.aspreconditioner( cycle='V' )
             #x = amg_prec * rhs
             return x
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
         prec = scipy.sparse.linalg.LinearOperator((n, n),
                                                   _apply_inverse_prec_cycles,
                                                   #_apply_inverse_prec_exact,
@@ -266,15 +265,8 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
 def _main():
     #_show_currentloop_field()
 
-    #mesh, subdomains, coils, wpi, subdomain_materials, omega = \
-    #    probs.currentloop()
-    #mesh, subdomains, coils, wpi, subdomain_materials, omega = probs.pons()
-    #mesh, subdomains, coils, wpi, subdomain_materials, omega = probs.generic()
-    mesh, subdomains, coil_domains, wpi, subdomain_materials, omega, \
-        submesh_boundaries, W, u_bcs, p_bcs, \
-        Q, theta_bcs_d, theta_bcs_d_strict, theta_bcs_n, theta_bcs_r \
-        = probs.crucible()
-    submesh_workpiece = W.mesh()
+    problem = probs.crucible.CrucibleProblem()
+    submesh_workpiece = problem.mesh()
 
     # The voltage is defined as
     #
@@ -311,7 +303,7 @@ def _main():
 
     # Merge coil rings with voltages.
     coils = []
-    for coil_domain, voltage in zip(coil_domains, voltages):
+    for coil_domain, voltage in zip(problem.coil_domains, voltages):
         coils.append({'rings': coil_domain,
                       'c_type': 'voltage',
                       'c_value': voltage
@@ -321,9 +313,9 @@ def _main():
     if show_subdomains:
         filename = './results/subdomains.xdmf'
         subdomains_file = XDMFFile(filename)
-        subdomains_file << subdomains
+        subdomains_file << problem.subdomains
 
-    subdomain_indices = subdomain_materials.keys()
+    subdomain_indices = problem.subdomain_materials.keys()
 
     background_temp = 1500.0
 
@@ -514,9 +506,8 @@ def _main():
     #solve(a == joule, sol, bcs=bcs)
     #plot(sol)
     #interactive()
-
     return
-# -----------------------------------------------------------------------------
+
+
 if __name__ == '__main__':
     _main()
-# -----------------------------------------------------------------------------

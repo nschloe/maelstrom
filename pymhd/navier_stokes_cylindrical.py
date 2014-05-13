@@ -284,7 +284,6 @@ class TentativeVelocityProblem(NonlinearProblem):
         # We can ignore x; see comment at F().
         assemble(self.jacobian,
                  tensor=A,
-                 reset_sparsity=self.reset_sparsity,
                  form_compiler_parameters={'optimize': True}
                  )
         for bc in self.bcs:

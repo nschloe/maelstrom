@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
 #  All rights reserved.
@@ -21,7 +22,7 @@
 import nose
 
 from dolfin import FunctionSpace, errornorm, RectangleMesh, Measure, \
-    CellFunction, FacetFunction, plot, interactive, triangle, \
+    CellFunction, FacetFunction, triangle, \
     Expression, MPI
 
 import pymhd.maxwell_cylindrical as mcyl
@@ -60,7 +61,7 @@ def _check_order(problem):
                                        delta=tol
                                        )
         while k + 1 < len(order[i]) \
-              and abs(order[i][k + 1] - expected_order) < tol:
+                and abs(order[i][k + 1] - expected_order) < tol:
             k += 1
     return errors
 
@@ -109,7 +110,7 @@ def _compute_errors(problem, mesh_sizes):
     order = np.empty(len(errors) - 1)
     for i in range(len(errors) - 1):
         order[i] = np.log(errors[i + 1] / errors[i]) \
-                 / np.log(hmax[i + 1] / hmax[i])
+            / np.log(hmax[i + 1] / hmax[i])
 
     return errors, order, hmax
 
