@@ -1,0 +1,282 @@
+#!/usr/bin/env python
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  PyMHD is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyMHD is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+'''
+Coupled solve of the Navier--Stokes and the heat equation
+in cylindrical coordinates.
+'''
+
+from dolfin import *
+import os
+
+import pymhd.materials_database as mdb
+import pymhd.navier_stokes_cylindrical as cyl_ns
+import pymhd.time_steppers as ts
+#import pymhd.stabilization as stab
+import pymhd.problems as probs
+
+# We need to allow extrapolation here since otherwise, the equation systems
+# for Maxwell cannot be constructed: They contain the velocity `u` (from
+# Navier-Stokes) which is only defined on the workpiece subdomain.
+# Cf. <https://answers.launchpad.net/dolfin/+question/210508>.
+parameters['allow_extrapolation'] = True
+
+#parameters['linear_algebra_backend'] = 'uBLAS'
+#parameters['linear_algebra_backend'] = 'Epetra'
+
+GMSH_EPS = 1.0e-15
+
+
+def _main():
+
+    args = _parse_args()
+    mkdir_p(args.directory)
+
+    #mesh, V, Q, u_bcs, p_bcs, heat_boundary, left_boundary, right_boundary, \
+    #    lower_boundary, upper_boundary = _domain_ballintube()
+    #mesh, subdomains, subdomain_materials, wpi, V, Q, P, u_bcs, p_bcs, \
+    #    heater_boundary = _domain_peter()
+    mesh, subdomains, subdomain_materials, wpi, V, Q, P, u_bcs, p_bcs, \
+        background_temp, heater_bcs = probs.crucible()
+
+    dx = Measure('dx')[subdomains]
+
+    subdomain_indices = subdomain_materials.keys()
+
+    # Density depends on temperature.
+    rho = {}
+    mu = {}
+    cp = {}
+    kappa = {}
+    for k in subdomain_indices:
+        material = subdomain_materials[k]
+        rho[k] = mdb.MATERIAL_PARAMETERS[material]['density']
+        cp[k] = mdb.MATERIAL_PARAMETERS[material]['specific heat capacity']
+        kappa[k] = mdb.MATERIAL_PARAMETERS[material]['thermal conductivity']
+
+    material = subdomain_materials[wpi]
+    mu = {wpi: mdb.MATERIAL_PARAMETERS[material]['dynamic viscosity']}
+
+    # Start time, end time, time step.
+    t = 0.0
+    T = 1200.0
+    dt = 1.0e-4
+
+    g = Constant((0.0, -9.81))
+
+    # Initial states.
+    u_1 = Function(V, name='velocity')
+    u_1.interpolate(Constant((0.0, 0.0)))
+    u_file = XDMFFile(os.path.join(args.directory, 'velocity.xdmf'))
+    u_file.parameters['flush_output'] = True
+    u_file.parameters['rewrite_function_mesh'] = False
+    u_file << (u_1, t)
+
+    p_1 = Function(P, name='pressure')
+    p_1.interpolate(Constant(0.0))
+    p_file = XDMFFile(os.path.join(args.directory, 'pressure.xdmf'))
+    p_file.parameters['flush_output'] = True
+    p_file.parameters['rewrite_function_mesh'] = False
+    p_file << (p_1, t)
+
+    theta_1 = Function(Q, name='temperature')
+    theta_1.interpolate(Constant(background_temp))
+    theta_file = XDMFFile(os.path.join(args.directory, 'temperature.xdmf'))
+    theta_file.parameters['flush_output'] = True
+    theta_file.parameters['rewrite_function_mesh'] = False
+    theta_file << (theta_1, t)
+
+    #plot(u_1, title='velocity', rescale=True)
+    #plot(p_1, title='pressure', rescale=True)
+    #interactive()
+
+    r = Expression('x[0]', cell=triangle)
+
+    while t < T + DOLFIN_EPS:
+        # ---------------------------------------------------------------------
+        begin('Time step %e -> %e...' % (t, t+dt))
+
+        begin('Computing heat...')
+        # Stabilization in the workpiece.
+        rho_cp = rho[wpi](1550.0) * cp[wpi](1550.0)
+        k = kappa[wpi](1550.0)
+        #tau = stab.supg2(
+        #    Q.mesh(),  # TODO what to put here?
+        #    u_1,
+        #    k/rho_cp,
+        #    Q.ufl_element().degree()
+        #    )
+        #u_tau = stab.supg(u_1,
+        #                  k/rho_cp,
+        #                  Q.ufl_element().degree()
+        #                  )
+        # Build right-hand side F of heat equation such that u' = F(u).
+
+        def weak_F(t, u_t, trial, v):
+            # Don't use zero() or 0 to avoid errors as described in
+            # <https://bitbucket.org/fenics-project/dolfin/issue/44/assemble-0-vectors>.
+            # Use Expression instead of Constant to work around the error
+            # <https://bitbucket.org/fenics-project/dolfin/issue/38/constant-expressions-dont-use-the-cell>.
+            # Also, explicitly both RHS and LHS to something that doesn't
+            # evaluate to an empty form.
+            F = trial * Expression('0.0', cell=triangle) * v * 2*pi*r*dx(0) \
+                +       Expression('0.0', cell=triangle) * v * 2*pi*r*dx(0)
+            for i in subdomain_indices:
+                # Take all parameters at 1550K.
+                rho_cp = rho[i](1550.0) * cp[i](1550.0)
+                k = kappa[i](1550.0)
+                F -= k * r * dot(grad(trial), grad(v/rho_cp)) * 2*pi*dx(i)
+            # Add convection.
+            F -= dot(u_1, grad(trial)) * v * 2*pi*r*dx(wpi)
+            ## Add SUPG stabilization.
+            #rho_cp = rho[wpi](background_temp)*cp[wpi]
+            #k = kappa[wpi](background_temp)
+            #Rdx = u_t * 2*pi*r*dx(wpi) \
+            #    + dot(u_1, grad(trial)) * 2*pi*r*dx(wpi) \
+            #    - 1.0/(rho_cp) * div(k*r*grad(trial)) * 2*pi*dx(wpi)
+            ##F -= dot(tau*u_1, grad(v)) * Rdx
+            ##F -= tau * inner(u_1, grad(v)) * 2*pi*r*dx(wpi)
+            ##plot(tau, mesh=V.mesh(), title='u_tau')
+            ##interactive()
+            ##F -= tau * v * 2*pi*r*dx(wpi)
+            ##F -= tau * Rdx
+            return F
+        theta = ts.implicit_euler_step(
+            Q,
+            weak_F,
+            theta_1,
+            t, dt,
+            sympy_bcs=heater_bcs,
+            tol=1.0e-12,
+            lhs_multiplier=2*pi*r,
+            verbose=False,
+            form_compiler_parameters={'quadrature_rule': 'vertex',
+                                      'quadrature_degree': 1},
+            )
+        end()
+
+        # Do one Navier-Stokes time step.
+        begin('Computing flux and pressure...')
+        try:
+            u, p = cyl_ns.ipcs_step(
+                V, P, dt,
+                mu[wpi](background_temp), rho[wpi](background_temp),
+                u_1, u_bcs,
+                p_1, p_bcs,
+                f0=rho[wpi](theta_1) * g,
+                f1=rho[wpi](theta) * g,
+                theta=1.0,
+                stabilization=True,
+                tol=1.0e-10
+                )
+        except RuntimeError as e:
+            print(e.message)
+            print('Navier--Stokes solver failed to converge. '
+                  'Decrease time step from %e to %e and try again.' %
+                  (dt, 0.5*dt)
+                  )
+            dt *= 0.5
+            end()
+            end()
+            end()
+            continue
+        end()
+
+        # Assignments and plotting.
+        theta_1.assign(theta)
+        u_1.assign(u)
+        p_1.assign(p)
+
+        # Save to files.
+        theta_file << (theta_1, t+dt)
+        u_file << (u_1, t+dt)
+        p_file << (p_1, t+dt)
+
+        plot(theta_1, title='temperature', rescale=True)
+        plot(u_1, title='velocity', rescale=True)
+        plot(p_1, title='pressure', rescale=True)
+        #interactive()
+        t += dt
+
+        # Time update.
+        begin('Step size adaptation...')
+        u1, u2 = u_1.split()
+        unorm = project(abs(u1) + abs(u2),
+                        P,
+                        form_compiler_parameters={'quadrature_degree': 4}
+                        )
+        unorm = norm(unorm.vector(), 'linf')
+        #print('||u||_inf = %e' % unorm)
+        unorm = max(unorm, DOLFIN_EPS)
+        # http://scicomp.stackexchange.com/questions/2927/estimating-the-courant-number-for-the-navier-stokes-equations-under-differing-re
+        rho_mu = rho[wpi](background_temp) / mu[wpi](background_temp)
+        target_dt = min(0.5*mesh.hmin()/unorm, 0.5*mesh.hmin()**2 * rho_mu)
+        print('previous dt: %e' % dt)
+        print('target dt:  %e' % target_dt)
+        # alpha is the aggressiveness factor. The distance between the current
+        # step size and the target step size is reduced by |1-alpha|. Hence,
+        # if alpha==1 then dt_next==target_dt. Otherwise target_dt is
+        # approached slowlier.
+        alpha = 0.5
+        dt_max = 1.0e1
+        dt = min(dt_max,
+                 # At most double the step size from step to step.
+                 dt * min(2.0, 1.0 + alpha*(target_dt - dt)/dt)
+                 )
+        print('new dt:    %e' % dt)
+        end()
+        end()
+    return
+
+
+def _parse_args():
+    import argparse
+    import datetime
+
+    dir_name = datetime.date.today().isoformat() + '-boussi-cyl'
+    default_dir = os.path.join('results', dir_name)
+
+    parser = argparse.ArgumentParser(
+        description='Cylindrical Boussinesq flow.'
+        )
+    parser.add_argument(
+        'directory',
+        type=str,
+        help='directory for storing the output (default: %s)' % default_dir,
+        default=default_dir,
+        nargs='?'
+        )
+
+    return parser.parse_args()
+
+
+def mkdir_p(path):
+    import errno
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+if __name__ == '__main__':
+    _main()

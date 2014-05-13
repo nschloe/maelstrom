@@ -1,0 +1,168 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  PyMHD is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyMHD is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+'''
+Navier-Stokes testbed.
+'''
+
+from dolfin import *
+import numpy as np
+
+from pymhd.materials_database import MATERIAL_PARAMETERS as params
+import pymhd.problems as probs
+import pymhd.navier_stokes_cylindrical as cyl_ns
+import pymhd.stokes_cylindrical as cyl_stokes
+
+#parameters['linear_algebra_backend'] = 'uBLAS'
+#parameters['linear_algebra_backend'] = 'Epetra'
+parameters['allow_extrapolation'] = True
+
+# -----------------------------------------------------------------------------
+def _main():
+
+    #mesh, W, P, u_bcs, p_bcs = probs.lid_driven_cavity()
+    #mesh, W, P, u_bcs, p_bcs = probs.rotating_lid()
+    mesh, W, P, u_bcs, p_bcs = probs.ball_in_tube()
+
+    ## Density depends on temperature.
+    #material = 'water'
+    #rho = params[material]['density'](293.0)
+    #mu = params[material]['dynamic viscosity'](293.0)
+
+    rho = 1.0
+    mu = 1.0
+
+    # Start time, end time, time step.
+    t = 0.0
+    T = 8.0
+    dt = 1.0e-5
+    dt_max = 1.0e-1
+
+    num_subspaces = W.num_sub_spaces()
+
+    if num_subspaces == 2:
+        #g = Constant((0.0, 0.0))
+        g = Constant((0.0, -9.81))
+    elif num_subspaces == 3:
+        #g = Constant((0.0, 0.0, 0.0))
+        g = Constant((0.0, -9.81, 0.0))
+    else:
+        raise RuntimeError('Illegal number of subspaces (%d).' % num_subspaces)
+
+    initial_stokes = True
+    if initial_stokes:
+        u_1, p_1 = cyl_stokes.solve(W, P,
+                                    mu, rho,
+                                    u_bcs, p_bcs,
+                                    f = rho * g,
+                                    tol = 1.0e-10,
+                                    maxiter = 2000
+                                    )
+        exit()
+    else:
+        # Initial states.
+        u_1 = Function(W, name='velocity')
+        u_1.vector().zero()
+        p_1 = Function(P, name='pressure')
+        p_1.vector().zero()
+
+    u_file = XDMFFile('results/velocity.xdmf')
+    u_file.parameters['flush_output'] = True;
+    u_file.parameters['rewrite_function_mesh'] = False;
+    u_file << (u_1, t)
+
+    p_file = XDMFFile('results/pressure.xdmf')
+    p_file.parameters['flush_output'] = True;
+    p_file.parameters['rewrite_function_mesh'] = False;
+    p_file << (p_1, t)
+
+    while t < T + DOLFIN_EPS:
+        begin('Time step %e -> %e...' % (t, t+dt))
+        # ---------------------------------------------------------------------
+        try:
+            u, p = cyl_ns.ipcs_step(W, P, dt,
+                                    mu, rho,
+                                    u_1, u_bcs,
+                                    p_1, p_bcs,
+                                    f0 = rho*g,
+                                    f1 = rho*g,
+                                    theta = 1.0,
+                                    stabilization = False,
+                                    tol = 1.0e-10
+                                    )
+        except RuntimeError:
+            print('Navier--Stokes solver failed to converge. '
+                  'Decrease time step from %e to %e and try again.' %
+                  (dt, 0.5*dt)
+                  )
+            dt *= 0.5
+            end()
+            end()
+            end()
+            continue
+        # ---------------------------------------------------------------------
+        u_1.assign(u)
+        p_1.assign(p)
+
+        # Save to files.
+        u_file << (u_1, t+dt)
+        p_file << (p_1, t+dt)
+
+        # Plotting for some reason takes up a lot of memory.
+        plot(u_1, title='velocity', rescale=True)
+        plot(p_1, title='pressure', rescale=True)
+        #interactive()
+        # ---------------------------------------------------------------------
+        begin('Step size adaptation...')
+        #unorm = project(abs(u[0]) + abs(u[1]) + abs(u[2]),
+        #                P,
+        #                form_compiler_parameters={'quadrature_degree': 4}
+        #                )
+        unorm = project(norm(u),
+                        P,
+                        form_compiler_parameters={'quadrature_degree': 4}
+                        )
+        unorm = norm(unorm.vector(), 'linf')
+        #print('||u||_inf = %e' % unorm)
+        # Some smooth step-size adaption.
+        target_dt = 0.2 * mesh.hmax() / unorm
+        print('current dt: %e' % dt)
+        print('target dt:  %e' % target_dt)
+        # alpha is the aggressiveness factor. The distance between the current
+        # step size and the target step size is reduced by |1-alpha|. Hence,
+        # if alpha==1 then dt_next==target_dt. Otherwise target_dt is
+        # approached slowlier.
+        alpha = 0.5
+        dt = min(dt_max,
+                 # At most double the step size from step to step.
+                 dt * min(2.0, 1.0 + alpha*(target_dt - dt)/dt)
+                 )
+        print('next dt:    %e' % dt)
+        t += dt
+        end()
+        # ---------------------------------------------------------------------
+        end()
+
+    return
+# -----------------------------------------------------------------------------
+if __name__ == '__main__':
+  _main()
+# -----------------------------------------------------------------------------

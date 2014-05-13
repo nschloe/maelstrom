@@ -1,0 +1,347 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  PyMHD is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyMHD is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+from dolfin import assemble, parameters, TrialFunction, TestFunction, dx, \
+    Function, TimeSeriesHDF5, FunctionSpace, Mesh, plot, interactive, \
+    mpi_comm_world
+import numpy as np
+import time
+import os
+
+#try:
+#    import prettyplotlib as ppl
+#    from prettyplotlib import plt as pp
+#except:
+#    from matplotlib import pyplot as pp
+from matplotlib import pyplot as pp
+from mpltools import style
+style.use('ggplot')
+
+parameters['linear_algebra_backend'] = 'uBLAS'
+
+import helpers
+
+
+def plot_dft(t, theta, label=None):
+    '''Compute the discrete Fourier transform of a time series theta between
+    the times t0, t1. Assume that the values in theta are equally spaced.
+    Return some sweet plots.
+    '''
+    # Plot the time step.
+    delta_t = t[1:] - t[:-1]
+
+    k = 0
+    plot_time_step = False
+    if plot_time_step:
+        fig, axarr = pp.subplots(4, 1)
+        axarr[k].plot(delta_t)
+        #axarr[k].title('Time step')
+        k += 1
+    else:
+        fig, axarr = pp.subplots(3, 1)
+
+    t_uniform, freqs, X_scaled, theta_interp = helpers.dft(t, theta)
+
+    assert(len(freqs) == len(X_scaled))
+    axarr[k].semilogy(freqs, X_scaled.real, '.', label='real')
+    axarr[k].semilogy(freqs, X_scaled.imag, '.', label='imag')
+    axarr[k].semilogy(freqs, abs(X_scaled), '.', label='abs')
+    axarr[k].legend()
+    axarr[k].set_xlabel('ordinary frequency')
+    axarr[k].set_ylabel('amplitude')
+    if label:
+        axarr[k].set_title('Discrete Fourier transform %s' % str(label))
+    else:
+        axarr[k].set_title('Discrete Fourier transform')
+    k += 1
+
+    plot_ft_approximation = True
+    if plot_ft_approximation:
+        axarr[k].plot(t, theta, label='original')
+        # Plot an FT approximation
+        # Remove all frequencies from theta_interp which sit in a frequency
+        # interval.
+        min_freq = 1.0e-6
+        max_freq = 0.5
+        TT = np.zeros(len(t_uniform))
+        num_removed = 0
+        for i, freq in enumerate(freqs):
+            if min_freq > freq or freq > max_freq:
+                alpha = X_scaled[i] * np.exp(1j * 2*np.pi * freq * t_uniform)
+                TT += alpha.real
+            else:
+                num_removed += 1
+            # Plot the frequency components:
+            # axarr[k].plot(TT, label='%d' % i)
+            # axarr[k+1].plot(2.0 * alpha.real, label='%d' % i)
+        #if n % 2 == 0:
+        #    assert(X[-1].imag < 1.0e-14)
+        #    print X[0], freqs[0]
+        #    print X[-1], freqs[-1], np.exp(-1j * 2*np.pi * n * freqs[-1] * t)
+        #    #assert(abs(freqs[-1]) < 1.0e-14)
+        #    TT += X[-1].real / n * np.exp(-1j * 2*np.pi * n * freqs[-1] * t)
+        axarr[k].plot(t_uniform, TT,
+                      label=('frequencies between %gHz and %gHz removed '
+                             % (min_freq, max_freq))
+                      )
+        axarr[k].legend()
+        k += 1
+        axarr[k].plot(t_uniform, theta_interp - TT)
+        axarr[k].set_title('removed frequencies (%d total, between %gHz and %gHz)'
+                           % (num_removed, min_freq, max_freq))
+        k += 1
+    return
+
+
+def _build_gramian_matrix_classical(Theta):
+    n = len(Theta)
+    G = np.empty((n, n))
+    for i in range(n):
+        print(i)
+        G[i, i] = assemble(Theta[i] * Theta[i] * dx)
+        for j in range(i+1, n):
+            alpha = assemble(Theta[i] * Theta[j] * dx)
+            G[i, j] = alpha
+            G[j, i] = alpha.conjugate()
+    return G
+
+
+def _build_gramian_matrix(Theta):
+    # Build mass matrix.
+    Q = Theta[0].function_space()
+    u = TrialFunction(Q)
+    v = TestFunction(Q)
+    M = assemble(u*v*dx)
+
+    n = len(Theta)
+
+    # Build list of M*Theta[i].
+    MTheta = []
+    for i in range(n):
+        MTheta.append(Function(Q))
+        M.mult(Theta[i].vector(), MTheta[i].vector())
+
+    if parameters['linear_algebra_backend'] == 'uBLAS':
+        # Here we use the fact that
+        #
+        #     G = A^H M A,
+        #
+        # where A is the column matrix of the vectors that are associated with
+        # Theta, and M is the mass matrix. Once A and M*A are available, the
+        # Gramian can be computed the by DGEMM (aka np.dot).
+        #
+        # Cast Theta and MTheta into NumPy arrays.
+        A = np.empty((Theta[0].vector().size(), len(Theta)))
+        for i, theta in enumerate(Theta):
+            A[:, i] = Theta[i].vector().array()
+        MA = np.empty((MTheta[0].vector().size(), len(Theta)))
+        for i, theta in enumerate(Theta):
+            MA[:, i] = MTheta[i].vector().array()
+        G = np.dot(A.transpose().conjugate(), MA)
+    else:
+        # Compute all the inner products manually.
+        G = np.empty((n, n))
+        for i in range(n):
+            print(i)
+            G[i, i] = Theta[i].vector().inner(MTheta[i].vector())
+            for j in range(i+1, n):
+                alpha = Theta[i].vector().inner(MTheta[j].vector())
+                G[i, j] = alpha
+                G[j, i] = alpha.conjugate()
+    return G
+
+
+def _main():
+    args = _parse_args()
+    temperature_file = args.filename
+
+    # Uselessly do something with MPI to work around bug
+    # <https://bitbucket.org/fenics-project/dolfin/issue/237/timeserieshdf5-the-mpi_info_create>.
+    from dolfin import UnitIntervalMesh
+    UnitIntervalMesh(1)
+
+    if not os.path.isfile(temperature_file):
+        raise RuntimeError('No such file \'%s\'. Abort.'
+                           % temperature_file
+                           )
+    print('Treating file %s...' % temperature_file)
+    # Make sure to cut off the filename extension
+    filename, extension = os.path.splitext(temperature_file)
+    if extension:
+        temperature_file = filename
+
+    comm = mpi_comm_world()
+    tst = TimeSeriesHDF5(comm, temperature_file)
+
+    # Read mesh.
+    mesh_times = tst.mesh_times()
+    mesh = Mesh()
+    tst.retrieve(mesh, mesh_times[0])
+    plot(mesh)
+    interactive()
+
+    ## Build function space P2+/P1.
+    #V0 = FunctionSpace(mesh, 'CG', 2)
+    #V1 = FunctionSpace(mesh, 'B', 3)
+    #V = V0 + V1
+    #W = MixedFunctionSpace([V, V, V])
+
+    # Build function space P2.
+    Q = FunctionSpace(mesh, 'CG', 2)
+
+    # crucible domain
+    control_points = [
+        (0.005, 0.405),
+        (0.010, 0.405),
+        (0.015, 0.405),
+        (0.020, 0.405),
+        (0.025, 0.405),
+        (0.030, 0.405),
+        (0.045, 0.405),
+        (0.060, 0.405),
+        (0.075, 0.405)
+        ]
+    ## Peter's domain
+    #control_points = [
+    #    (0.005, 0.040),
+    #    (0.010, 0.040),
+    #    (0.015, 0.040),
+    #    (0.020, 0.040),
+    #    (0.025, 0.040),
+    #    (0.030, 0.040),
+    #    (0.035, 0.040),
+    #    (0.040, 0.040),
+    #    (0.045, 0.040),
+    #    (0.050, 0.040),
+    #    (0.055, 0.040),
+    #    (0.060, 0.040),
+    #    (0.065, 0.040),
+    #    (0.070, 0.040),
+    #    (0.075, 0.040)
+    #    ]
+
+    # Read states.
+    times = tst.vector_times()
+    # Filter out values.
+    times = times[times > args.start_time]
+    times = times[times < args.end_time]
+
+    Theta = []
+    T = np.empty((len(times), len(control_points)))
+    for k, t in enumerate(times):
+        print('time: %e' % t)
+        theta = Function(Q)
+        tst.retrieve(theta.vector(), t)
+        if args.show_svd:
+            # Store the state for SVD.
+            Theta.append(theta)
+        for l, control_point in enumerate(control_points):
+            # Store the temperature value at control point.
+            T[k, l] = theta(control_point)
+            ## Plot the function.
+            #plot(theta)
+            #interactive()
+
+    if args.show_temperatures:
+        # Make sure the figure has transparent background.
+        fig = pp.figure()
+        #ax = pp.axes()
+        fig.patch.set_alpha(0.0)
+        for l, control_point in enumerate(control_points):
+            # Plot the temperature data at control point over time.
+            pp.plot(times, T[:, l], label=('(%g, %g)' % control_point))
+        pp.legend()
+        #ppl.legend(ax)
+        pp.title('Temperature at control points')
+        pp.xlabel('t [s]')
+        pp.xlim(times[0], times[-1])
+        pp.ylabel('temperature [K]')
+        pp.show()
+
+    if args.show_dft:
+        # Discrete Fourier Transform.
+        for k in range(T.shape[1]):
+            plot_dft(times, T[:, k], label=control_points[k])
+        pp.show()
+
+    if args.show_svd:
+        # Build Gramian matrix.
+        #n = len(times)
+        #Theta_select = [Theta[k] for k in range(n-300, n)]
+        Theta_select = Theta
+        N = len(Theta_select)
+        print('Building Gramian matrix (%d x %d)...' % (N, N))
+        start = time.time()
+        A = _build_gramian_matrix(Theta_select)
+        end = time.time()
+        print('elapsed time: %gs' % (end - start))
+
+        # SVD of the Gramian in theta.
+        print('Solving SVD system (%d x %d)...' % (N, N))
+        start = time.time()
+        U, s, V = np.linalg.svd(A)
+        end = time.time()
+        print('elapsed time: %gs' % (end - start))
+
+        fig = pp.figure()
+        fig.patch.set_alpha(0.0)
+        pp.semilogy(s, 'o')
+        pp.show()
+    return
+
+
+def _parse_args():
+    '''Parse input arguments.'''
+    import argparse
+    parser = argparse.ArgumentParser(description='Temperature data analysis.')
+    parser.add_argument('filename',
+                        help='Input data filename'
+                        )
+    parser.add_argument('--start-time', '-t0',
+                        default=-np.inf,
+                        help='starting time for analysis',
+                        type=float
+                        )
+    parser.add_argument('--end-time', '-t1',
+                        default=np.inf,
+                        help='end time for analysis',
+                        type=float
+                        )
+
+    parser.add_argument('--show-temperatures', '-t',
+                        action='store_true',
+                        help='Show temperature data at control points'
+                        )
+    parser.add_argument('--show-dft', '-d',
+                        action='store_true',
+                        help=('Show discrete Fourier transform '
+                              'of temperature data')
+                        )
+    parser.add_argument('--show-svd', '-s',
+                        action='store_true',
+                        help=('Show singular values '
+                              'of temperature data')
+                        )
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    _main()

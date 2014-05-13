@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  PyMHD is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyMHD is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+'''
+This tool is to work around bug
+
+    https://bugs.launchpad.net/dolfin/+bug/991905
+    https://bitbucket.org/fenics-project/dolfin/issue/174/dolfin-convert-dumps-gmsh-facet-regions-in
+
+by reading a mesh function file and dumping it in the same location, implicitly
+converting it into a format readable in parallel.
+'''
+
+from dolfin import Mesh, MeshFunction, File
+import os
+# -----------------------------------------------------------------------------
+def _main():
+
+    args = _parse_args()
+
+    # Read the mesh.
+    mesh = Mesh(args.meshfile)
+
+    base, ext = os.path.splitext(args.meshfile)
+    subdomainfile = base + '_physical_region' + ext
+
+    # Read the corresponding physical regions file.
+    subdomains = MeshFunction('size_t', mesh, subdomainfile)
+
+    # Now write subdomains out to an XML file again
+    outfile = File(subdomainfile)
+    outfile << subdomains
+
+    return
+# -----------------------------------------------------------------------------
+def _parse_args():
+    '''Parse input arguments.'''
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Read and write a DOLFIN'
+                                                 'mesh function.')
+
+    parser.add_argument('meshfile',
+                        help='Input mesh filename'
+                        )
+
+    return parser.parse_args()
+# -----------------------------------------------------------------------------
+if __name__ == '__main__':
+    _main()
+# -----------------------------------------------------------------------------

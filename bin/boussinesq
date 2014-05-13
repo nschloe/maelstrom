@@ -1,0 +1,310 @@
+#!/usr/bin/env python
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  Foobar is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Foobar is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+'''
+Coupled solve of the Navier--Stokes and the heat equation.
+'''
+
+from dolfin import *
+import os
+
+import pymhd.materials_database as mdb
+import pymhd.navier_stokes_cartesian as cart_ns
+import pymhd.time_steppers as ts
+import pymhd.stabilization as stab
+
+#parameters['linear_algebra_backend'] = 'uBLAS'
+#parameters['linear_algebra_backend'] = 'Epetra'
+
+GMSH_EPS = 1.0e-15
+
+
+def _main():
+
+    args = _parse_args()
+    mkdir_p(args.directory)
+
+    #mesh, V, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = _domain_pot()
+    #mesh, V, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = \
+    #    _domain_cavity()
+    mesh, V, P, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = \
+        _domain_coil()
+    #mesh, V, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = \
+    #    _domain_peter()
+
+    # Density depends on temperature.
+    material = 'water'
+    rho = mdb.MATERIAL_PARAMETERS[material]['density']
+    mu = mdb.MATERIAL_PARAMETERS[material]['dynamic viscosity']
+    cp = mdb.MATERIAL_PARAMETERS[material]['specific heat capacity']
+    kappa = mdb.MATERIAL_PARAMETERS[material]['thermal conductivity']
+
+    # Take dynamic viscosity at room temperature.
+    mu = mu(293.)
+
+    #rho = lambda T: 1.0e2*(1.0 - 1.0e-2 * (T-T0))
+    #cp = 1.0e3
+    #mu = 3.0e-3
+    #kappa = 0.6
+
+    # Start time, end time, time step.
+    dt_max = 0.1
+    dt0 = 1.0e-2
+    # This should be
+    #umax = 1.0e-1
+    #dt0 = 0.2 * mesh.hmin() / umax
+    t = 0.0
+    T = 120.0
+
+    room_temp = 293.0
+    max_heater_temp = 380.0
+
+    # Gravity force.
+    g = Constant((0.0, -9.81))
+
+    # Initial states.
+    u_1 = Function(V, name='velocity')
+    u_1.interpolate(Constant((0.0, 0.0)))
+    u_file = XDMFFile(os.path.join(args.directory, 'velocity.xdmf'))
+    u_file.parameters['flush_output'] = True
+    u_file.parameters['rewrite_function_mesh'] = False
+    u_file << (u_1, t)
+
+    # Compute initial pressure from velocity by just doing one Chorin step
+    # and throwing away the velocity.
+    p_1 = Function(P, name='pressure')
+    _, p = cart_ns.chorin_step(V, P, 1.0e-5,
+                               mu, rho(293.0),
+                               u_1, u_bcs,
+                               p_1=None, p_bcs=None,
+                               f1=rho(293.0) * g,
+                               theta=1.0,
+                               tol=1.0e-10,
+                               stabilization=True,
+                               verbose=False
+                               )
+    p_1.assign(p)
+    p_file = XDMFFile(os.path.join(args.directory, 'pressure.xdmf'))
+    p_file.parameters['flush_output'] = True
+    p_file.parameters['rewrite_function_mesh'] = False
+    p_file << (p_1, t)
+
+    theta_1 = Function(Q, name='temperature')
+    theta_1.interpolate(Constant(room_temp))
+    theta_file = XDMFFile(os.path.join(args.directory, 'temperature.xdmf'))
+    theta_file.parameters['flush_output'] = True
+    theta_file.parameters['rewrite_function_mesh'] = False
+    theta_file << (theta_1, t)
+
+    #plot(u_1, title='velocity', rescale=True)
+    #plot(p_1, title='pressure', rescale=True)
+    #interactive()
+
+    #div_u = Function(Q)
+    dt = dt0
+
+    while t < T + DOLFIN_EPS:
+        begin('Time step %e -> %e...' % (t, t+dt))
+        # Crank up the heater from room_temp to max_heater_temp in t1 secs.
+        #t1 = 1.0
+        #heater_temp = room_temp \
+        #    + min(1.0, t/t1) * (max_heater_temp - room_temp)
+        heater_temp = max_heater_temp
+        sympy_bcs = []
+        for hot_boundary in hot_boundaries:
+            sympy_bcs.append((hot_boundary, heater_temp))
+        for cool_boundary in cool_boundaries:
+            sympy_bcs.append((cool_boundary, room_temp))
+
+        # Do one heat time step.
+        begin('Computing heat...')
+        tau = stab.supg2(mesh,
+                         u_1,
+                         kappa/(rho(293.0)*cp),
+                         Q.ufl_element().degree()
+                         )
+
+        #tau_m.assign(tau)
+        #plot(tau_m*u_1, title='tau', mesh=mesh)
+        #interactive()
+
+        #plot(b_tau, mesh=mesh)
+        # Build right-hand side F of heat equation such that u' = F(u).
+        def weak_F(t, u_t, trial, v):
+            F = - dot(u_1, grad(trial)) * v * dx \
+                - kappa * dot(grad(trial), grad(v/(rho(293.0)*cp))) * dx
+            # stabilization terms:
+            # About stabilization for reaction-diffusion-convection:
+            # <http://www.ewi.tudelft.nl/fileadmin/Faculteit/EWI/Over_de_faculteit/Afdelingen/Applied_Mathematics/Rapporten/doc/06-03.pdf>
+            # <http://www.xfem.rwth-aachen.de/Project/PaperDownload/Fries_ReviewStab.pdf>
+            R = u_t \
+                + dot(u_1, grad(trial)) \
+                - 1.0/(rho(293.0)*cp) * div(kappa*grad(trial))
+            F -= R * dot(tau*u_1, grad(v)) * dx
+            return F
+        # Actually, this can't really count as "implicit" since we use u_1
+        # from the current time step (t), not (t+dt).
+        theta = ts.implicit_euler_step(
+            Q,
+            weak_F,
+            theta_1,
+            t, dt,
+            sympy_bcs=sympy_bcs,
+            tol=1.0e-14,
+            form_compiler_parameters={'quadrature_rule': 'vertex',
+                                      'quadrature_degree': 1},
+            verbose=False
+            )
+        end()
+
+        # Do one Navier-Stokes time step.
+        begin('Computing flux and pressure...')
+        import time
+        start_time = time.time()
+        try:
+            u, p = cart_ns.ripcs_step(V, P, dt,
+                                      mu, rho(293.0),
+                                      u_1, u_bcs,
+                                      p_1, p_bcs,
+                                      f0=rho(theta_1) * g,
+                                      f1=rho(theta) * g,
+                                      theta=1.0,  # implicit Euler
+                                      stabilization=True,
+                                      tol=1.0e-10,
+                                      verbose=True
+                                      )
+        except RuntimeError as e:
+            print(e.message)
+            print('Navier--Stokes solver failed to converge. '
+                  'Decrease time step from %e to %e and try again.' %
+                  (dt, 0.5*dt)
+                  )
+            dt *= 0.5
+            end()
+            end()
+            end()
+            continue
+        elapsed_time = time.time() - start_time
+        print 'elapsed: %e' % elapsed_time
+
+        #u = TrialFunction(Q)
+        #v = TestFunction(Q)
+        #solve(u*v*dx == div(u)*v*dx, div_u)
+        #div_u.assign(div(u_1))
+        #plot(div_u, title='div(u)', rescale=True)
+        #interactive()
+        end()
+
+        # Assigning and plotting. We do that here so all methods have access
+        # to `x` and `x_1` (necessary, for example, for Crank-Nicolson in
+        # Navier-Stokes).
+        theta_1.assign(theta)
+        u_1.assign(u)
+        p_1.assign(p)
+
+        # Save to files.
+        # Use the *_1 objects to make sure that the created files all contain
+        # data with the same DataArray name.
+        u_file << (u_1, t+dt)
+        p_file << (p_1, t+dt)
+        theta_file << (theta_1, t+dt)
+
+        plot(u_1, title='velocity', rescale=True)
+        plot(p_1, title='pressure', rescale=True)
+        plot(theta_1, title='temperature', rescale=True)
+
+        # Adaptive stepsize control based solely on the velocity field.
+        # CFL-like condition for time step. This should be some sort of average
+        # of the temperature in the current step and the target step. If we
+        # only take the current step into consideration, then this logic fails
+        # if the
+        #
+        # More on step-size control for Navier--Stokes:
+        #
+        #     Adaptive time step control for the incompressible Navier-Stokes
+        #     equations;
+        #     Volker John, Joachim Rang;
+        #     Comput. Methods Appl. Mech. Engrg. 199 (2010) 514-524;
+        #     <http://www.wias-berlin.de/people/john/ELECTRONIC_PAPERS/JR10.CMAME.pdf>.
+        #
+        # Section 3.3 in that paper notes that time-adaptivity for theta-
+        # schemes is too costly. They rather reside to DIRK- and Rosenbrock-
+        # methods.
+        #
+        begin('Step size adaptation...')
+        u1, u2 = u.split()
+        unorm = project(abs(u1) + abs(u2),
+                        Q,
+                        form_compiler_parameters={'quadrature_degree': 4}
+                        )
+        unorm = norm(unorm.vector(), 'linf')
+        #print('||u||_inf = %e' % unorm)
+        # Some smooth step-size adaption.
+        target_dt = 0.2 * mesh.hmax() / unorm
+        print('current dt: %e' % dt)
+        print('target dt:  %e' % target_dt)
+        # alpha is the aggressiveness factor. The distance between the current
+        # step size and the target step size is reduced by |1-alpha|. Hence,
+        # if alpha==1 then dt_next==target_dt. Otherwise target_dt is
+        # approached slowlier.
+        alpha = 0.5
+        dt = min(dt_max,
+                 # At most double the step size from step to step.
+                 dt * min(2.0, 1.0 + alpha*(target_dt - dt)/dt)
+                 )
+        print('next dt:    %e' % dt)
+        t += dt
+        end()
+        end()
+    return
+
+
+def _parse_args():
+    import argparse
+    import datetime
+
+    dir_name = datetime.date.today().isoformat() + '-boussi-car'
+    default_dir = os.path.join('results', dir_name)
+
+    parser = argparse.ArgumentParser(description='Boussinesq flow.')
+    parser.add_argument(
+        'directory',
+        type=str,
+        help='directory for storing the output (default: %s)' % default_dir,
+        default=default_dir,
+        nargs='?'
+        )
+
+    return parser.parse_args()
+
+
+def mkdir_p(path):
+    import errno
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+if __name__ == '__main__':
+    _main()

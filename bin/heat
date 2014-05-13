@@ -1,0 +1,185 @@
+#!/usr/bin/env python
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  PyMHD is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyMHD is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+from dolfin import FunctionSpace, Constant, Measure, TrialFunction, \
+    TestFunction, dot, grad, div, assemble, lhs, rhs, Function, \
+    XDMFFile, dx, KrylovSolver, DirichletBC
+
+from pymhd.materials_database import MATERIAL_PARAMETERS as params
+import pymhd.time_steppers as ts
+#import pymhd.stabilization as stab
+import pymhd.problems as probs
+
+
+# --------------------------------------------------------------------------
+def _main():
+
+    #mesh, f, boundaries, boundary_indices, theta0 = probs.coil_in_box()
+    mesh, f, boundaries, boundary_indices, theta0 = \
+        probs.square_with_obstacle()
+
+    Q = FunctionSpace(mesh, 'CG', 1)
+
+    #material = 'graphite'
+    material = 'water'
+    background_temp = 293.0
+    rho = params[material]['density'](background_temp)
+    cp = params[material]['specific heat capacity'](background_temp)
+    kappa = params[material]['thermal conductivity'](background_temp)
+
+    dt = 1.0e1
+    T = 1000.0
+
+    b = Constant(1.0e-5) * Constant((1.0, 1.0))
+
+    ds = Measure('ds')[boundaries]
+
+    #tau = stab.supg2(Q.mesh(),
+    #                 b,
+    #                 kappa/(rho*cp),
+    #                 Q.ufl_element().degree()
+    #                 )
+
+    #plot(tau, mesh=mesh)
+    #interactive()
+
+    # The corresponding operator in weak form.
+    class HeatEquation():
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        def __init__(self, Q, kappa, rho, cp, b, stabilization=None):
+            self.V = Q
+            u = TrialFunction(Q)
+            v = TestFunction(Q)
+            rho_cp = rho * cp
+            self.rho_cp = rho*cp
+            F = kappa * dot(grad(u), grad(v / rho_cp)) * dx
+            # Boundary conditions
+            #  n.grad(u) = alpha (u0 - u)
+            u_outside = {
+                'left': 293.0,
+                'right': 293.0,
+                'top': 293.0,
+                'bottom': 1293.0
+                }
+            alpha = 1.0
+            for label, value in u_outside.items():
+                k = boundary_indices[label]
+                F += kappa * alpha*(u-value) * v/rho_cp * ds(k)
+
+            if stabilization:
+                # TODO what to do with u_t?
+                R = u_t \
+                    + dot(b, grad(u)) \
+                    - 1.0/rho_cp * div(kappa*grad(u)) \
+                    - f/rho_cp
+                if stabilization == 'SUPG':
+                    F -= R * tau * inner(b, grad(v)) * dx
+                elif stabilization == 'GLS':
+                    F -= R*tau * (- 1.0/rho_cp * div(kappa*grad(v))
+                                  + dot(b, grad(v))) * dx
+                elif stabilization == 'MS':
+                    F -= R*tau * (+ 1.0/rho_cp * div(kappa*grad(v))
+                                  + dot(b, grad(v))) * dx
+                else:
+                    raise ValueError('Unknown stabilization method.')
+            # Left- and right-hand side.
+            A = assemble(lhs(F))
+            self.L = A + assemble(dot(b, grad(u)) * v * dx)
+            self.f = assemble(rhs(F))
+            # Preconditioner operator.
+            # This choice is inspired by
+            #
+            #     Preconditioning convection dominated convection-diffusion
+            #     problems;
+            #     C.I. Goldstein;
+            #     Int. J. of Num. Meth. for Heat & Fluid Flow, Vol. 5 Iss: 2,
+            #     pp.99-119;
+            #     <http://www.emeraldinsight.com/journals.htm?articleid=876998&show=abstract>.
+            #
+            # Problem: It doesn't seem to work at all. Hmpf.
+            #
+            self.P = A + assemble(dot(b, b) * u * v * dx)
+            return
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        def get_system(self, t):
+            f.t = t
+            v = TestFunction(self.V)
+            self.f += assemble(f * v/self.rho_cp * dx)
+            return self.L, self.f
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        def get_preconditioner(self, t):
+            return self.P
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        def get_bcs(self, t):
+            return []
+            #return [DirichletBC(self.V, 0.0, 'on_boundary')]
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    # Play with the stationary problem.
+    problem = HeatEquation(Q, kappa, rho, cp, b)
+    A, b = problem.get_system(0.0)
+    P = problem.get_preconditioner(0.0)
+    for bc in problem.get_bcs(0.0):
+        bc.apply(A, b)
+        bc.apply(P)
+    solver = KrylovSolver('gmres', 'amg')
+    solver.set_operators(A, P)
+    solver.parameters['relative_tolerance'] = 1.0e-12
+    solver.parameters['absolute_tolerance'] = 0.0
+    solver.parameters['maximum_iterations'] = 500
+    solver.parameters['monitor_convergence'] = True
+    sol = Function(Q)
+    solver.solve(sol.vector(), b)
+    exit()
+
+    theta_1 = Function(Q, name='temperature')
+    theta_1.interpolate(theta0)
+
+    theta_file = XDMFFile('results/temperature.xdmf')
+    theta_file.parameters['flush_output'] = True
+    theta_file.parameters['rewrite_function_mesh'] = False
+
+    # Time stepping.
+    t = 0.0
+    #stepper = ts.ExplicitEuler(problem)
+    stepper = ts.ImplicitEuler(problem)
+    #stepper = ts.Trapezoidal(problem)
+    while t < T:
+        theta = stepper.step(theta_1,
+                             t, dt,
+                             # TODO combine the following set to "solver
+                             # parameters"
+                             tol=1.0e-12,
+                             maxiter=1000,
+                             #verbose=True,
+                             krylov='gmres',
+                             preconditioner='amg'
+                             )
+        theta_1.assign(theta)
+        theta_file << (theta_1, t)
+        plot(theta_1, title='temperature')
+        #interactive()
+        t += dt
+
+    return
+# --------------------------------------------------------------------------
+if __name__ == '__main__':
+    _main()
+# --------------------------------------------------------------------------

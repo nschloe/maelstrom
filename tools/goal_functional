@@ -1,0 +1,165 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  PyMHD is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyMHD is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+from dolfin import Function, TimeSeriesHDF5, FunctionSpace, Mesh, \
+    mpi_comm_world
+import numpy as np
+import os
+
+#try:
+#    import prettyplotlib as ppl
+#    from prettyplotlib import plt as pp
+#except:
+#    from matplotlib import pyplot as pp
+from matplotlib import pyplot as pp
+from mpltools import style
+style.use('ggplot')
+
+import helpers
+
+
+def _main():
+    args = _parse_args()
+
+    # Uselessly do something with MPI to work around bug
+    # <https://bitbucket.org/fenics-project/dolfin/issue/237/timeserieshdf5-the-mpi_info_create>.
+    from dolfin import UnitIntervalMesh
+    UnitIntervalMesh(1)
+    comm = mpi_comm_world()
+
+    # Crucible domain
+    control_points = [
+        (0.005, 0.405),
+        (0.010, 0.405),
+        (0.015, 0.405),
+        (0.020, 0.405),
+        (0.025, 0.405),
+        (0.030, 0.405),
+        (0.045, 0.405),
+        (0.060, 0.405),
+        (0.075, 0.405)
+        ]
+
+    for temperature_file in args.filename:
+        if not os.path.isfile(temperature_file):
+            raise RuntimeError('No such file \'%s\'. Abort.'
+                               % temperature_file
+                               )
+        print('Treating file %s...' % temperature_file)
+        # Make sure to cut off the filename extension
+        filename, extension = os.path.splitext(temperature_file)
+        if extension:
+            temperature_file = filename
+
+        # Read the data
+        tst = TimeSeriesHDF5(comm, temperature_file)
+
+        # Read mesh.
+        mesh_times = tst.mesh_times()
+        mesh = Mesh()
+        tst.retrieve(mesh, mesh_times[0])
+        # plot(mesh)
+        # interactive()
+
+        # Build function space P2.
+        Q = FunctionSpace(mesh, 'CG', 2)
+
+        # Read states.
+        times = tst.vector_times()
+        T = np.empty((len(times), len(control_points)))
+        for k, t in enumerate(times):
+            #print('time: %e' % t)
+            theta = Function(Q)
+            tst.retrieve(theta.vector(), t)
+            for l, control_point in enumerate(control_points):
+                # Store the temperature value at control point.
+                T[k, l] = theta(control_point)
+                ## Plot the function.
+                #plot(theta)
+                #interactive()
+
+        show_temperatures = True
+        if show_temperatures:
+            # Make sure the figure has transparent background.
+            fig = pp.figure()
+            #ax = pp.axes()
+            fig.patch.set_alpha(0.0)
+            for l, control_point in enumerate(control_points):
+                # Plot the temperature data at control point over time.
+                pp.plot(times, T[:, l], label=('(%g, %g)' % control_point))
+            pp.legend(loc=2, bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+            #ppl.legend(ax)
+            pp.title('Temperature at control points')
+            pp.xlabel('t [s]')
+            pp.ylabel('temperature [K]')
+            pp.xlim(times[0], times[-1])
+            pp.ylim(1495.0, 1530.0)
+            #pp.show()
+            pp.savefig('%s.png' % temperature_file, bbox_inches='tight')
+
+        compute_dft = True
+        if compute_dft:
+            # Discrete Fourier Transform.
+            t0 = 0.0
+            t1 = times[-1]
+            assert(t1 > t0)
+            # Find first value above t0.
+            ii = np.argmax(times > t0)
+            for k in range(T.shape[1]):
+                # helpers.dft(times[ii:], T[ii:, k], label=control_points[k])
+                t_uniform, freqs, X, theta_interp = helpers.dft(
+                    times[ii:],
+                    T[ii:, k]
+                    )
+
+                # Compute the goal functional here.
+                alpha = _goal_functional(freqs, abs(X))
+                print(control_points[k], alpha)
+
+            print
+    return
+
+
+def _goal_functional(freq, amplitude):
+    '''Sum up amplitudes of frequencies above 0.01Hz and below 1Hz.
+    '''
+    #pp.semilogy(freq, amplitude, '.')
+    #pp.show()
+    I = np.where((0.01 < freq) & (freq < 1.0))
+    I = I[0]
+    return sum(amplitude[I])
+
+
+def _parse_args():
+    '''Parse input arguments.'''
+    import argparse
+    parser = argparse.ArgumentParser(
+        description='Goal functional tests.'
+        )
+    parser.add_argument('filename',
+                        help='Input data filenames',
+                        nargs='+'
+                        )
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    _main()

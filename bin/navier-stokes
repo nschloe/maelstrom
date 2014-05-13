@@ -1,0 +1,233 @@
+#!/usr/bin/env python
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  PyMHD is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyMHD is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+'''
+Navier-Stokes for 2D Cartesian coordinates.
+'''
+
+from dolfin import Constant, Function, XDMFFile, DOLFIN_EPS, parameters, \
+    plot, project, begin, end, div, sqrt, assemble, Expression, dx, \
+    triangle, info
+
+import pymhd.problems as probs
+#from pymhd.materials_database import MATERIAL_PARAMETERS as params
+import pymhd.navier_stokes_cartesian as cart_ns
+import pymhd.stokes_cartesian as cart_stokes
+
+#parameters['linear_algebra_backend'] = 'uBLAS'
+#parameters['linear_algebra_backend'] = 'Epetra'
+parameters['allow_extrapolation'] = True
+
+
+# -----------------------------------------------------------------------------
+def _main():
+
+    mesh, W, P, u_bcs, p_bcs = probs.lid_driven_cavity()
+    #mesh, W, P, u_bcs, dudt_bcs, p_bcs = probs.karman()
+
+    # Density depends on temperature.
+    # TODO find out why there are problems with mu<<1
+    #material = 'water'
+    #background_temp = 293.0
+    #material = 'GaAs (liquid)'
+    #background_temp = 1550.0
+    #rho = params[material]['density'](background_temp)
+    #mu = params[material]['dynamic viscosity'](background_temp)
+
+    # Good test case for Newton initial guesses.
+    rho = 1.0e1
+    mu = 1.0e-1
+
+    #grav = 9.80665
+    #g = Constant((0.0, -grav))
+    g = Constant((0.0, 0.0))
+
+    # Set characteristic length as max(max_x-min_x, max_y-min_y).
+    coords = mesh.coordinates()
+    char_length = max(max(coords[:, 0]) - min(coords[:, 0]),
+                      max(coords[:, 1]) - min(coords[:, 1])
+                      )
+
+    # Create an initial velocity that matches the boundary conditions.
+    stokes = True
+    if stokes:
+        # Create initial velocity that matches boundary conditions.
+        u0, p0 = cart_stokes.solve(W, P,
+                                   mu,
+                                   u_bcs, p_bcs,
+                                   g,
+                                   verbose=True,
+                                   tol=1.0e-10)
+    else:
+        u0 = Function(W, name='velocity')
+        u0.vector().zero()
+        p0 = Function(P, name='pressure')
+        p0.vector().zero()
+        ## Compute initial pressure from the pressure Poisson equation.
+        #p0 = cart_ns.pressure_poisson(P, rho*g,
+        #                              phi_bcs=None,
+        #                              phi_n=rho*g,
+        #                              verbose=True
+        #                              )
+
+    # Start time, end time, time step.
+    t = 0.0
+    T = 8.0
+    dt_max = 1.0e-1
+    dt0 = 1.0e-3
+
+    # Get basic entities from first AB2/TR step.
+    dudt0 = None
+    #dudt0, p0, dt0 = cart_ns.ab2tr_step0(u0, P, g,
+    #                                     rho, mu,
+    #                                     dudt_bcs = dudt_bcs,
+    #                                     p_bcs = p_bcs
+    #                                     )
+
+    # Write out initial states.
+    u_file = XDMFFile('results/velocity.xdmf')
+    u_file.parameters['flush_output'] = True
+    u_file.parameters['rewrite_function_mesh'] = False
+
+    p_file = XDMFFile('results/pressure.xdmf')
+    p_file.parameters['flush_output'] = True
+    p_file.parameters['rewrite_function_mesh'] = False
+
+    u_file << (u0, t)
+    p_file << (p0, t)
+
+    plot(u0, title='velocity', rescale=True)
+    plot(p0, title='pressure', rescale=True)
+    divu0 = Function(P)
+    d = project(div(u0), P)
+    divu0.assign(d)
+    plot(divu0, title='div(u0)')
+    #interactive()
+
+    u_1 = Function(W)
+    p_1 = Function(P)
+    dudt_1 = None
+    #dt_1 = None
+
+    # Time stepping
+    while t < T + DOLFIN_EPS:
+        begin('Time step %e -> %e...' % (t, t+dt0))
+        # ---------------------------------------------------------------------
+        try:
+            # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            print('Navier-Stokes step...')
+            u1, p1 = cart_ns.ipcs_step(W, P, dt0,
+                                         mu, rho,
+                                         u0, u_bcs,
+                                         p0, p_bcs,
+                                         f0=rho * g,
+                                         f1=rho * g,
+                                         theta=1.0,  # implicit Euler
+                                         stabilization=False,
+                                         tol=1.0e-10,
+                                         verbose=True
+                                         )
+            begin('Step size adaptation...')
+            u1split = u1.split(deepcopy=True)
+            vec = u1split[0].vector() * u1split[0].vector() \
+                + u1split[1].vector() * u1split[1].vector()
+            unorm = sqrt(vec.norm('linf'))
+            print('||u||_inf = %e' % unorm)
+            # Some smooth step-size adaption.
+            target_dt = 0.2 * mesh.hmax() / unorm
+            print('current dt: %e' % dt0)
+            print('target dt:  %e' % target_dt)
+            # alpha is the aggressiveness factor. The distance between the
+            # current step size and the target step size is reduced by
+            # |1-alpha|. Hence, if alpha==1 then dt_next==target_dt. Otherwise
+            # target_dt is approached slower.
+            alpha = 0.5
+            dt1 = min(dt_max,
+                      # At most double the step size from step to step.
+                      dt0 * min(2.0, 1.0 + alpha*(target_dt - dt0)/dt0)
+                      )
+            print('next dt:    %e' % dt1)
+            end()
+            # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            #u1, p1, dudt1, dt1 = cart_ns.ab2tr_step(W, P, dt0, dt_1,
+            #                                        mu, rho,
+            #                                        u0, u_1, u_bcs,
+            #                                        dudt0, dudt_1, dudt_bcs,
+            #                                        p_1, p_bcs,
+            #                                        f0 = rho * g,
+            #                                        f1 = rho * g,
+            #                                        tol = 1.0e-12,
+            #                                        verbose = True
+            #                                        )
+            # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        except RuntimeError as e:
+            print(e.message)
+            print('Navier--Stokes solver failed to converge. '
+                  'Decrease time step from %e to %e and try again.' %
+                  (dt0, 0.5*dt0)
+                  )
+            dt0 *= 0.5
+            end()
+            end()
+            end()
+            continue
+        # ---------------------------------------------------------------------
+        # Assign data for next step.
+        u_1.assign(u0)
+        u0.assign(u1)
+
+        p_1.assign(p0)
+        p0.assign(p1)
+
+        #dt_1 = dt0
+        dt0 = dt1
+
+        if dudt0:
+            dudt_1.assign(dudt0)
+            #dudt0.assign(dudt1)
+        # ---------------------------------------------------------------------
+        # Save to files.
+        u_file << (u0, t+dt0)
+        p_file << (p0, t+dt0)
+
+        plot(u0, title='velocity', rescale=True)
+        plot(p0, title='pressure', rescale=True)
+
+        divu0.assign(project(div(u0), P))
+        plot(divu0, title='div(u)', rescale=True)
+        #interactive()
+        # ---------------------------------------------------------------------
+        t += dt0
+        # ---------------------------------------------------------------------
+        # Lastly, give some general info on the flow in the crucible.
+        begin('Diagnostics...')
+        char_velocity = unorm
+        info('Reynolds number: %e' % (rho * char_velocity * char_length / mu))
+        info('')
+        end()
+        # ---------------------------------------------------------------------
+        print
+        end()
+
+    return
+# -----------------------------------------------------------------------------
+if __name__ == '__main__':
+    _main()
+# -----------------------------------------------------------------------------

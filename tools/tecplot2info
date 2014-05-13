@@ -1,0 +1,172 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyMHD.
+#
+#  PyMHD is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyMHD is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#
+'''
+Extract useful information from a Tecplot file.
+'''
+
+import numpy as np
+from matplotlib import pyplot as pp
+
+import pymhd.tecplot_reader
+
+
+def _main():
+    args = _parse_args()
+    data = PyMHD.tecplot_reader.read(args.filename)
+    #print data['ZONE T']['node data']
+    #_plot_data(data)
+    X = np.c_[data['ZONE T']['node data']['r'],
+              data['ZONE T']['node data']['z']
+              ]
+    _plot_temperature_data_along_top_rim(data)
+    exit()
+    _find_linear_segments(X, data['ZONE T']['element data'])
+    return
+
+
+def _plot_temperature_data_along_top_rim(data):
+    # Find the top data.
+    zmax = max(data['ZONE T']['node data']['z'])
+    # Find all points sitting at zmax.
+    eps = 1.0e-3
+    indices = np.where(data['ZONE T']['node data']['z'] > zmax-eps)[0]
+
+    pp.plot(data['ZONE T']['node data']['r'][indices],
+            data['ZONE T']['node data']['temp. [K]'][indices],
+            'o'
+            )
+    pp.show()
+    return
+
+
+def _plot_data(data):
+    # Plot boundary points
+    pp.plot(data['ZONE T']['node data']['r'],
+            data['ZONE T']['node data']['z'],
+            '.k'
+            )
+    # Plot lines between boundary points
+    R = data['ZONE T']['node data']['r']
+    Z = data['ZONE T']['node data']['z']
+    for elem in data['ZONE T']['element data']:
+        pp.plot([R[elem[0]-1], R[elem[1]-1]],
+                [Z[elem[0]-1], Z[elem[1]-1]],
+                'k-'
+                )
+    pp.show()
+    return
+
+
+def _find_linear_segments(X, element_data):
+    '''Find the corner points from a discretized closed polygon.
+    '''
+    print('Find linear segments...')
+    # Get elements in a domino order such that
+    #
+    #    elements = [[1, 10], [10, 5], [5, 77], [77, 6], ...]
+    #
+    # The array 'order' stores the first entry of each domino piece.
+    # Assume that the domino pieces are already in order, i.e., that each
+    # number appears exactly once in the first spot.
+    #
+    # First sort the dominoes such that the first spots are in order.
+    order = np.argsort(element_data[:, 0])
+    sorted_element_data = element_data[order, :]
+    # Convert to 0-based indexing.
+    sorted_element_data -= 1
+    n = len(sorted_element_data)
+    # Create new order.
+    new_order = np.empty(n, dtype=int)
+    # Unconditionally start off with 0.
+    new_order[0] = 0
+    for k in range(1, n):
+        new_order[k] = sorted_element_data[new_order[k-1], 1]
+    # Now sort the X data.
+    sorted_X = X[new_order]
+
+    check = True
+    if check:
+        from matplotlib import pyplot as pp
+        # draw dots
+        for x in sorted_X:
+            pp.plot(x[0], x[1], 'k.')
+        # draw lines between dots
+        n = len(sorted_X)
+        pp.plot(sorted_X[:, 0], sorted_X[:, 1],
+                'r-',
+                #linewidth=4.0
+                )
+        #pp.show()
+
+    # sorted_X now contains the position data in appropriate order.
+    X = sorted_X
+
+    # For each node, compute the angle between two subsequent segments.
+    alpha = np.empty(n)
+    a1 = X[0] - X[-1]
+    a1 /= np.linalg.norm(a1)
+    for k in range(n):
+        a0 = a1
+        if k == n-1:
+            # Numpy doesn't convert X[n] into X[0]. :/
+            a1 = X[0] - X[n-1]
+        else:
+            a1 = X[k+1] - X[k]
+        a1 /= np.linalg.norm(a1)
+        alpha[k] = np.dot(a0, a1)
+
+    # The vector alpha should mostly equal 1 (the value attained in exactly
+    # straight segments) and have a few outliers (where the corner points are).
+    beta = abs(1.0 - alpha)
+    #pp.semilogy(beta, '.')
+    #pp.show()
+
+    tol = 1.0e-5
+    corner_points = []
+    for k in range(n):
+        if beta[k] > tol:
+            corner_points.append(X[k])
+
+    print('Corner points:')
+    for x in corner_points:
+        print(x)
+
+    # Plot those corner points.
+    from matplotlib import pyplot as pp
+    for x in corner_points:
+        pp.plot(x[0], x[1], 'ko')
+    pp.show()
+    return
+
+
+def _parse_args():
+    '''Parse input arguments.'''
+    import argparse
+    parser = argparse.ArgumentParser(description='Read Tecplot data.')
+    parser.add_argument('filename',
+                        help='Input Tecplot filename'
+                        )
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    _main()
