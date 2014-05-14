@@ -22,29 +22,11 @@
 import numpy as np
 
 
-def dft(t, theta):
-    '''Discrete Fourier Transform for time series.
+def uniform_dft(t0, t1, theta):
+    '''Discrete Fourier Transform for a uniform time series.
     '''
-    # As of now, we cannot compute nonuniform Fourier series, so show a plot of
-    # the stretched version.
-    n = len(t)
-    t_uniform = np.linspace(t[0], t[-1], n)
-    # Create a modified temperature array by interpolation of the actual data
-    # to the uniform grid. This is done to make NumpPy's FFT work.
-    # Note that there are a number of nonuniform FFT libraries, notably
-    #
-    #     * http://www.cims.nyu.edu/cmcl/nufft/nufft.html
-    #     * http://www-user.tu-chemnitz.de/~potts/nfft/
-    #
-    # and a Python frontend
-    #
-    #    * https://github.com/ghisvail/pyNFFT.
-    #
-    # TODO use one of those
-    #
-    theta_interp = np.interp(t_uniform, t, theta)
-
-    X = np.fft.rfft(theta_interp)
+    X = np.fft.rfft(theta)
+    n = len(theta)
     # When doing proper FT, the data points theta are composed of
     #
     #     theta[i] += 1.0/n * X[k].real * np.cos(2*np.pi * n * freqs[k] * ti) \
@@ -59,7 +41,7 @@ def dft(t, theta):
     # and the ordinary frequencies <https://en.wikipedia.org/wiki/Sine_wave>
     # by
     #
-    freqs = np.array([i / (t[-1] - t[0]) for i in range(n//2 + 1)])
+    freqs = np.array([i / (t1 - t0) for i in range(n//2 + 1)])
     #
     # Note that this definition differs from the output of np.fft.freqs which
     # is
@@ -69,9 +51,10 @@ def dft(t, theta):
     #
     # With RFFT, the amplitudes are scaled by a factor of 2. Compare with
     # plot_ft_approximation below.
-    X_scaled = X.copy()
-    X_scaled /= n
-    X_scaled[1:-1] *= 2
+    X /= n
+    X[1:-1] *= 2
     if n % 2 != 0:
-        X_scaled[-1] *= 2
-    return t_uniform, freqs, X_scaled, theta_interp
+        X[-1] *= 2
+
+    assert(len(freqs) == len(X))
+    return freqs, X

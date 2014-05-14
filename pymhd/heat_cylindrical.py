@@ -59,8 +59,9 @@ class HeatCylindrical(ts.ParabolicProblem):
         return
 
     def get_system(self, t):
-        # Don't use assemble_system()! See bug
-        # <https://bitbucket.org/fenics-project/dolfin/issue/257/system_assembler-bilinear-and-linear-forms>.
+        # Don't use assemble_system()! See bugs
+        # <https://bitbucket.org/fenics-project/dolfin/issue/257/system_assembler-bilinear-and-linear-forms>,
+        # <https://bitbucket.org/fenics-project/dolfin/issue/78/systemassembler-problem-with-subdomains-on>.
         return assemble(lhs(self.F0)), assemble(rhs(self.F0))
 
     def get_bcs(self, t):
