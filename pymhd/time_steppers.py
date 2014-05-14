@@ -313,11 +313,11 @@ def runge_kutta_step(A, b, c,
     '''Runge's third-order method for u' = F(u).
     '''
     # Make sure that the scheme is strictly upper-triangular.
-    import numpy as np
+    import numpy
     import sympy as smp
     s = len(b)
-    A = np.array(A)
-    if np.any(abs(A[np.triu_indices(s)]) > 1.0e-15):
+    A = numpy.array(A)
+    if numpy.any(abs(A[numpy.triu_indices(s)]) > 1.0e-15):
         error('Butcher tableau not upper triangular.')
 
     u = TrialFunction(V)

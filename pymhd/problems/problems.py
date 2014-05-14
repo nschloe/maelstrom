@@ -26,7 +26,7 @@ from dolfin import Mesh, MeshFunction, pi, SubMesh, SubDomain, FunctionSpace, \
     VectorFunctionSpace, FacetFunction, UnitSquareMesh, DOLFIN_EPS, Constant, \
     RectangleMesh, near, between, CellFunction
 
-import numpy as np
+import numpy
 
 GMSH_EPS = 1.0e-15
 
@@ -721,7 +721,7 @@ def currentloop():
                            2: 'air'}
     coils = [{'rings': [1],
               'c_type': 'voltage',
-              'c_value': 230.0*np.sqrt(2.0)},
+              'c_value': 230.0*numpy.sqrt(2.0)},
              ]
     wpi = None
     omega = 1.0e3
@@ -756,7 +756,7 @@ def pons():
               #'rings': range(10,19,2),
               #'rings': [10],
               'c_type': 'voltage',
-              'c_value': 230.0*np.sqrt(2.0)
+              'c_value': 230.0*numpy.sqrt(2.0)
               }]
     wpi = 20
     omega = 2 * pi * 10e3
@@ -772,7 +772,7 @@ def generic():
                            3: 'air'}
     coils = [{'rings': [1],
               'c_type': 'voltage',
-              'c_value': 20.0  # 230.0*np.sqrt(2.0)
+              'c_value': 20.0  # 230.0*numpy.sqrt(2.0)
               }]
     wpi = 2
     #omega = 2 * pi * 10.0e3

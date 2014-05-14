@@ -28,7 +28,7 @@ class CrucibleProblem():
             FacetFunction, DirichletBC, dot, grad, FunctionSpace, \
             MixedFunctionSpace, Expression, FacetNormal, pi, Function, \
             Constant, TestFunction, TrialFunction
-        import numpy as np
+        import numpy
         import warnings
 
         from pymhd import heat_cylindrical as cyl_heat
@@ -84,7 +84,7 @@ class CrucibleProblem():
         ymax = max(coords[:, 1])
 
         # Find the top right point.
-        k = np.argmax(np.sum(coords, 1))
+        k = numpy.argmax(numpy.sum(coords, 1))
         topright = coords[k, :]
 
         # Initialize mesh function for boundary domains
@@ -202,7 +202,7 @@ class CrucibleProblem():
                                                 '../../bin',
                                                 filename
                                                 ))
-        RZ = np.c_[data['ZONE T']['node data']['r'],
+        RZ = numpy.c_[data['ZONE T']['node data']['r'],
                    data['ZONE T']['node data']['z']]
         T_vals = data['ZONE T']['node data']['temp. [K]']
 
@@ -225,9 +225,9 @@ class CrucibleProblem():
                     # Note that edges are 1-based in Tecplot.
                     X0 = RZ[edge[0] - 1]
                     X1 = RZ[edge[1] - 1]
-                    theta = np.dot(X1-X0, x-X0) / np.dot(X1-X0, X1-X0)
+                    theta = numpy.dot(X1-X0, x-X0) / numpy.dot(X1-X0, X1-X0)
                     diff = (1.0-theta)*X0 + theta*X1 - x
-                    if np.dot(diff, diff) < 1.0e-10 and \
+                    if numpy.dot(diff, diff) < 1.0e-10 and \
                             0.0 <= theta and theta <= 1.0:
                         # Linear interpolation of the temperature value.
                         value[0] = (1.0-theta) * T_vals[edge[0]-1] \
@@ -273,8 +273,8 @@ class CrucibleProblem():
                 for edge in data['ZONE T']['element data']:
                     X0 = RZ[edge[0] - 1]
                     X1 = RZ[edge[1] - 1]
-                    theta = np.dot(X1-X0, x-X0) / np.dot(X1-X0, X1-X0)
-                    dist = np.linalg.norm((1-theta)*X0 + theta*X1 - x)
+                    theta = numpy.dot(X1-X0, x-X0) / numpy.dot(X1-X0, X1-X0)
+                    dist = numpy.linalg.norm((1-theta)*X0 + theta*X1 - x)
                     if dist < 1.0e-5 and 0.0 <= theta and theta <= 1.0:
                         value[0] = (1-theta) * dTdr_vals[edge[0]-1] \
                                  + theta     * dTdr_vals[edge[1]-1]

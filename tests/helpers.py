@@ -21,7 +21,7 @@
 '''
 Helper functions for PDE consistency tests.
 '''
-import numpy as np
+import numpy
 import nose
 
 from dolfin import Expression, info, assemble, Constant, FunctionSpace, \
@@ -88,11 +88,11 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
 
 
 def _compute_numerical_order_of_convergence(Dt, errors):
-    orders = np.empty((errors.shape[0], errors.shape[1] - 1))
+    orders = numpy.empty((errors.shape[0], errors.shape[1] - 1))
     for i in range(errors.shape[0]):
         for j in range(errors.shape[1] - 1):
-            orders[i, j] = np.log(errors[i][j + 1] / errors[i][j]) \
-                / np.log(Dt[j + 1] / Dt[j])
+            orders[i, j] = numpy.log(errors[i][j + 1] / errors[i][j]) \
+                / numpy.log(Dt[j + 1] / Dt[j])
     return orders
 
 
@@ -148,8 +148,8 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
     p0 = Expression(sol_p.cppcode, t=0.0, cell=cell_type)
 
     # Compute the problem
-    errors = {'u': np.empty((len(mesh_sizes), len(Dt))),
-              'p': np.empty((len(mesh_sizes), len(Dt)))
+    errors = {'u': numpy.empty((len(mesh_sizes), len(Dt))),
+              'p': numpy.empty((len(mesh_sizes), len(Dt)))
               }
     for k, mesh_size in enumerate(mesh_sizes):
         info('')

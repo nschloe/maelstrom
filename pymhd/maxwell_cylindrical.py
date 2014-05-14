@@ -78,7 +78,7 @@ from dolfin import info, Expression, triangle, plot, interactive, \
     TrialFunction, solve, zero, norm, KrylovSolver, dot, grad, pi, \
     TrialFunctions, TestFunctions, assemble, div, Constant, project, \
     FunctionSpace, sqrt, MPI, MeshFunction
-import numpy as np
+import numpy
 
 from message import Message
 
@@ -631,7 +631,7 @@ def prescribe_power(A, b, coil_rings, total_power, v_ref, J):
     A, b = prescribe_voltage(A, b, coil_rings, voltage, v_ref, J)
 
     # Unconditionally take J[0] here. -- It shouldn't make a difference.
-    alpha = np.sqrt(2 * total_power / (v_ref * np.sum(J[0][:] * c).real))
+    alpha = numpy.sqrt(2 * total_power / (v_ref * numpy.sum(J[0][:] * c).real))
     # We would like to scale the solution with alpha. For this, scale the
     # respective part of the right-hand side.
     b[coils] *= alpha
@@ -705,8 +705,8 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
                                    )
 
     num_coil_rings = len(phi_list)
-    A = np.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
-    b = np.empty(num_coil_rings, dtype=J.dtype)
+    A = numpy.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
+    b = numpy.empty(num_coil_rings, dtype=J.dtype)
     for k, coil in enumerate(new_coils):
         weight_type = coils[k]['c_type']
         target_value = coils[k]['c_value']
@@ -719,44 +719,44 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
 
     # TODO write out the equation system to a file
     if io_submesh:
-        np.savetxt('matrix.dat', A)
+        numpy.savetxt('matrix.dat', A)
     exit()
 
     # Solve the system for the weights.
-    weights = np.linalg.solve(A, b)
+    weights = numpy.linalg.solve(A, b)
 
     ## Prescribe total power.
     #target_total_power = 4.0e3
     ## Compute all coils with reference voltage.
     #num_coil_rings = J.shape[0]
-    #A = np.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
-    #b = np.empty(num_coil_rings)
+    #A = numpy.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
+    #b = numpy.empty(num_coil_rings)
     #for k, coil in enumerate(new_coils):
     #    target_value = v_ref
     #    A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
-    #weights = np.linalg.solve(A, b)
+    #weights = numpy.linalg.solve(A, b)
     #preliminary_voltages = v_ref * weights
-    #preliminary_currents = np.dot(J, weights)
+    #preliminary_currents = numpy.dot(J, weights)
     ## Compute resulting total power.
     #total_power = 0.0
     #for coil_loops in new_coils:
     #    # Currents should be the same all over the entire coil,
     #    # so take currents[coil_loops[0]].
     #    total_power += 0.5 \
-    #                 * np.sum(preliminary_voltages[coil_loops]) \
+    #                 * numpy.sum(preliminary_voltages[coil_loops]) \
     #                 * preliminary_currents[coil_loops[0]].real
     #                 # TODO no abs here
     ## Scale all voltages by necessary factor.
-    #weights *= np.sqrt(target_total_power / total_power)
+    #weights *= numpy.sqrt(target_total_power / total_power)
 
     if verbose:
         info('')
         info('Resulting voltages,   V/sqrt(2):')
         voltages = v_ref * weights
-        info('   %r' % (abs(voltages) / np.sqrt(2)))
+        info('   %r' % (abs(voltages) / numpy.sqrt(2)))
         info('Resulting currents,   I/sqrt(2):')
-        currents = np.dot(J, weights)
-        info('   %r' % (abs(currents) / np.sqrt(2)))
+        currents = numpy.dot(J, weights)
+        info('   %r' % (abs(currents) / numpy.sqrt(2)))
         info('Resulting apparent powers (per coil):')
         for coil_loops in new_coils:
             # With
@@ -822,7 +822,7 @@ def get_voltage_current_matrix(phi, physical_indices, dx,
     r = Expression('x[0]', domain=mesh)
 
     num_coil_rings = len(phi)
-    J = np.empty((num_coil_rings, num_coil_rings), dtype=np.complex)
+    J = numpy.empty((num_coil_rings, num_coil_rings), dtype=numpy.complex)
     for l, pi0 in enumerate(physical_indices):
         partial_phi_r, partial_phi_i = phi[l].split()
         for k, pi1 in enumerate(physical_indices):
@@ -1043,8 +1043,8 @@ def _error_estimator(dx, phi, mu, sigma, omega, conv, voltages):
         interactive()
     K = r.array()
     info('%r' % K)
-    h = np.array([c.diameter() for c in cells(mesh)])
-    eta = h * np.sqrt(K)
+    h = numpy.array([c.diameter() for c in cells(mesh)])
+    eta = h * numpy.sqrt(K)
     return eta
 
 

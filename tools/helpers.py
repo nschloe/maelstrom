@@ -19,15 +19,15 @@
 #  You should have received a copy of the GNU General Public License
 #  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
 #
-import numpy as np
+import numpy
 
 
 def uniform_dft(t0, t1, theta):
     '''Discrete Fourier Transform for a uniform time series.
     '''
-    X = np.fft.rfft(theta)
+    X = numpy.fft.rfft(theta)
     n = len(theta)
-    # When doing proper FT, the data points theta are composed of
+    # When doing DFT, the data points theta are composed of
     #
     #     theta[i] += 1.0/n * X[k].real * np.cos(2*np.pi * n * freqs[k] * ti) \
     #               - 1.0/n * X[k].imag * np.sin(2*np.pi * n * freqs[k] * ti).
@@ -41,7 +41,7 @@ def uniform_dft(t0, t1, theta):
     # and the ordinary frequencies <https://en.wikipedia.org/wiki/Sine_wave>
     # by
     #
-    freqs = np.array([i / (t1 - t0) for i in range(n//2 + 1)])
+    freqs = numpy.array([i / (t1 - t0) for i in range(n//2 + 1)])
     #
     # Note that this definition differs from the output of np.fft.freqs which
     # is

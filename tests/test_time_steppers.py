@@ -29,7 +29,7 @@ from dolfin import set_log_level, WARNING, Expression, FunctionSpace, \
 
 import pymhd.time_steppers as ts
 import sympy as smp
-import numpy as np
+import numpy
 import itertools
 
 import helpers
@@ -92,7 +92,7 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
                             cell=cell_type
                             )
     # Compute the problem
-    errors = {'theta': np.empty((len(mesh_sizes), len(Dt)))}
+    errors = {'theta': numpy.empty((len(mesh_sizes), len(Dt)))}
     # Create initial state.
     # Deepcopy the expression into theta0. Specify the cell to allow for
     # more involved operations with it (e.g., grad()).

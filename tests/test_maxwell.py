@@ -27,7 +27,7 @@ from dolfin import FunctionSpace, errornorm, RectangleMesh, Measure, \
 
 import pymhd.maxwell_cylindrical as mcyl
 import sympy as smp
-import numpy as np
+import numpy
 from matplotlib import pyplot as pp
 
 # Turn down the log level to only error messages.
@@ -78,8 +78,8 @@ def _compute_errors(problem, mesh_sizes):
                       cell=cell_type
                       )
 
-    errors = np.empty(len(mesh_sizes))
-    hmax = np.empty(len(mesh_sizes))
+    errors = numpy.empty(len(mesh_sizes))
+    hmax = numpy.empty(len(mesh_sizes))
     for k, mesh_size in enumerate(mesh_sizes):
         mesh, dx, ds = mesh_generator(mesh_size)
         hmax[k] = MPI.max(mesh.hmax())
@@ -104,13 +104,13 @@ def _compute_errors(problem, mesh_sizes):
         #
         e_r = errornorm(sol0, phi_approx[0][0])
         e_i = errornorm(sol1, phi_approx[0][1])
-        errors[k] = np.sqrt(e_r ** 2 + e_i ** 2)
+        errors[k] = numpy.sqrt(e_r ** 2 + e_i ** 2)
 
     # Compute the numerical order of convergence.
-    order = np.empty(len(errors) - 1)
+    order = numpy.empty(len(errors) - 1)
     for i in range(len(errors) - 1):
-        order[i] = np.log(errors[i + 1] / errors[i]) \
-            / np.log(hmax[i + 1] / hmax[i])
+        order[i] = numpy.log(errors[i + 1] / errors[i]) \
+            / numpy.log(hmax[i + 1] / hmax[i])
 
     return errors, order, hmax
 
@@ -166,7 +166,7 @@ def problem_coscos():
     # conditions are fulfilled exactly
     alpha = 1.0
     r1 = 1.0
-    beta = np.cos(alpha * r1) - r1 * alpha * np.sin(alpha * r1)
+    beta = numpy.cos(alpha * r1) - r1 * alpha * numpy.sin(alpha * r1)
 
     phi = (beta * (1.0 - smp.cos(alpha * x[0])),
            beta * (1.0 - smp.cos(alpha * x[0]))

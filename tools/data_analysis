@@ -94,15 +94,14 @@ def plot_dft(t, theta, label=None):
         axarr[k].plot(t, theta)
         axarr[k].set_title('Original data')
         k += 1
-        # Plot an FT approximation
-        # Remove all frequencies from theta_interp which sit in a frequency
-        # interval.
+        # Plot an low and high frequencies separately.
         min_freq = 1.0e-6
         max_freq = 0.5
         high_frequencies = np.zeros(len(t_uniform))
         low_frequencies = np.zeros(len(t_uniform))
         num_low_freqs = 0
         num_high_freqs = 0
+        all_frequencies = np.zeros(len(t_uniform))
         for i, freq in enumerate(freqs):
             alpha = X_scaled[i] * np.exp(1j * 2*np.pi * freq * t_uniform)
             if freq > max_freq:
@@ -111,21 +110,22 @@ def plot_dft(t, theta, label=None):
             elif freq > min_freq:
                 low_frequencies += alpha.real
                 num_low_freqs += 1
+            all_frequencies += alpha.real
 
-        axarr[k].plot(t_uniform, high_frequencies,
-                      label=('high freqs (from %gHz, %d total) '
-                             % (max_freq, num_high_freqs)
-                             )
-                      )
-        axarr[k].plot(t_uniform, low_frequencies,
-                      label=('low freqs (between %gHz and %gHz, %d total)'
-                             % (min_freq, max_freq, num_low_freqs)
-                             )
-                      )
-        #axarr[k].plot(t_uniform,
-        #              theta_interp - (low_frequencies + high_frequencies),
-        #              label='combined'
+        #axarr[k].plot(t_uniform, high_frequencies,
+        #              label=('high freqs (from %gHz, %d total) '
+        #                     % (max_freq, num_high_freqs)
+        #                     )
         #              )
+        #axarr[k].plot(t_uniform, low_frequencies,
+        #              label=('low freqs (between %gHz and %gHz, %d total)'
+        #                     % (min_freq, max_freq, num_low_freqs)
+        #                     )
+        #              )
+        axarr[k].plot(t_uniform,
+                      theta_interp - all_frequencies,
+                      label='combined'
+                      )
         axarr[k].legend()
         k += 1
     return

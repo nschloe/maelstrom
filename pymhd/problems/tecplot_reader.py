@@ -23,7 +23,7 @@ Read Tecplot data.
 '''
 
 import re
-import numpy as np
+import numpy
 
 
 def read(filename):
@@ -103,7 +103,7 @@ def _read_zone(f, variable_names):
     print('Reading zone data...')
     # Fill in the numerical data into an array.
     num_nodes = zone['Nodes']
-    #data = np.empty((num_nodes, num_colums))
+    #data = numpy.empty((num_nodes, num_colums))
     # We're in a ZONE and the pattern doesn't match KEY=value. This must mean
     # we're dealing with numerical values now.  Check out what DT says and
     # build the appropriate regex.
@@ -118,7 +118,7 @@ def _read_zone(f, variable_names):
     for l, tp_dt in enumerate(tp_datatypes):
         name = variable_names[l]
         if tp_dt == 'SINGLE':
-            data[name] = np.empty(num_nodes, dtype=float)
+            data[name] = numpy.empty(num_nodes, dtype=float)
         else:
             raise RuntimeError('Unknown Tecplot data type \'%s\'.' % tp_dt)
     # Build the regex for every data line.
@@ -141,7 +141,7 @@ def _read_zone(f, variable_names):
         num_nodes_per_element = 2
     else:
         raise RuntimeError('Invalid ZONETYPE \'%s\'.' % zone['ZONETYPE'])
-    data = np.empty((num_nodes, num_nodes_per_element), dtype=int)
+    data = numpy.empty((num_nodes, num_nodes_per_element), dtype=int)
     element_regex = ' ([0-9]+)+\s+([0-9]+)'
     for k in range(num_elements):
         out = re.match(element_regex, line)

@@ -44,7 +44,7 @@ from dolfin import dot, inner, grad, dx, div, Function, TestFunction, solve, \
     PETScOptions
 
 from warnings import warn
-import numpy as np
+import numpy
 
 # import PyMHD.stabilization as stab
 from PyMHD.message import Message
@@ -843,7 +843,7 @@ class AB2R():
             # Compute local trunction error (LTE) estimate.
             d = (u1 - u_pred) / (3*(1.0 + dt_1 / dt))
             # There are other ways of estimating the LTE norm.
-            norm_d = np.sqrt(inner(d, d) / u_max**2)
+            norm_d = numpy.sqrt(inner(d, d) / u_max**2)
             # Get next step size.
             dt1 = dt0 * (eps / norm_d)**(1.0/3.0)
         else:
