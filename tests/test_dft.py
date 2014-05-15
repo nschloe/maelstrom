@@ -24,7 +24,7 @@ from pymhd import dft
 
 
 def _test_dft():
-    # Generate random data set.
+    # Test that Fourier-transformed data can be recovered nicely.
     t0 = 1.0
     t1 = 2.0
     n = 49
@@ -33,8 +33,6 @@ def _test_dft():
 
     freqs, X = dft.uniform_dft(t1 - t0, data)
 
-    #t_new = numpy.linspace(t0, t1, n, endpoint=False)
-    #print t_new
     data2 = numpy.zeros(n)
     for i, freq in enumerate(freqs):
         alpha = X[i] * numpy.exp(1j * 2*numpy.pi * freq * (t - t0))

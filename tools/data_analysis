@@ -77,6 +77,14 @@ def plot_dft(t, theta, label=None):
 
     freqs, X_scaled = dft.uniform_dft(t[-1] - t[0], theta_interp)
 
+    print('Lowest frequency:   %gHz (wave length:  %gs)'
+          % (freqs[1], 1.0/freqs[1])
+          )
+    print('Highest frequency:  %gHz (wave length:  %gs)'
+          % (freqs[-1], 1.0/freqs[-1])
+          )
+    print
+
     axarr[k].semilogy(freqs, X_scaled.real, '.', label='real')
     axarr[k].semilogy(freqs, X_scaled.imag, '.', label='imag')
     axarr[k].semilogy(freqs, abs(X_scaled), '.', label='abs')
