@@ -1,5 +1,5 @@
 :mod:`maelstrom.materials_database`
-================================
+===================================
 
 .. automodule:: maelstrom.materials_database
     :members:
