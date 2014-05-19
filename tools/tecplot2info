@@ -4,20 +4,20 @@
 #  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
 #  All rights reserved.
 #
-#  This file is part of PyMHD.
+#  This file is part of Maelstrom.
 #
-#  PyMHD is free software: you can redistribute it and/or modify
+#  Maelstrom is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  PyMHD is distributed in the hope that it will be useful,
+#  Maelstrom is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
 #
 '''
 Extract useful information from a Tecplot file.
@@ -26,12 +26,12 @@ Extract useful information from a Tecplot file.
 import numpy as np
 from matplotlib import pyplot as pp
 
-import pymhd.tecplot_reader
+import maelstrom.tecplot_reader
 
 
 def _main():
     args = _parse_args()
-    data = PyMHD.tecplot_reader.read(args.filename)
+    data = maelstrom.tecplot_reader.read(args.filename)
     #print data['ZONE T']['node data']
     #_plot_data(data)
     X = np.c_[data['ZONE T']['node data']['r'],

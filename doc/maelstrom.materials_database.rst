@@ -1,7 +1,7 @@
-:mod:`pymhd.materials_database`
+:mod:`maelstrom.materials_database`
 ================================
 
-.. automodule:: pymhd.materials_database
+.. automodule:: maelstrom.materials_database
     :members:
     :undoc-members:
     :show-inheritance:

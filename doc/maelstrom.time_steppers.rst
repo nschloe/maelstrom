@@ -1,7 +1,7 @@
-:mod:`pymhd.stokes_cylindrical`
+:mod:`maelstrom.time_steppers`
 =================================
 
-.. automodule:: pymhd.stokes_cylindrical
+.. automodule:: maelstrom.time_steppers
     :members:
     :undoc-members:
     :show-inheritance:

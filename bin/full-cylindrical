@@ -4,20 +4,20 @@
 #  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
 #  All rights reserved.
 #
-#  This file is part of PyMHD.
+#  This file is part of Maelstrom.
 #
-#  PyMHD is free software: you can redistribute it and/or modify
+#  Maelstrom is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  PyMHD is distributed in the hope that it will be useful,
+#  Maelstrom is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
 #
 '''
 Full* simulation of the melt problem.
@@ -43,15 +43,15 @@ import numpy as np
 from numpy import pi
 import os
 
-import pymhd.navier_stokes_cylindrical as cyl_ns
-import pymhd.stokes_cylindrical as cyl_stokes
-import pymhd.maxwell_cylindrical as cmx
-import pymhd.heat_cylindrical as cyl_heat
-import pymhd.time_steppers as ts
-import pymhd.materials_database as md
-from pymhd.message import Message
-from pymhd import problems as probs
-from pymhd import problems as probs
+import maelstrom.navier_stokes_cylindrical as cyl_ns
+import maelstrom.stokes_cylindrical as cyl_stokes
+import maelstrom.maxwell_cylindrical as cmx
+import maelstrom.heat_cylindrical as cyl_heat
+import maelstrom.time_steppers as ts
+import maelstrom.materials_database as md
+from maelstrom.message import Message
+from maelstrom import problems as probs
+from maelstrom import problems as probs
 
 # We need to allow extrapolation here since otherwise, the equation systems
 # for Maxwell cannot be constructed: They contain the velocity `u` (from

@@ -3,7 +3,7 @@
 #  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
 #  All rights reserved.
 #
-#  This file is part of PyMHD.
+#  This file is part of Maelstrom.
 #
 #  Foobar is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with PyMHD.  If not, see <http://www.gnu.org/licenses/>.
+#  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
 #
 '''
 Coupled solve of the Navier--Stokes and the heat equation.
@@ -25,10 +25,10 @@ Coupled solve of the Navier--Stokes and the heat equation.
 from dolfin import *
 import os
 
-import pymhd.materials_database as mdb
-import pymhd.navier_stokes_cartesian as cart_ns
-import pymhd.time_steppers as ts
-import pymhd.stabilization as stab
+import maelstrom.materials_database as mdb
+import maelstrom.navier_stokes_cartesian as cart_ns
+import maelstrom.time_steppers as ts
+import maelstrom.stabilization as stab
 
 #parameters['linear_algebra_backend'] = 'uBLAS'
 #parameters['linear_algebra_backend'] = 'Epetra'

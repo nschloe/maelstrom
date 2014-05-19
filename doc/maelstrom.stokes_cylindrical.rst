@@ -1,7 +1,7 @@
-:mod:`pymhd.maxwell_cylindrical`
+:mod:`maelstrom.stokes_cylindrical`
 =================================
 
-.. automodule:: pymhd.maxwell_cylindrical
+.. automodule:: maelstrom.stokes_cylindrical
     :members:
     :undoc-members:
     :show-inheritance:

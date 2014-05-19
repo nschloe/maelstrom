@@ -1,7 +1,7 @@
-:mod:`pymhd.time_steppers`
+:mod:`maelstrom.maxwell_cylindrical`
 =================================
 
-.. automodule:: pymhd.time_steppers
+.. automodule:: maelstrom.maxwell_cylindrical
     :members:
     :undoc-members:
     :show-inheritance:
