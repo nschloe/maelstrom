@@ -9,14 +9,14 @@ def read(fname):
                        encoding='utf-8'
                        ).read()
 
-setup(name='pymhd',
-      packages=['pymhd'],
+setup(name='maelstrom',
+      packages=['maelstrom'],
       version='0.1.0',
       description='Numerical solution of magnetohydrodynamics problems',
       long_description=read('README.md'),
       author='Nico Schlömer',
       author_email='nico.schloemer@gmail.com',
-      url='https://github.com/nschloe/pymhd/',
+      url='https://github.com/nschloe/maelstrom/',
       classifiers=[
           'Development Status :: 3 - Alpha',
           'Intended Audience :: Science/Research',
