@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
