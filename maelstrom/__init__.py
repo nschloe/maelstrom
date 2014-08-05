@@ -26,4 +26,4 @@ import heat_cylindrical
 import navier_stokes_cylindrical
 import time_steppers
 
-from . import problems
+import problems
