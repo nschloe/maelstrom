@@ -18,12 +18,12 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
 #
-from . import message
-from . import materials_database
-from . import maxwell_cylindrical
-#from . import navier_stokes_cartesian
-from . import heat_cylindrical
-from . import navier_stokes_cylindrical
-from . import time_steppers
+import message
+import materials_database
+import maxwell_cylindrical
+# import navier_stokes_cartesian
+import heat_cylindrical
+import navier_stokes_cylindrical
+import time_steppers
 
 import problems
