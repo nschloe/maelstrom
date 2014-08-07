@@ -507,7 +507,7 @@ def _compute(u0, p0, theta0, problem, voltages, T,
         raise RuntimeError('Illegal number of subspaces (%d).' % num_subspaces)
 
     # Compute a few mesh characteristics.
-    wpi_area = assemble(Constant(1.0) * dx, mesh=submesh_workpiece)
+    wpi_area = assemble(Constant(1.0) * dx(submesh_workpiece))
     # mesh.hmax() is a local function; get the global hmax.
     hmax_workpiece = MPI.max(submesh_workpiece.mpi_comm(),
                              submesh_workpiece.hmax()

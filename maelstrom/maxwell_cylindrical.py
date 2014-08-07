@@ -837,7 +837,7 @@ def get_voltage_current_matrix(phi, physical_indices, dx,
         # by the integrand, or explicitly. Since the integrand doesn't contain
         # mesh information here, pass it through explicitly.
         J[l][l] += v_ref / (2 * pi) \
-            * assemble(Sigma[pi0] / r * dx(pi0), mesh=mesh)
+            * assemble(Sigma[pi0] / r * dx(pi0))
     return J
 
 
