@@ -165,8 +165,9 @@ class StokesHeat(NonlinearProblem):
 def _average(u):
     '''Computes the average value of a function u over its domain.
     '''
+    a = assemble(Constant(1.0) * dx(u.function_space().mesh()))
     return assemble(u * dx) \
-        / assemble(Constant(1.0) * dx, mesh=u.function_space().mesh())
+        / assemble(Constant(1.0) * dx(u.function_space().mesh()))
 
 
 def _read_initial_state(W, P, Q,
