@@ -214,11 +214,11 @@ class CrucibleProblem():
         # This is a bit of a tough call since the boundary conditions need to
         # be read from a Tecplot file here.
         import tecplot_reader
-        filename = 'bound-dat.dat'
-        data = tecplot_reader.read(os.path.join(current_path,
-                                                '../../bin',
-                                                filename
-                                                ))
+        filename = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            'data/crucible-boundary.dat'
+            )
+        data = tecplot_reader.read(filename)
         RZ = numpy.c_[data['ZONE T']['node data']['r'],
                       data['ZONE T']['node data']['z']
                       ]
