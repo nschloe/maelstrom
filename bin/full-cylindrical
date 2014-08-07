@@ -165,9 +165,8 @@ class StokesHeat(NonlinearProblem):
 def _average(u):
     '''Computes the average value of a function u over its domain.
     '''
-    a = assemble(Constant(1.0) * dx(u.function_space().mesh()))
     return assemble(u * dx) \
-        / assemble(Constant(1.0) * dx(u.function_space().mesh()))
+        / assemble(1.0 * dx(u.function_space().mesh()))
 
 
 def _read_initial_state(W, P, Q,
@@ -507,7 +506,7 @@ def _compute(u0, p0, theta0, problem, voltages, T,
         raise RuntimeError('Illegal number of subspaces (%d).' % num_subspaces)
 
     # Compute a few mesh characteristics.
-    wpi_area = assemble(Constant(1.0) * dx(submesh_workpiece))
+    wpi_area = assemble(1.0 * dx(submesh_workpiece))
     # mesh.hmax() is a local function; get the global hmax.
     hmax_workpiece = MPI.max(submesh_workpiece.mpi_comm(),
                              submesh_workpiece.hmax()

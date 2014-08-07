@@ -720,7 +720,6 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
     # TODO write out the equation system to a file
     if io_submesh:
         numpy.savetxt('matrix.dat', A)
-    exit()
 
     # Solve the system for the weights.
     weights = numpy.linalg.solve(A, b)

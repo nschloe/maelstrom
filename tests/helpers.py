@@ -24,8 +24,8 @@ Helper functions for PDE consistency tests.
 import numpy
 import nose
 
-from dolfin import Expression, info, assemble, Constant, FunctionSpace, \
-    interpolate, plot, interactive, triangle, errornorm, dx, Function, \
+from dolfin import Expression, info, assemble, FunctionSpace, \
+    interpolate, plot, interactive, errornorm, dx, Function, \
     VectorFunctionSpace, DirichletBC, project
 import sympy as smp
 
@@ -156,7 +156,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
         info('')
         with Message('Computing for mesh size %r...' % mesh_size):
             mesh = mesh_generator(mesh_size)
-            mesh_area = assemble(Constant(1.0) * dx, mesh=mesh)
+            mesh_area = assemble(1.0 * dx(mesh))
             W = VectorFunctionSpace(mesh, 'CG', 2)
             P = FunctionSpace(mesh, 'CG', 1)
             method = MethodClass(W, P,
