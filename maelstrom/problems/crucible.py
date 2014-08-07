@@ -5,10 +5,10 @@
 #
 #  This file is part of Maelstrom.
 #
-#  Maelstrom is free software: you can redistribute it and/or modify it under the
-#  terms of the GNU General Public License as published by the Free Software
-#  Foundation, either version 3 of the License, or (at your option) any later
-#  version.
+#  Maelstrom is free software: you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free
+#  Software Foundation, either version 3 of the License, or (at your option)
+#  any later version.
 #
 #  Maelstrom is distributed in the hope that it will be useful, but WITHOUT ANY
 #  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -27,7 +27,7 @@ class CrucibleProblem():
         from dolfin import Mesh, MeshFunction, SubMesh, SubDomain, \
             FacetFunction, DirichletBC, dot, grad, FunctionSpace, \
             MixedFunctionSpace, Expression, FacetNormal, pi, Function, \
-            Constant, TestFunction, TrialFunction
+            Constant, TestFunction, MPI, mpi_comm_world, File
         import numpy
         import warnings
 
@@ -72,11 +72,28 @@ class CrucibleProblem():
         # http://fenicsproject.org/qa/2026/submesh-workaround-for-parallel-computation
         submesh_parallel_bug_fixed = False
         if submesh_parallel_bug_fixed:
-            submesh_workpiece = SubMesh(self.mesh, subdomains, self.wpi)
+            submesh_workpiece = SubMesh(self.mesh, self.subdomains, self.wpi)
         else:
+            # To get the mesh in parallel, we need to read it in from a file.
+            # Writing out can only happen in serial mode, though. :/
             base = os.path.join(current_path,
                                 '../../meshes/2d/crucible-with-coils-submesh'
                                 )
+            filename = base + '.xml'
+            if not os.path.isfile(filename):
+                warnings.warn(
+                    'Submesh file \'%s\' does not exist. Creating... '
+                    % filename
+                    )
+                if MPI.size(mpi_comm_world()) > 1:
+                    raise RuntimeError(
+                        'Can only write submesh in serial mode.'
+                        )
+                submesh_workpiece = \
+                    SubMesh(self.mesh, self.subdomains, self.wpi)
+                output_stream = File(filename)
+                output_stream << submesh_workpiece
+            # Read the mesh
             submesh_workpiece = Mesh(base + '.xml')
 
         coords = submesh_workpiece.coordinates()
@@ -203,7 +220,8 @@ class CrucibleProblem():
                                                 filename
                                                 ))
         RZ = numpy.c_[data['ZONE T']['node data']['r'],
-                   data['ZONE T']['node data']['z']]
+                      data['ZONE T']['node data']['z']
+                      ]
         T_vals = data['ZONE T']['node data']['temp. [K]']
 
         class TecplotDirichletBC(Expression):
@@ -299,7 +317,7 @@ class CrucibleProblem():
         # different results; the value *cannot* correspond to one solution.
         # From looking at the solutions, the pure Dirichlet setting appears
         # correct, so extract the Neumann values directly from that solution.
-        theta = TrialFunction(self.Q)
+        #theta = TrialFunction(self.Q)
         zeta = TestFunction(self.Q)
 
         theta_reference = Function(self.Q, name='temperature')
