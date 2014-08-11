@@ -24,20 +24,20 @@ Numerical solution schemes for the Stokes equation in cylindrical coordinates.
 from dolfin import DirichletBC, TrialFunctions, \
     TestFunctions, Expression, grad, pi, dx, assemble_system, \
     KrylovSolver, SubSpace, PETScPreconditioner, PETScOptions, \
-    PETScKrylovSolver, inner
+    PETScKrylovSolver, inner, solve
 
 
-def solve(up_out,
-          rho, mu,
-          u_bcs, p_bcs,
-          f,
-          dx=dx,
-          verbose=True,
-          tol=1.0e-10,
-          maxiter=1000
-          ):
+def stokes_solve(
+    up_out,
+    mu,
+    u_bcs, p_bcs,
+    f,
+    dx=dx,
+    verbose=True,
+    tol=1.0e-10,
+    maxiter=1000
+    ):
     # Some initial sanity checks.
-    assert rho > 0.0
     assert mu > 0.0
 
     WP = up_out.function_space()
@@ -67,8 +67,10 @@ def solve(up_out,
 
     r = Expression('x[0]', domain=WP.mesh())
 
+    print("mu = %e" % mu)
+
     # build system
-    a = inner(r * grad(u), grad(v)) * 2 * pi * dx \
+    a = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
         - ((r * v[0]).dx(0) + (r * v[1]).dx(1)) * p * 2 * pi * dx \
         + ((r * u[0]).dx(0) + (r * u[1]).dx(1)) * q * 2 * pi * dx
       #- div(r*v)*p* 2*pi*dx \
@@ -77,7 +79,34 @@ def solve(up_out,
 
     A, b = assemble_system(a, L, new_bcs)
 
-    if False:  # has_petsc():
+    mode = 'lu'
+
+    if mode == 'lu':
+        solve(A, up_out.vector(), b, 'lu')
+
+    elif mode == 'gmres':
+        # For preconditioners for the Stokes system, see
+        #
+        #     Fast iterative solvers for discrete Stokes equations;
+        #     J. Peters, V. Reichelt, A. Reusken.
+        #
+        prec = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
+            - p * q * 2 * pi * r * dx
+        P, btmp = assemble_system(prec, L, new_bcs)
+        solver = KrylovSolver('tfqmr', 'amg')
+        #solver = KrylovSolver('gmres', 'amg')
+        solver.set_operators(A, P)
+
+        solver.parameters['monitor_convergence'] = verbose
+        solver.parameters['report'] = verbose
+        solver.parameters['absolute_tolerance'] = 0.0
+        solver.parameters['relative_tolerance'] = tol
+        solver.parameters['maximum_iterations'] = maxiter
+
+        # Solve
+        solver.solve(up_out.vector(), b)
+    elif mode == 'fieldsplit':
+        raise NotImplementedError('Fieldsplit solver not yet implemented.')
         # For an assortment of preconditioners, see
         #
         #     Performance and analysis of saddle point preconditioners
@@ -102,26 +131,5 @@ def solve(up_out,
         # Create Krylov solver with custom preconditioner.
         solver = PETScKrylovSolver('gmres', prec)
         solver.set_operator(A)
-    else:
-        # For preconditioners for the Stokes system, see
-        #
-        #     Fast iterative solvers for discrete Stokes equations;
-        #     J. Peters, V. Reichelt, A. Reusken.
-        #
-        prec = inner(r * grad(u), grad(v)) * 2 * pi * dx \
-            - p * q * 2 * pi * r * dx
-        P, btmp = assemble_system(prec, L, new_bcs)
-        solver = KrylovSolver('tfqmr', 'amg')
-        #solver = KrylovSolver('gmres', 'amg')
-        solver.set_operators(A, P)
-
-    solver.parameters['monitor_convergence'] = verbose
-    solver.parameters['report'] = verbose
-    solver.parameters['absolute_tolerance'] = 0.0
-    solver.parameters['relative_tolerance'] = tol
-    solver.parameters['maximum_iterations'] = maxiter
-
-    # Solve
-    solver.solve(up_out.vector(), b)
 
     return
