@@ -44,7 +44,8 @@ class HeatCylindrical(ts.ParabolicProblem):
         self.F0 = kappa * r * dot(grad(u), grad(v / (rho * cp))) \
             * 2*pi * dx
         #F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
-        self.F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * dx
+        if b:
+            self.F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * dx
         # Joule heat
         self.F0 -= 1.0 / (rho * cp) * source * v * 2*pi*r * dx
         # Neumann boundary conditions

@@ -140,6 +140,12 @@ class CrucibleProblem():
                 return on_boundary \
                     and x[1] > ymax - GMSH_EPS
 
+        class UpperRight(SubDomain):
+            def inside(self, x, on_boundary):
+                return on_boundary \
+                    and x[1] > ymax - GMSH_EPS \
+                    and x[0] > 0.038 - GMSH_EPS
+
         # The crystal boundary is taken to reach up to 0.038 where the
         # Dirichlet boundary data is about the melting point of the crystal,
         # 1511K. This setting gives pretty acceptable results when there is no
@@ -157,6 +163,7 @@ class CrucibleProblem():
         left = Left()
         crucible = Crucible()
         crystal_boundary = UpperLeft()
+        surface_boundary = UpperRight()
         upper = Upper()
 
         self.wp_boundaries = FacetFunction('size_t', submesh_workpiece)
@@ -274,7 +281,9 @@ class CrucibleProblem():
                 return
 
         tecplot_dbc = TecplotDirichletBC()
-        self.theta_bcs_d = [DirichletBC(self.Q, tecplot_dbc, crystal_boundary)]
+        self.theta_bcs_d = [
+            DirichletBC(self.Q, tecplot_dbc, crystal_boundary)
+            ]
         theta_bcs_d_strict = [
             DirichletBC(self.Q, tecplot_dbc, upper),
             DirichletBC(self.Q, tecplot_dbc, crucible)
