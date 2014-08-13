@@ -67,14 +67,16 @@ def _check_order(problem):
 
 
 def _compute_errors(problem, mesh_sizes):
-    mesh_generator, solution, f, cell_type = problem()
+    mesh_generator, solution, solution_degree, f, f_degree, cell_type = problem()
 
     sol0 = Expression(smp.printing.ccode(solution[0]),
                       t=0.0,
+                      degree=solution_degree,
                       cell=cell_type
                       )
     sol1 = Expression(smp.printing.ccode(solution[1]),
                       t=0.0,
+                      degree=solution_degree,
                       cell=cell_type
                       )
 
@@ -171,11 +173,12 @@ def problem_coscos():
     phi = (beta * (1.0 - smp.cos(alpha * x[0])),
            beta * (1.0 - smp.cos(alpha * x[0]))
            )
+    phi_degree = numpy.infty
 
     # Produce a matching right-hand side.
     mu = 1.0
-    sigma = 1.0
-    omega = 1.0
+    #sigma = 1.0
+    #omega = 1.0
     #f_sympy = (- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[0]), x[0])
     #           - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[1]), x[1])
     #           - omega*sigma*phi[1],
@@ -195,6 +198,7 @@ def problem_coscos():
     f = (Expression(smp.printing.ccode(f_sympy[0])),
          Expression(smp.printing.ccode(f_sympy[1]))
          )
+    f_degree = numpy.infty
 
     # Show the solution and the right-hand side.
     n = 50
@@ -204,7 +208,7 @@ def problem_coscos():
     #plot(f[0], mesh=mesh, title='f.real')
     #plot(f[1], mesh=mesh, title='f.imag')
     #interactive()
-    return mesh_generator, phi, f, triangle
+    return mesh_generator, phi, phi_degree, f, f_degree, triangle
 
 
 if __name__ == '__main__':

@@ -70,7 +70,7 @@ def stokes(mu, u, p, v, q, f):
     #    f += as_vector((lorentz_wpi[0], lorentz_wpi[1], 0.0))
 
     # Momentum equation (without the nonlinear term).
-    r = Expression('x[0]', cell=triangle)
+    r = Expression('x[0]', degree=1, cell=triangle)
     F0 = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
         + mu * u[0] / r * v[0] * 2 * pi * dx \
         - dot(f, v) * 2 * pi * r * dx
@@ -81,7 +81,6 @@ def stokes(mu, u, p, v, q, f):
 
     # Incompressibility condition.
     # div_u = 1/r * div(r*u)
-    r = Expression('x[0]', cell=triangle)
     F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q \
         * 2 * pi * r * dx
     return F0

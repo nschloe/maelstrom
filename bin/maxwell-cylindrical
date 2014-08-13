@@ -370,7 +370,7 @@ def _main():
 
     check_currents = False
     if check_currents:
-        r = Expression('x[0]', cell=triangle)
+        r = Expression('x[0]', degree=1, cell=triangle)
         begin('Currents computed after the fact:')
         k = 0
         for coil in coils:
@@ -420,7 +420,7 @@ def _main():
         #   B_r = -dphi/dz,
         #   B_z = 1/r d(rphi)/dr.
         #
-        r = Expression('x[0]', cell=triangle)
+        r = Expression('x[0]', degree=1, cell=triangle)
         g = 1/r * grad(r*Phi[0])
         B_r = project(as_vector((-g[1], g[0])), V*V)
         g = 1/r * grad(r*Phi[1])
@@ -493,7 +493,7 @@ def _main():
     #u = TrialFunction(V)
     #v = TestFunction(V)
     #a = zero() * dx(0)
-    #r = Expression('x[0]', cell=triangle)
+    #r = Expression('x[0]', degree=1, cell=triangle)
     ## v/r doesn't hurt: hom. dirichlet boundary for r=0.
     #for i in subdomain_indices:
     #    a += dot(kappa[i] * r * grad(u), grad(v/r)) * dx(i)

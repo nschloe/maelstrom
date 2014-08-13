@@ -37,7 +37,7 @@ class HeatCylindrical(ts.ParabolicProblem):
                  ):
         super(HeatCylindrical, self).__init__()
         self.dirichlet_bcs = dirichlet_bcs
-        r = Expression('x[0]', domain=V.mesh())
+        r = Expression('x[0]', degree=1, domain=V.mesh())
         self.V = V
         self.dx_multiplier = 2*pi*r
 

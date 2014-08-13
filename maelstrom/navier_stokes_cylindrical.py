@@ -79,7 +79,7 @@ def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
     # follow from the dynamics of the system.
     #
     # TODO some more explanation for the following lines of code
-    r = Expression('x[0]', domain=v.function_space().mesh())
+    r = Expression('x[0]', degree=1, domain=v.function_space().mesh())
     F = rho * 0.5 * (dot(grad(u) * u, v) - dot(grad(v) * u, u)) * 2*pi*r*dx \
         + mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
         + mu * u[0] / r * v[0] * 2 * pi * dx \
@@ -172,7 +172,7 @@ class NavierStokesCylindrical(NonlinearProblem):
                                     dx=dx
                                     )
         # div_u = 1/r * div(r*u)
-        r = Expression('x[0]', domain=WP.mesh())
+        r = Expression('x[0]', degree=1, domain=WP.mesh())
         self.F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q \
             * 2 * pi * r * dx
 
@@ -220,7 +220,7 @@ class TentativeVelocityProblem(NonlinearProblem):
 
         self.bcs = bcs
 
-        r = Expression('x[0]', domain=ui.function_space().mesh())
+        r = Expression('x[0]', degree=1, domain=ui.function_space().mesh())
 
         #self.F0 = rho * dot(3*ui - 4*u[-1] + u[-2], v) / (2*Constant(dt)) \
         #    * 2*pi*r*dx
@@ -429,7 +429,7 @@ class PressureProjection(object):
             if p0:
                 phi -= p0
             if rotational_form:
-                r = Expression('x[0]', domain=self.W.mesh())
+                r = Expression('x[0]', degree=1, domain=self.W.mesh())
                 div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
                 phi += self.mu * div_ui
             L3 = dot(ui, v) * dx \
@@ -450,7 +450,7 @@ class PressureProjection(object):
                 )
             #u = project(ui - k/rho * grad(phi), V)
             # div_u = 1/r * div(r*u)
-            r = Expression('x[0]', domain=self.W.mesh())
+            r = Expression('x[0]', degree=1, domain=self.W.mesh())
             div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
             info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
             #plot(div_u)
@@ -474,7 +474,7 @@ class PressureProjection(object):
         for
             \nabla p = u.
         '''
-        r = Expression('x[0]', domain=self.W.mesh())
+        r = Expression('x[0]', degree=1, domain=self.W.mesh())
 
         Q = p1.function_space()
 

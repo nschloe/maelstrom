@@ -111,7 +111,7 @@ def _get_weak_F(mesh, f, kappa, rho_cp, b,
                 theta_bcs_r):
     '''Get right-hand side of heat equation in weak form.
     '''
-    r = Expression('x[0]', cell=triangle)
+    r = Expression('x[0]', degree=1, cell=triangle)
     n = FacetNormal(mesh)
 
     def weak_F(t, u_t, u, v):
@@ -173,7 +173,7 @@ def _solve(stationary):
     #                   )
     # The corresponding operator in weak form.
     rho_cp = rho*cp
-    r = Expression('x[0]', cell=triangle)
+    r = Expression('x[0]', degree=1, cell=triangle)
     n = FacetNormal(mesh)
 
     def weak_F(t, u_t, u, v):

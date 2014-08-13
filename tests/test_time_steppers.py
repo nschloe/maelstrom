@@ -87,7 +87,8 @@ def _check_time_order(problem, method):
 def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
     mesh_generator, solution, ProblemClass, cell_type = problem()
     # Translate data into FEniCS expressions.
-    fenics_sol = Expression(smp.printing.ccode(solution),
+    fenics_sol = Expression(smp.printing.ccode(solution['value']),
+                            degree=solution['degree'],
                             t=0.0,
                             cell=cell_type
                             )
@@ -97,6 +98,7 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
     # Deepcopy the expression into theta0. Specify the cell to allow for
     # more involved operations with it (e.g., grad()).
     theta0 = Expression(fenics_sol.cppcode,
+                        degree=solution['degree'],
                         t=0.0,
                         cell=cell_type
                         )
@@ -140,10 +142,14 @@ def _check_space_order(problem, method):
     mesh_generator, solution, weak_F = problem()
 
     # Translate data into FEniCS expressions.
-    fenics_sol = Expression(smp.prining.ccode(solution), t=0.0)
+    fenics_sol = Expression(smp.prining.ccode(solution['value']),
+                            degree=solution['degree'],
+                            t=0.0
+                            )
 
     # Create initial solution.
     theta0 = Expression(fenics_sol.cppcode,
+                        degree=solution['degree'],
                         t=0.0,
                         cell=triangle
                         )
@@ -205,7 +211,7 @@ def problem_sinsin1d():
     theta = m * smp.sin(1 * pi * x[0])
     # Produce a matching rhs.
     f_sympy = smp.diff(theta, t) - smp.diff(theta, x[0], 2)
-    f = Expression(smp.printing.ccode(f_sympy), t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=numpy.infty, t=0.0)
 
     # The corresponding operator in weak form.
     def weak_F(t, u_t, u, v):
@@ -240,7 +246,7 @@ def problem_sinsin():
     f_sympy = rho * cp * smp.diff(theta, t) \
         - smp.diff(kappa * smp.diff(theta, x[0]), x[0]) \
         - smp.diff(kappa * smp.diff(theta, x[1]), x[1])
-    f = Expression(smp.printing.ccode(f_sympy), t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=4, t=0.0)
 
     # The corresponding operator in weak form.
     def weak_F(t, u_t, u, v):
@@ -281,8 +287,8 @@ def problem_coscos_cartesian():
         - smp.diff(kappa_sympy * smp.diff(theta, x[0]), x[0]) \
         - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
 
-    f = Expression(smp.printing.ccode(f_sympy), t=0.0)
-    kappa = Expression(smp.printing.ccode(kappa_sympy), t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=numpy.infty, t=0.0)
+    kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
     # The corresponding operator in weak form.
     class HeatEquation(ts.ParabolicProblem):
@@ -293,6 +299,7 @@ def problem_coscos_cartesian():
             self.V = V
             self.rho_cp = rho * cp
             self.sol = Expression(smp.printing.ccode(theta),
+                                  degree=numpy.infty,
                                   t=0.0,
                                   cell=triangle
                                   )
@@ -349,19 +356,20 @@ def problem_coscos_cylindrical():
         - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
 
     # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), numpy.infty, t=0.0)
     b = Expression((smp.printing.ccode(b_sympy[0]),
                     smp.printing.ccode(b_sympy[1])),
+                   degree=1,
                    t=0.0
                    )
-    kappa = Expression(smp.printing.ccode(kappa_sympy), t=0.0)
+    kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
     # The corresponding operator in weak form.
     def weak_F(t, u_t, u, v):
         # Define the differential equation.
         mesh = v.function_space().mesh()
         n = FacetNormal(mesh)
-        r = Expression('x[0]', cell=triangle)
+        r = Expression('x[0]', degree=1, cell=triangle)
         # All time-dependent components be set to t.
         f.t = t
         b.t = t
@@ -404,8 +412,8 @@ def problem_stefanboltzmann():
     # ONLY WORKS IF du/dn==0.
     u0 = theta
     # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), t=0.0)
-    u0 = Expression(smp.printing.ccode(u0), t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=numpy.infty, t=0.0)
+    u0 = Expression(smp.printing.ccode(u0), degree=numpy.infty, t=0.0)
 
     # The corresponding operator in weak form.
     def weak_F(t, u_t, u, v):

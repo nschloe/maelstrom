@@ -348,6 +348,7 @@ def runge_kutta_step(A, b, c,
         for boundary, expr in sympy_dirichlet_bcs:
             # Form k-th derivative.
             DexprDt = smp.diff(expr, tt, k)
+            # TODO set degree of expression
             BCS[-1].append(DirichletBC(V,
                            Expression(smp.printing.ccode(DexprDt), t=t + dt),
                            boundary))

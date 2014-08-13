@@ -120,19 +120,22 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
 
     mesh_generator, solution, f, mu, rho, cell_type = problem()
     # Translate data into FEniCS expressions.
-    sol_u = Expression((smp.printing.ccode(solution['u'][0]),
-                        smp.printing.ccode(solution['u'][1])
+    sol_u = Expression((smp.printing.ccode(solution['u']['value'][0]),
+                        smp.printing.ccode(solution['u']['value'][1])
                         ),
+                       degree=solution['u']['degree'],
                        t=0.0,
                        cell=cell_type
                        )
-    sol_p = Expression(smp.printing.ccode(solution['p']),
+    sol_p = Expression(smp.printing.ccode(solution['p']['value']),
+                       degreeyy=solution['p']['degree'],
                        t=0.0,
                        cell=cell_type
                        )
-    fenics_rhs0 = Expression((smp.printing.ccode(f[0]),
-                              smp.printing.ccode(f[1])
+    fenics_rhs0 = Expression((smp.printing.ccode(f['value'][0]),
+                              smp.printing.ccode(f['value'][1])
                               ),
+                             degree=f['degree'],
                              t=0.0,
                              mu=mu, rho=rho,
                              cell=cell_type
@@ -140,12 +143,18 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
     # Deep-copy expression to be able to provide f0, f1 for the Dirichlet-
     # boundary conditions later on.
     fenics_rhs1 = Expression(fenics_rhs0.cppcode,
+                             degree=f['degree'],
                              t=0.0,
                              mu=mu, rho=rho,
                              cell=cell_type
                              )
     # Create initial states.
-    p0 = Expression(sol_p.cppcode, t=0.0, cell=cell_type)
+    p0 = Expression(
+        sol_p.cppcode,
+        degree=solution['p']['degree'],
+        t=0.0,
+        cell=cell_type
+        )
 
     # Compute the problem
     errors = {'u': numpy.empty((len(mesh_sizes), len(Dt))),
@@ -172,9 +181,19 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             divu1 = Function(P)
             for j, dt in enumerate(Dt):
                 # Prepare previous states for multistepping.
-                u = [Expression(sol_u.cppcode, t=0.0, cell=cell_type),
-                     #Expression(sol_u.cppcode, t=0.5*dt, cell=cell_type)
-                     ]
+                u = [Expression(
+                    sol_u.cppcode,
+                    degree=solution['u']['degree'],
+                    t=0.0,
+                    cell=cell_type
+                    ),
+                    # Expression(
+                    #sol_u.cppcode,
+                    #degree=solution['u']['degree'],
+                    #t=0.5*dt,
+                    #cell=cell_type
+                    #)
+                    ]
                 sol_u.t = dt
                 u_bcs = [DirichletBC(W, sol_u, 'on_boundary')]
                 sol_p.t = dt
@@ -228,7 +247,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     err_p.vector()[:] -= sol_interp.vector()
                     #plot(sol_p - p1, title='p1 - sol_p', mesh=mesh)
                     plot(err_p, title='p1 - sol_p', mesh=mesh)
-                    #r = Expression('x[0]', cell=triangle)
+                    #r = Expression('x[0]', degree=1, cell=triangle)
                     #divu1 = 1 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
                     divu1.assign(project(u1[0].dx(0) + u1[1].dx(1), P))
                     plot(divu1, title='div(u1)')

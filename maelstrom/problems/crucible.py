@@ -200,14 +200,20 @@ class CrucibleProblem():
 
         self.u_bcs = [
             DirichletBC(self.W,
-                        Expression(('0.0', '0.0', '-2*pi*x[0] * 5.0/60.0')),
+                        Expression(
+                            ('0.0', '0.0', '-2*pi*x[0] * 5.0/60.0'),
+                            degree=1
+                            ),
                         #(0.0, 0.0, 0.0),
                         crucible),
             DirichletBC(self.W.sub(0), 0.0, left),
             DirichletBC(self.W.sub(2), 0.0, left),
             # Make sure that u[2] is 0 at r=0.
             DirichletBC(self.W,
-                        Expression(('0.0', '0.0', '2*pi*x[0] * 5.0/60.0')),
+                        Expression(
+                            ('0.0', '0.0', '2*pi*x[0] * 5.0/60.0'),
+                            degree=1
+                            ),
                         crystal_boundary),
             DirichletBC(self.W.sub(1), 0.0, upper),
             ]
@@ -232,6 +238,7 @@ class CrucibleProblem():
         T_vals = data['ZONE T']['node data']['temp. [K]']
 
         class TecplotDirichletBC(Expression):
+            # TODO specify degree
             def eval(self, value, x):
                 # Find on which edge x sits, and raise exception if it doesn't.
                 edge_found = False
@@ -294,6 +301,7 @@ class CrucibleProblem():
         dTdz_vals = data['ZONE T']['node data']['dTempdz [K/m]']
 
         class TecplotNeumannBC(Expression):
+            # TODO specify degree
             def eval(self, value, x):
                 # Same problem as above: This expression is not only evaluated
                 # at boundaries.

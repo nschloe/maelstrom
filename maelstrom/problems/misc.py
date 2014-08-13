@@ -185,7 +185,7 @@ def rotating_lid():
              DirichletBC(W, Constant((0.0, 0.0, 0.0)), right),
              DirichletBC(W.sub(0), 0.0, upper),
              DirichletBC(W.sub(1), 0.0, upper),
-             DirichletBC(W.sub(2), Expression('x[0]'), restricted_upper),
+             DirichletBC(W.sub(2), Expression('x[0]', degree=1), restricted_upper),
              DirichletBC(W, Constant((0.0, 0.0, 0.0)), lower),
              ]
 
@@ -366,8 +366,8 @@ def peter():
     theta_bcs_r = {
         wp_boundary_indices['stamp']: (100.0, 1500.0),
         wp_boundary_indices['surface']: (100.0, 1550.0),
-        wp_boundary_indices['right']: (300.0, Expression('200*x[0] + 1600')),
-        wp_boundary_indices['lower']: (300.0, Expression('-1200*x[1] + 1614')),
+        wp_boundary_indices['right']: (300.0, Expression('200*x[0] + 1600', degree=1)),
+        wp_boundary_indices['lower']: (300.0, Expression('-1200*x[1] + 1614', degree=1)),
         }
     return mesh, subdomains, subdomain_materials, workpiece_index, \
         wp_boundaries, W, u_bcs, p_bcs, \
@@ -688,7 +688,7 @@ def karman():
     # component of the outflow to 0, and letting the normal component du/dn=0
     # (again, this is achieved implicitly by the weak formulation).
     #
-    inflow = Expression('100*x[1]*(0.4-x[1])')
+    inflow = Expression('100*x[1]*(0.4-x[1])', degree=2)
     u_bcs = [DirichletBC(V, (0.0, 0.0), upper_boundary),
              DirichletBC(V, (0.0, 0.0), lower_boundary),
              DirichletBC(V, (0.0, 0.0), obstacle_boundary),

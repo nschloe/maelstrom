@@ -173,6 +173,7 @@ void eval(Array<double>& b_tau,
 }
 };
 '''
+    # TODO set degree
     b_tau = Expression(cppcode)
     b_tau.convection = convection
     b_tau.mesh = convection.function_space().mesh()
@@ -322,6 +323,7 @@ void eval(Array<double>& tau,
 }
 };
 '''
+    # TODO set degree
     tau = Expression(cppcode)
     tau.convection = convection
     tau.mesh = mesh  # convection.function_space().mesh()

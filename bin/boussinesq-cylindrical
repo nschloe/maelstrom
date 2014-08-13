@@ -108,7 +108,7 @@ def _main():
     #plot(p_1, title='pressure', rescale=True)
     #interactive()
 
-    r = Expression('x[0]', cell=triangle)
+    r = Expression('x[0]', degree=1, cell=triangle)
 
     while t < T + DOLFIN_EPS:
         # ---------------------------------------------------------------------

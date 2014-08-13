@@ -24,6 +24,7 @@ import nose
 from dolfin import Expression, UnitSquareMesh, triangle, \
     plot, interactive, RectangleMesh, pi
 import sympy as smp
+import numpy
 
 import itertools
 
@@ -169,6 +170,7 @@ def problem_whirl_cylindrical():
     if plot_solution:
         sol_u = Expression((smp.printing.ccode(u[0]),
                             smp.printing.ccode(u[1])),
+                           degree=numpy.infty,
                            t=0.0,
                            cell=cell_type,
                            )
@@ -179,7 +181,7 @@ def problem_whirl_cylindrical():
     f = _get_navier_stokes_rhs_cylindrical(u, p)
     mu = 1.0
     rho = 1.0
-    return mesh_generator, solution, f, mu, rho, cell_type
+    return mesh_generator, solution, solution_degree, f, f_degree, mu, rho, cell_type
 
 
 def problem_guermond1_cylindrical():
