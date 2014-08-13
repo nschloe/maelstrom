@@ -34,14 +34,20 @@ def _test_dft():
     freqs, X = dft.uniform_dft(t1 - t0, data)
 
     data2 = numpy.zeros(n, dtype=complex)
-    for i, freq in enumerate(freqs):
-        alpha = X[i] * numpy.exp(1j * 2*numpy.pi * freq * (t - t0))
+    for x, freq in zip(X, freqs):
+        alpha = x * numpy.exp(1j * 2*numpy.pi * freq * (t - t0))
         data2 += alpha
 
+    print('Original data:')
     print(data)
-    print(data2)
+    print
+    print('Reconverted data:')
+    print('Real part:')
+    print(data2.real)
+    print('Imaginary part:')
+    print(data2.imag)
     import matplotlib.pyplot as plt
-    plt.plot(t, data - data2)
+    plt.plot(t, data - data2.real)
     #plt.plot(t, data)
     #plt.plot(t, data2)
     plt.show()

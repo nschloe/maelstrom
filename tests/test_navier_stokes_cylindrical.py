@@ -132,10 +132,12 @@ def problem_flat_cylindrical():
     x = smp.DeferredVector('x')
     u = (0.0 * x[0], 0.0 * x[1], 0.0 * x[2])
     p = -9.81 * x[1]
-    solution = {'u': u,
-                'p': p
+    solution = {'u': {'value': u, 'degree': 1},
+                'p': {'value': p, 'degree': 1}
                 }
-    f = _get_navier_stokes_rhs_cylindrical(u, p)
+    f = {'value': _get_navier_stokes_rhs_cylindrical(u, p),
+         'degree': numpy.infty
+         }
     mu = 1.0
     rho = 1.0
     return mesh_generator, solution, f, mu, rho, cell_type
@@ -163,8 +165,8 @@ def problem_whirl_cylindrical():
          0
          )
     p = x0 * (1 - x0) * x1 * (1 - x1)
-    solution = {'u': u,
-                'p': p
+    solution = {'u': {'value': u, 'degree': numpy.infty},
+                'p': {'value': p, 'degree': 4}
                 }
     plot_solution = False
     if plot_solution:
@@ -178,10 +180,12 @@ def problem_whirl_cylindrical():
              mesh=mesh_generator(20)
              )
         interactive()
-    f = _get_navier_stokes_rhs_cylindrical(u, p)
+    f = {'value': _get_navier_stokes_rhs_cylindrical(u, p),
+         'degree': numpy.infty
+         }
     mu = 1.0
     rho = 1.0
-    return mesh_generator, solution, solution_degree, f, f_degree, mu, rho, cell_type
+    return mesh_generator, solution, f, mu, rho, cell_type
 
 
 def problem_guermond1_cylindrical():
@@ -250,8 +254,8 @@ if __name__ == '__main__':
     #mesh_sizes = [10, 20, 40, 80]
     Dt = [0.5 ** k for k in range(20)]
     errors = helpers.compute_time_errors(
-        problem_flat_cylindrical,
-        #problem_whirl_cylindrical,
+        #problem_flat_cylindrical,
+        problem_whirl_cylindrical,
         #problem_guermond1_cylindrical,
         #problem_taylor_cylindrical,
         ns_cyl.IPCS,

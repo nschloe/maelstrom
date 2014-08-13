@@ -23,11 +23,12 @@ import nose
 
 from dolfin import FunctionSpace, errornorm, RectangleMesh, Measure, \
     CellFunction, FacetFunction, triangle, \
-    Expression, MPI
+    Expression, MPI, mpi_comm_world
 
 import maelstrom.maxwell_cylindrical as mcyl
 import sympy as smp
 import numpy
+import warnings
 from matplotlib import pyplot as pp
 
 # Turn down the log level to only error messages.
@@ -67,31 +68,38 @@ def _check_order(problem):
 
 
 def _compute_errors(problem, mesh_sizes):
-    mesh_generator, solution, solution_degree, f, f_degree, cell_type = problem()
+    mesh_generator, solution, f, cell_type = problem()
 
-    sol0 = Expression(smp.printing.ccode(solution[0]),
-                      t=0.0,
-                      degree=solution_degree,
-                      cell=cell_type
+    max_degree = 20
+
+    if solution['degree'] > max_degree:
+        warnings.warn(('Expression degree (%r) > maximum degree (%d). '
+                       'Truncating.')
+                      % (solution['degree'], max_degree)
                       )
-    sol1 = Expression(smp.printing.ccode(solution[1]),
-                      t=0.0,
-                      degree=solution_degree,
-                      cell=cell_type
-                      )
+        degree = 20
+    else:
+        degree = solution['degree']
+
+    sol = Expression((smp.printing.ccode(solution['value'][0]),
+                      smp.printing.ccode(solution['value'][1])),
+                     t=0.0,
+                     degree=degree,
+                     cell=cell_type
+                     )
 
     errors = numpy.empty(len(mesh_sizes))
     hmax = numpy.empty(len(mesh_sizes))
     for k, mesh_size in enumerate(mesh_sizes):
         mesh, dx, ds = mesh_generator(mesh_size)
-        hmax[k] = MPI.max(mesh.hmax())
+        hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
         V = FunctionSpace(mesh, 'CG', 1)
         # TODO don't hardcode Mu, Sigma, ...
-        phi_approx = mcyl.solve_maxwell(V, dx, ds,
+        phi_approx = mcyl.solve_maxwell(V, dx,
                                         Mu={0: 1.0},
                                         Sigma={0: 1.0},
                                         omega=1.0,
-                                        f_list=[{0: f}],
+                                        f_list=[{0: f['value']}],
                                         convections={},
                                         tol=1.0e-12,
                                         bcs=None,
@@ -104,9 +112,7 @@ def _compute_errors(problem, mesh_sizes):
         #interactive()
         #exit()
         #
-        e_r = errornorm(sol0, phi_approx[0][0])
-        e_i = errornorm(sol1, phi_approx[0][1])
-        errors[k] = numpy.sqrt(e_r ** 2 + e_i ** 2)
+        errors[k] = errornorm(sol, phi_approx[0])
 
     # Compute the numerical order of convergence.
     order = numpy.empty(len(errors) - 1)
@@ -170,10 +176,11 @@ def problem_coscos():
     r1 = 1.0
     beta = numpy.cos(alpha * r1) - r1 * alpha * numpy.sin(alpha * r1)
 
-    phi = (beta * (1.0 - smp.cos(alpha * x[0])),
-           beta * (1.0 - smp.cos(alpha * x[0]))
-           )
-    phi_degree = numpy.infty
+    phi = {'value': (beta * (1.0 - smp.cos(alpha * x[0])),
+                     beta * (1.0 - smp.cos(alpha * x[0]))
+                     ),
+           'degree': numpy.infty
+           }
 
     # Produce a matching right-hand side.
     mu = 1.0
@@ -186,19 +193,23 @@ def problem_coscos():
     #           - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[1]), x[1])
     #           + omega*sigma*phi[0]
     #           )
-    f_sympy = (-smp.diff(1 / (mu * x[0]) * smp.diff(x[0] * phi[0], x[0]), x[0])
+    f_sympy = (-smp.diff(1 / (mu * x[0])
+                         * smp.diff(x[0] * phi['value'][0], x[0]),
+                         x[0]
+                         )
                #- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[1]), x[1])
                #- omega*sigma*phi[1],
                ,
                #- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[0]), x[0])
                #- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[1]), x[1])
-               + 0.0 * phi[0]
+               + 0.0 * phi['value'][0]
                )
 
-    f = (Expression(smp.printing.ccode(f_sympy[0])),
-         Expression(smp.printing.ccode(f_sympy[1]))
-         )
-    f_degree = numpy.infty
+    f = {'value': (Expression(smp.printing.ccode(f_sympy[0])),
+                   Expression(smp.printing.ccode(f_sympy[1]))
+                   ),
+         'degree': numpy.infty
+         }
 
     # Show the solution and the right-hand side.
     n = 50
@@ -208,7 +219,7 @@ def problem_coscos():
     #plot(f[0], mesh=mesh, title='f.real')
     #plot(f[1], mesh=mesh, title='f.imag')
     #interactive()
-    return mesh_generator, phi, phi_degree, f, f_degree, triangle
+    return mesh_generator, phi, f, triangle
 
 
 if __name__ == '__main__':

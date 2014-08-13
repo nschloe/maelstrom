@@ -28,6 +28,7 @@ from dolfin import Expression, info, assemble, FunctionSpace, \
     interpolate, plot, interactive, errornorm, dx, Function, \
     VectorFunctionSpace, DirichletBC, project
 import sympy as smp
+import warnings
 
 from maelstrom.message import Message
 
@@ -36,6 +37,17 @@ try:
     from prettyplotlib import plt as pp
 except:
     from matplotlib import pyplot as pp
+
+
+def _truncate_degree(degree, max_degree=10):
+    if degree > max_degree:
+        warnings.warn(('Expression degree (%r) > maximum degree (%d). '
+                       'Truncating.')
+                      % (degree, max_degree)
+                      )
+        return max_degree
+    else:
+        return degree
 
 
 def show_timeorder_info(Dt, mesh_sizes, errors):
@@ -123,19 +135,20 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
     sol_u = Expression((smp.printing.ccode(solution['u']['value'][0]),
                         smp.printing.ccode(solution['u']['value'][1])
                         ),
-                       degree=solution['u']['degree'],
+                       degree=_truncate_degree(solution['u']['degree']),
                        t=0.0,
                        cell=cell_type
                        )
     sol_p = Expression(smp.printing.ccode(solution['p']['value']),
-                       degreeyy=solution['p']['degree'],
+                       degree=_truncate_degree(solution['p']['degree']),
                        t=0.0,
                        cell=cell_type
                        )
+
     fenics_rhs0 = Expression((smp.printing.ccode(f['value'][0]),
                               smp.printing.ccode(f['value'][1])
                               ),
-                             degree=f['degree'],
+                             degree=_truncate_degree(f['degree']),
                              t=0.0,
                              mu=mu, rho=rho,
                              cell=cell_type
@@ -143,7 +156,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
     # Deep-copy expression to be able to provide f0, f1 for the Dirichlet-
     # boundary conditions later on.
     fenics_rhs1 = Expression(fenics_rhs0.cppcode,
-                             degree=f['degree'],
+                             degree=_truncate_degree(f['degree']),
                              t=0.0,
                              mu=mu, rho=rho,
                              cell=cell_type
@@ -151,7 +164,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
     # Create initial states.
     p0 = Expression(
         sol_p.cppcode,
-        degree=solution['p']['degree'],
+        degree=_truncate_degree(solution['p']['degree']),
         t=0.0,
         cell=cell_type
         )
@@ -183,13 +196,13 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                 # Prepare previous states for multistepping.
                 u = [Expression(
                     sol_u.cppcode,
-                    degree=solution['u']['degree'],
+                    degree=_truncate_degree(solution['u']['degree']),
                     t=0.0,
                     cell=cell_type
                     ),
                     # Expression(
                     #sol_u.cppcode,
-                    #degree=solution['u']['degree'],
+                    #degree=_truncate_degree(solution['u']['degree']),
                     #t=0.5*dt,
                     #cell=cell_type
                     #)
@@ -225,8 +238,8 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                 #            = 1/|Omega| \int Re(e),
                 #
                 # i.e., the mean error in \Omega.
-                alpha = assemble(sol_p * dx, mesh=mesh) \
-                    - assemble(p1 * dx, mesh=mesh)
+                alpha = assemble(sol_p * dx(mesh)) \
+                    - assemble(p1 * dx(mesh))
                 alpha /= mesh_area
                 # We would like to perform
                 #     p1 += alpha.
