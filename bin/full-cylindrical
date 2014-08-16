@@ -391,7 +391,10 @@ def _construct_initial_state(
             # Try a regular solve
             solver.solve(stokes_heat_problem, uptheta0.vector())
 
-        u0, p0, theta0 = split(uptheta0)
+        #u0, p0, theta0 = split(uptheta0)
+        # Create a *deep* copy of u0, p0, theta0 to be able to deal with them
+        # as actually separate entities vectors.
+        u0, p0, theta0 = uptheta0.split(deepcopy=True)
 
     elif mode == 'block':
         # Solve the coupled heat-Stokes equation approximately. Do this
@@ -473,11 +476,9 @@ def _construct_initial_state(
     plot(theta0, title='theta')
     interactive()
 
-    exit()
-
     # Create a *deep* copy of u0, p0, to be able to deal with them as actually
     # separate entities.
-    u0, p0 = up0.split(deepcopy=True)
+    #u0, p0 = up0.split(deepcopy=True)
     return u0, p0, theta0
 
 
@@ -1009,7 +1010,6 @@ def _main():
             g,
             extra_force=None
             )
-
 
     # Rename the states for plotting and such.
     u0.rename('velocity', 'velocity')
