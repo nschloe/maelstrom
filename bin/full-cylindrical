@@ -37,7 +37,8 @@ from dolfin import parameters, Measure, Function, \
     Expression, triangle, DOLFIN_EPS, as_vector, info, norm, assemble, \
     TestFunction, TrialFunction, KrylovSolver, MPI, \
     NewtonSolver, MixedFunctionSpace, split, NonlinearProblem, derivative, \
-    inner, TestFunctions, dx, mpi_comm_world, assign, errornorm
+    inner, TestFunctions, dx, mpi_comm_world, assign, errornorm, \
+    interpolate
 
 import numpy as np
 from numpy import pi
@@ -62,37 +63,86 @@ parameters['std_out_all_processes'] = False
 #parameters['linear_algebra_backend'] = 'Epetra'
 
 
-def stokes(mu, u, p, v, q, f):
-    # Right-hand side for momentum equation.
-    #f = rho(theta) * g
-    #f = rho(theta_average) * g
-    #if lorentz_wpi is not None:
-    #    f += as_vector((lorentz_wpi[0], lorentz_wpi[1], 0.0))
+class FixedPointSolver(object):
+    '''
+    Fixed-point iteration for
+        F(x) + x = x
+    '''
+    def __init__(self):
+        self.parameters = {'maximum_iterations': 0,
+                           'absolute_tolerance': 0.0,
+                           'relative_tolerance': 0.0,
+                           'report': True
+                           }
+        return
 
-    # Momentum equation (without the nonlinear term).
-    r = Expression('x[0]', degree=1, cell=triangle)
-    F0 = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
-        + mu * u[0] / r * v[0] * 2 * pi * dx \
-        - dot(f, v) * 2 * pi * r * dx
-    if len(u) == 3:
-        # Discard nonlinear component.
-        F0 += mu * u[2] / r * v[2] * 2 * pi * dx
-    F0 += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2 * pi * r * dx
+    def _report(self, k, nrm, nrm0):
+        if self.parameters['report']:
+            print(('Fixed-point iteration %d:' % k) +
+                  (' r (abs) = %e (tol = %e)'
+                   % (nrm, self.parameters['absolute_tolerance'])) +
+                  (' r (rel) = %e (tol = %e)'
+                   % (nrm/nrm0, self.parameters['relative_tolerance']))
+                  )
+        return
 
-    # Incompressibility condition.
-    # div_u = 1/r * div(r*u)
-    F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q \
-        * 2 * pi * r * dx
-    return F0
+    def solve(self, problem, vector):
+        res = vector.copy()
+        problem.F(res, vector)
+        nrm = norm(res)
+        nrm0 = nrm
+        k = 0
+        self._report(k, nrm, nrm0)
+        while nrm > self.parameters['absolute_tolerance'] \
+            or nrm / nrm0 > self.parameters['relative_tolerance']:
+            problem.F(res, vector)
+            vector[:] += res
+            nrm = norm(res)
+            k += 1
+            self._report(k, nrm, nrm0)
+        return
+
+
+class Stokes(object):
+
+    def __init__(self, u, p, v, q, f):
+        super(Stokes, self).__init__()
+        self.u = u
+        self.p = p
+        self.v = v
+        self.q = q
+        self.f = f
+        return
+
+    def F0(self, mu):
+        u = self.u
+        p = self.p
+        v = self.v
+        q = self.q
+        f = self.f
+        mu = Constant(mu)
+        # Momentum equation (without the nonlinear term).
+        r = Expression('x[0]', degree=1, cell=triangle)
+        F0 = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
+            + mu * u[0] / r * v[0] * 2 * pi * dx \
+            - dot(f, v) * 2 * pi * r * dx
+        if len(u) == 3:
+            # Discard nonlinear component.
+            F0 += mu * u[2] / r * v[2] * 2 * pi * dx
+        F0 += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2 * pi * r * dx
+
+        # Incompressibility condition.
+        # div_u = 1/r * div(r*u)
+        F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q \
+            * 2 * pi * r * dx
+        return F0
 
 
 def dbcs_to_productspace(W, bcs_list):
     new_bcs = []
     for k, bcs in enumerate(bcs_list):
-        print k
         for bc in bcs:
             C = bc.function_space().component()
-            print('  ', C)
             if len(C) == 0:
                 new_bcs.append(DirichletBC(W.sub(k),
                                            bc.value(),
@@ -111,7 +161,7 @@ class StokesHeat(NonlinearProblem):
     def __init__(self, WPQ,
                  kappa, rho, mu, cp,
                  theta_average,
-                 g, lorentz_wpi,
+                 g, extra_force,
                  heat_source,
                  u_bcs, p_bcs,
                  theta_dirichlet_bcs={},
@@ -122,30 +172,40 @@ class StokesHeat(NonlinearProblem):
                  ):
         super(StokesHeat, self).__init__()
         # Translate the boundary conditions into the product space.
-        self.bcs = dbcs_to_productspace([u_bcs, p_bcs, theta_dirichlet_bcs])
+        self.bcs = dbcs_to_productspace(
+            WPQ,
+            [u_bcs, p_bcs, theta_dirichlet_bcs]
+            )
 
         self.uptheta = Function(WPQ)
         u, p, theta = split(self.uptheta)
         v, q, zeta = TestFunctions(WPQ)
 
+        # Right-hand side for momentum equation.
         f = rho(theta) * g
-        #f = (7.33e3 - 1.07 * theta) * g
-        self.F0 = stokes(mu, u, p, v, q, f)
+        if extra_force is not None:
+            f += as_vector((extra_force[0], extra_force[1], 0.0))
 
-        heat = cyl_heat.HeatCylindrical(WPQ.sub(2), theta, zeta,
-                                        # TODO reinstate u
-                                        #u,
-                                        None,
-                                        kappa, rho(theta_average), cp,
-                                        source=heat_source,
-                                        dirichlet_bcs=theta_dirichlet_bcs,
-                                        neumann_bcs=theta_neumann_bcs,
-                                        robin_bcs=theta_robin_bcs,
-                                        dx=dx,
-                                        ds=ds
-                                        )
-        self.F0 += heat.F0
+        self.stokes = Stokes(u, p, v, q, f)
 
+        self.heat = cyl_heat.HeatCylindrical(
+            WPQ.sub(2), theta, zeta,
+            u,
+            kappa, rho(theta_average), cp,
+            source=heat_source,
+            dirichlet_bcs=theta_dirichlet_bcs,
+            neumann_bcs=theta_neumann_bcs,
+            robin_bcs=theta_robin_bcs,
+            dx=dx,
+            ds=ds
+            )
+
+        self.F0 = self.stokes.F0(mu) + self.heat.F0
+        self.jacobian = derivative(self.F0, self.uptheta)
+        return
+
+    def set_parameter(self, mu):
+        self.F0 = self.stokes.F0(mu) + self.heat.F0
         self.jacobian = derivative(self.F0, self.uptheta)
         return
 
@@ -226,61 +286,144 @@ def _construct_initial_state(
         ):
     '''Construct an initial state for the Navier-Stokes simulation.
     '''
-    WP = MixedFunctionSpace([W, P])
-    # Initialize functions.
-    up0 = Function(WP)
-    theta0 = Function(Q, name='temperature')
-    theta0.interpolate(Constant(1511.0))
-    u0, p0 = up0.split()
 
-    rho_wpi_const = rho_wpi
+    #theta_average = _average(theta0)
+    u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
+    p0 = interpolate(Constant(0.0), P)
+    theta0 = interpolate(Constant(1530.0), Q)
+    theta0.name = 'temperature'
+    theta_average = 1530.0
 
-    # Here, the density *has* to depend on temperature.
-    f = rho_wpi(theta0) * g
-    if extra_force:
-        f += as_vector((extra_force[0], extra_force[1], 0.0))
+    if isinstance(rho_wpi, float):
+        rho_wpi_const = rho_wpi
+    else:
+        rho_wpi_const = rho_wpi(theta_average)
+    if isinstance(k_wpi, float):
+        k_wpi_const = k_wpi
+    else:
+        k_wpi_const = k_wpi(theta_average)
+    if isinstance(cp_wpi, float):
+        cp_wpi_const = cp_wpi
+    else:
+        cp_wpi_const = cp_wpi(theta_average)
 
-    theta1 = Function(Q)
-    # Try to find a good initial state for the coupled heat-Navier--Stokes
-    # simulation. To this end, solve the coupled heat-Stokes equation
-    # approximately. Do this iteratively by solving the heat equation, then
-    # solving Stokes with the updated heat, the heat equation with the updated
-    # velocity and so forth until the change is "small".
-    mode = 'stokes'
-    while True:
-        theta_average = _average(theta0)
+    mode = 'solve_stokes_heat'
+    #mode = 'block'
 
-        if isinstance(rho_wpi, float):
-            rho_wpi_const = rho_wpi
+    if mode == 'solve_stokes_heat':
+        WPQ = MixedFunctionSpace([W, P, Q])
+        uptheta0 = Function(WPQ)
+
+        # Initial guess
+        assign(uptheta0.sub(0), u0)
+        assign(uptheta0.sub(1), p0)
+        assign(uptheta0.sub(2), theta0)
+
+        stokes_heat_problem = StokesHeat(WPQ,
+                                         k_wpi_const,
+                                         rho_wpi,
+                                         mu_wpi(theta_average),
+                                         cp_wpi_const,
+                                         theta_average,
+                                         g, extra_force,
+                                         joule_wpi,
+                                         u_bcs, p_bcs,
+                                         theta_dirichlet_bcs=theta_bcs_d,
+                                         theta_neumann_bcs=theta_bcs_n,
+                                         dx=dx_submesh,
+                                         ds=ds_submesh
+                                         )
+        #solver = FixedPointSolver()
+        from dolfin import PETScSNESSolver
+        solver = PETScSNESSolver()
+        ## http://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/SNESType.html
+
+        #solver.parameters['method'] = 'test'
+
+        # Those fail when solving the linear equation
+        solver.parameters['method'] = 'newtonls'
+        #solver.parameters['method'] = 'python'
+        #solver.parameters['method'] = 'ksponly'
+        #solver.parameters['method'] = 'shell'
+        #solver.parameters['method'] = 'ngs'
+        #solver.parameters['method'] = 'ncg'
+        #solver.parameters['method'] = 'fas'
+        #solver.parameters['method'] = 'ms'
+        #solver.parameters['method'] = 'nasm'
+        #solver.parameters['method'] = 'anderson'
+        #solver.parameters['method'] = 'aspin'
+        #solver.parameters['method'] = 'composite'
+        #solver.parameters['method'] = 'newtontr'
+        #solver.parameters['method'] = 'nrichardson'
+        #solver.parameters['method'] = 'ngmres'
+        #solver.parameters['method'] = 'qn'
+
+        # The Jacobian system for Stokes (+heat) are hard to solve. Use LU
+        # for now.
+        solver.parameters['linear_solver'] = 'lu'
+
+        solver.parameters['maximum_iterations'] = 5
+        solver.parameters['absolute_tolerance'] = 1.0e-10
+        solver.parameters['relative_tolerance'] = 0.0
+        solver.parameters['report'] = True
+
+        do_continuation = True
+        if do_continuation:
+            # Do parameter continuation in mu. Start with something large
+            # (viscous) to make sure we converge. Then decrease the
+            # viscosity step by step.
+            from maelstrom import continuation
+            # Initial solution
+            mu0 = 10.0
+            stokes_heat_problem.set_parameter(mu0)
+            solver.parameters['maximum_iterations'] = 40
+            solver.solve(stokes_heat_problem, uptheta0.vector())
+            # Poor man's continuation
+            solver.parameters['maximum_iterations'] = 5
+            continuation.poor_man(
+                stokes_heat_problem,
+                uptheta0,
+                parameter_value=mu0,
+                target_value=mu_wpi(theta_average),
+                solver=solver
+                )
         else:
-            rho_wpi_const = rho_wpi(theta_average)
-        if isinstance(k_wpi, float):
-            k_wpi_const = k_wpi
-        else:
-            k_wpi_const = k_wpi(theta_average)
-        if isinstance(cp_wpi, float):
-            cp_wpi_const = cp_wpi
-        else:
-            cp_wpi_const = cp_wpi(theta_average)
+            # Try a regular solve
+            solver.solve(stokes_heat_problem, uptheta0.vector())
 
-        heat_problem = cyl_heat.HeatCylindrical(
-            Q, TrialFunction(Q), TestFunction(Q),
-            b=u0,
-            kappa=k_wpi_const,
-            rho=rho_wpi_const,
-            cp=cp_wpi_const,
-            source=joule_wpi,
-            dirichlet_bcs=theta_bcs_d,
-            neumann_bcs=theta_bcs_n,
-            dx=dx_submesh,
-            ds=ds_submesh
-            )
-        _solve_stationary(heat_problem, theta1, verbose=False)
-        theta_diff = errornorm(theta0, theta1)
-        theta0.assign(theta1)
+        u0, p0, theta0 = split(uptheta0)
 
-        # Solve problem for velocity, pressure.
-        if mode == 'stokes':
+    elif mode == 'block':
+        # Solve the coupled heat-Stokes equation approximately. Do this
+        # iteratively by solving the heat equation, then solving Stokes with
+        # the updated heat, the heat equation with the updated velocity and so
+        # forth until the change is 'small'.
+        WP = MixedFunctionSpace([W, P])
+        # Initialize functions.
+        up0 = Function(WP)
+        u0, p0 = up0.split()
+
+        theta1 = Function(Q)
+        while True:
+            heat_problem = cyl_heat.HeatCylindrical(
+                Q, TrialFunction(Q), TestFunction(Q),
+                b=u0,
+                kappa=k_wpi_const,
+                rho=rho_wpi_const,
+                cp=cp_wpi_const,
+                source=joule_wpi,
+                dirichlet_bcs=theta_bcs_d,
+                neumann_bcs=theta_bcs_n,
+                dx=dx_submesh,
+                ds=ds_submesh
+                )
+            _solve_stationary(heat_problem, theta1, verbose=False)
+
+            f = rho_wpi(theta0) * g
+            if extra_force:
+                f += as_vector((extra_force[0], extra_force[1], 0.0))
+
+            # Solve problem for velocity, pressure.
             #up1 = up0.copy()
             cyl_stokes.stokes_solve(
                 up0,
@@ -293,108 +436,44 @@ def _construct_initial_state(
                 maxiter=1000
                 )
             #u1, p1 = up1.split()
-        elif mode == 'navier-stokes':
-            ns_problem = \
-                cyl_ns.NavierStokesCylindrical(WP,
-                                               rho_wpi(theta_average),
-                                               mu_wpi(theta_average),
-                                               f,
-                                               u_bcs, p_bcs,
-                                               stabilization=None
-                                               )
-            # Nonlinear Navier-Stokes solver.
-            solver = NewtonSolver()
-            solver.parameters['maximum_iterations'] = 100
-            solver.parameters['absolute_tolerance'] = 1.0e-10
-            solver.parameters['relative_tolerance'] = 0.0
-            solver.parameters['report'] = True
-            # Use the default (LU) linear solver for now.
-            up = Function(WP)
-            # TODO initial guess
-            solver.solve(ns_problem, up.vector())
-            u, p = split(up)
-        else:
-            raise ValueError('Illegal mode.')
 
-        plot(u0)
-        plot(theta0)
-        #interactive()
-        #u_diff = errornorm(u1, u0)
-        #p_diff = errornorm(p1, p0)
+            plot(u0)
+            #plot(p0)
+            plot(theta0)
+            #interactive()
+            #u_diff = errornorm(u1, u0)
+            #p_diff = errornorm(p1, p0)
 
-        #u0.assign(u1)
-        #p0.assign(p1)
+            #u0.assign(u1)
+            #p0.assign(p1)
 
-        info('||theta - theta0|| = %e' % theta_diff)
-        #info('||u - u0||         = %e' % u_diff)
-        #info('||p - p0||         = %e' % p_diff)
-        #diff = theta_diff + u_diff + p_diff
-        diff = theta_diff
-        info('sum = %e' % diff)
+            theta_diff = errornorm(theta0, theta1)
+            info('||theta - theta0|| = %e' % theta_diff)
+            #info('||u - u0||         = %e' % u_diff)
+            #info('||p - p0||         = %e' % p_diff)
+            #diff = theta_diff + u_diff + p_diff
+            diff = theta_diff
+            info('sum = %e' % diff)
 
-        ## Show the iterates.
-        #plot(theta0, title='theta0')
-        #plot(u0, title='u0')
-        #interactive()
-        ##exit()
-        if diff < 1.0e-2:
-            break
+            ## Show the iterates.
+            #plot(theta0, title='theta0')
+            #plot(u0, title='u0')
+            #interactive()
+            ##exit()
+            if diff < 1.0e-10:
+                break
 
-    plot(u0)
-    plot(p0)
-    plot(theta0)
+            theta0.assign(theta1)
+
+    else:
+        raise ValueError('Unknown mode \'%s\'.' % mode)
+
+    plot(u0, title='u')
+    plot(p0, title='p')
+    plot(theta0, title='theta')
     interactive()
 
-    # We would like to improve the guess given to us by the above strategy and
-    # get really close to a steady-state solution of the Stokes-Heat problem.
-    # Unfortunately, it isn't yet possible to assign the three subfunctions
-    # u0, p0, theta0 to one function uptheta0, cf.
-    # <https://bitbucket.org/fenics-project/dolfin/issue/193/improve-the-procedure-of-identifying>.
-    # TODO use this when the bug is fixed
-    bug193_is_fixed = False
-    if bug193_is_fixed:
-        WPQ = MixedFunctionSpace([W, P, Q])
-        uptheta0 = Function(WPQ)
-
-        assign(uptheta0.sub(0), u0)
-        assign(uptheta0.sub(1), p0)
-        assign(uptheta0.sub(2), theta0)
-
-        theta_average = _average(theta0)
-
-        # Solve mixed Stokes-heat problem.
-        lorentz_wpi = None
-        stokes_heat_problem = StokesHeat(WPQ,
-                                         k_wpi_const,
-                                         rho_wpi,
-                                         mu_wpi(theta_average),
-                                         cp_wpi_const,
-                                         theta_average,
-                                         g, lorentz_wpi,
-                                         joule_wpi,
-                                         u_bcs, p_bcs,
-                                         theta_dirichlet_bcs=theta_bcs_d,
-                                         theta_neumann_bcs=theta_bcs_n,
-                                         dx=dx_submesh,
-                                         ds=ds_submesh
-                                         )
-
-        solver = NewtonSolver()
-        #from dolfin import PETScSNESSolver
-        #solver = PETScSNESSolver()
-        #solver.parameters['method'] = 'nrichardson'
-        solver.parameters['maximum_iterations'] = 20
-        solver.parameters['absolute_tolerance'] = 1.0e-10
-        solver.parameters['relative_tolerance'] = 0.0
-        solver.parameters['report'] = True
-        solver.solve(stokes_heat_problem, uptheta0.vector())
-        u0, p0, theta0 = uptheta0.split(deepcopy=True)
-        plot(u0, title='u')
-        plot(p0, title='p')
-        plot(theta0, title='theta')
-        interactive()
-        exit()
-
+    exit()
 
     # Create a *deep* copy of u0, p0, to be able to deal with them as actually
     # separate entities.
