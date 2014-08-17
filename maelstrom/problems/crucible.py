@@ -19,6 +19,8 @@
 #  Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+DEBUG = False
+
 
 class CrucibleProblem():
 
@@ -162,19 +164,27 @@ class CrucibleProblem():
 
         left = Left()
         crucible = Crucible()
-        crystal_boundary = UpperLeft()
-        surface_boundary = UpperRight()
-        upper = Upper()
+        upper_left = UpperLeft()
+        upper_right = UpperRight()
 
         self.wp_boundaries = FacetFunction('size_t', submesh_workpiece)
         self.wp_boundaries.set_all(0)
-        crucible.mark(self.wp_boundaries, 1)
-        upper.mark(self.wp_boundaries, 2)
-        crystal_boundary.mark(self.wp_boundaries, 3)
+        left.mark(self.wp_boundaries, 1)
+        crucible.mark(self.wp_boundaries, 2)
+        upper_right.mark(self.wp_boundaries, 3)
+        upper_left.mark(self.wp_boundaries, 4)
 
-        submesh_boundary_indices = {'crucible': 1,
-                                    'upper': 2,
-                                    'upper left': 3}
+        if DEBUG:
+            from dolfin import plot, interactive
+            plot(self.wp_boundaries, title='Boundaries')
+            interactive()
+
+        submesh_boundary_indices = {
+            'left': 1,
+            'crucible': 2,
+            'upper right': 3,
+            'upper left': 4
+            }
 
         # Boundary conditions for the velocity.
         #
@@ -214,8 +224,8 @@ class CrucibleProblem():
                             ('0.0', '0.0', '2*pi*x[0] * 5.0/60.0'),
                             degree=1
                             ),
-                        crystal_boundary),
-            DirichletBC(self.W.sub(1), 0.0, upper),
+                        upper_left),
+            DirichletBC(self.W.sub(1), 0.0, upper_right),
             ]
         self.p_bcs = []
 
@@ -289,11 +299,12 @@ class CrucibleProblem():
 
         tecplot_dbc = TecplotDirichletBC()
         self.theta_bcs_d = [
-            DirichletBC(self.Q, tecplot_dbc, crystal_boundary)
+            DirichletBC(self.Q, tecplot_dbc, upper_left)
             ]
         theta_bcs_d_strict = [
-            DirichletBC(self.Q, tecplot_dbc, upper),
-            DirichletBC(self.Q, tecplot_dbc, crucible)
+            DirichletBC(self.Q, tecplot_dbc, upper_right),
+            DirichletBC(self.Q, tecplot_dbc, crucible),
+            DirichletBC(self.Q, tecplot_dbc, upper_left)
             ]
 
         # Neumann
@@ -312,9 +323,9 @@ class CrucibleProblem():
                     dist = numpy.linalg.norm((1-theta)*X0 + theta*X1 - x)
                     if dist < 1.0e-5 and 0.0 <= theta and theta <= 1.0:
                         value[0] = (1-theta) * dTdr_vals[edge[0]-1] \
-                                 + theta     * dTdr_vals[edge[1]-1]
+                            + theta * dTdr_vals[edge[1]-1]
                         value[1] = (1-theta) * dTdz_vals[edge[0]-1] \
-                                 + theta     * dTdz_vals[edge[1]-1]
+                            + theta * dTdz_vals[edge[1]-1]
                         break
                 return
 
@@ -324,7 +335,7 @@ class CrucibleProblem():
         tecplot_nbc = TecplotNeumannBC()
         n = FacetNormal(self.Q.mesh())
         self.theta_bcs_n = {
-            submesh_boundary_indices['upper']: dot(n, tecplot_nbc),
+            submesh_boundary_indices['upper right']: dot(n, tecplot_nbc),
             submesh_boundary_indices['crucible']: dot(n, tecplot_nbc)
             }
         self.theta_bcs_r = {}
@@ -334,10 +345,9 @@ class CrucibleProblem():
         # different results; the value *cannot* correspond to one solution.
         # From looking at the solutions, the pure Dirichlet setting appears
         # correct, so extract the Neumann values directly from that solution.
-        #theta = TrialFunction(self.Q)
         zeta = TestFunction(self.Q)
 
-        theta_reference = Function(self.Q, name='temperature')
+        theta_reference = Function(self.Q, name='temperature (Dirichlet)')
         theta_reference.vector()[:] = 0.0
 
         # Solve the *quasilinear* PDE (coefficients may depend on theta).
@@ -366,9 +376,7 @@ class CrucibleProblem():
             rho=rho,
             cp=cp,
             source=Constant(0.0),
-            dirichlet_bcs=theta_bcs_d_strict,
-            #dx=dx_workpiece(0),
-            #ds=ds_workpiece
+            dirichlet_bcs=theta_bcs_d_strict
             )
 
         from dolfin import solve
@@ -389,6 +397,46 @@ class CrucibleProblem():
         n = FacetNormal(self.Q.mesh())
         for k in self.theta_bcs_n:
             self.theta_bcs_n[k] = dot(n, grad(theta_reference))
+
+        if DEBUG:
+            # Solve the heat equation with the mixed Dirichlet-Neumann
+            # boundary conditions and compare it to the Dirichlet-only
+            # solution.
+            theta_new = Function(
+                self.Q,
+                name='temperature (Neumann + Dirichlet)'
+                )
+            from dolfin import Measure
+            ds_workpiece = Measure('ds')[self.wp_boundaries]
+            problem_new = cyl_heat.HeatCylindrical(
+                self.Q, theta_new,
+                zeta,
+                b=Constant((0.0, 0.0, 0.0)),
+                kappa=k,
+                rho=rho,
+                cp=cp,
+                source=Constant(0.0),
+                dirichlet_bcs=self.theta_bcs_d,
+                neumann_bcs=self.theta_bcs_n,
+                ds=ds_workpiece
+                )
+
+            from dolfin import solve
+            solve(problem_new.F0 == 0,
+                  theta_new,
+                  bcs=problem_new.dirichlet_bcs
+                  )
+            from dolfin import plot, interactive, errornorm
+            print('||theta_new - theta_ref|| = %e'
+                  % errornorm(theta_new, theta_reference)
+                  )
+            plot(theta_reference)
+            plot(theta_new)
+            plot(
+                theta_reference - theta_new,
+                title='theta_ref - theta_new'
+                )
+            interactive()
 
         #omega = 2 * pi * 10.0e3
         self.omega = 2 * pi * 300.0
