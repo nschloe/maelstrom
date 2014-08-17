@@ -319,49 +319,29 @@ def _construct_initial_state(
         assign(uptheta0.sub(1), p0)
         assign(uptheta0.sub(2), theta0)
 
-        stokes_heat_problem = StokesHeat(WPQ,
-                                         k_wpi_const,
-                                         rho_wpi,
-                                         mu_wpi(theta_average),
-                                         cp_wpi_const,
-                                         theta_average,
-                                         g, extra_force,
-                                         joule_wpi,
-                                         u_bcs, p_bcs,
-                                         theta_dirichlet_bcs=theta_bcs_d,
-                                         theta_neumann_bcs=theta_bcs_n,
-                                         dx=dx_submesh,
-                                         ds=ds_submesh
-                                         )
+        stokes_heat_problem = StokesHeat(
+            WPQ,
+            k_wpi_const,
+            rho_wpi,
+            mu_wpi(theta_average),
+            cp_wpi_const,
+            theta_average,
+            g, extra_force,
+            joule_wpi,
+            u_bcs, p_bcs,
+            theta_dirichlet_bcs=theta_bcs_d,
+            theta_neumann_bcs=theta_bcs_n,
+            dx=dx_submesh,
+            ds=ds_submesh
+            )
         #solver = FixedPointSolver()
         from dolfin import PETScSNESSolver
         solver = PETScSNESSolver()
-        ## http://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/SNESType.html
-
-        #solver.parameters['method'] = 'test'
-
-        # Those fail when solving the linear equation
+        # http://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/SNESType.html
         solver.parameters['method'] = 'newtonls'
-        #solver.parameters['method'] = 'python'
-        #solver.parameters['method'] = 'ksponly'
-        #solver.parameters['method'] = 'shell'
-        #solver.parameters['method'] = 'ngs'
-        #solver.parameters['method'] = 'ncg'
-        #solver.parameters['method'] = 'fas'
-        #solver.parameters['method'] = 'ms'
-        #solver.parameters['method'] = 'nasm'
-        #solver.parameters['method'] = 'anderson'
-        #solver.parameters['method'] = 'aspin'
-        #solver.parameters['method'] = 'composite'
-        #solver.parameters['method'] = 'newtontr'
-        #solver.parameters['method'] = 'nrichardson'
-        #solver.parameters['method'] = 'ngmres'
-        #solver.parameters['method'] = 'qn'
-
         # The Jacobian system for Stokes (+heat) are hard to solve. Use LU
         # for now.
         solver.parameters['linear_solver'] = 'lu'
-
         solver.parameters['maximum_iterations'] = 5
         solver.parameters['absolute_tolerance'] = 1.0e-10
         solver.parameters['relative_tolerance'] = 0.0
@@ -373,7 +353,7 @@ def _construct_initial_state(
             # (viscous) to make sure we converge. Then decrease the
             # viscosity step by step.
             from maelstrom import continuation
-            # Initial solution
+            # Find initial solution
             mu0 = 10.0
             stokes_heat_problem.set_parameter(mu0)
             solver.parameters['maximum_iterations'] = 40

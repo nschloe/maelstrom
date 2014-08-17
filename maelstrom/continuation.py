@@ -46,6 +46,8 @@ def poor_man(problem, state, parameter_value, target_value, solver):
                 tmp = state.vector().copy()
                 solver.solve(problem, tmp)
                 state.vector()[:] = tmp.copy()
+                # Increase the step if it was successful
+                delta *= 1.1
             except RuntimeError:
                 # Try again with half the delta.
                 parameter_value -= delta
