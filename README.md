@@ -1,6 +1,7 @@
 # Maelstrom
 
 [![Code Health](https://landscape.io/github/nschloe/maelstrom/master/landscape.png)](https://landscape.io/github/nschloe/maelstrom/master)
+[![Documentation Status](https://readthedocs.org/projects/maelstrom/badge/?version=latest)](https://readthedocs.org/projects/maelstrom/?badge=latest)
 
 
 Maelstrom is a numerical software tool for the solution of magnetohydrodynamics
