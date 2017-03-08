@@ -10,6 +10,85 @@ import numpy
 import pygmsh
 
 
+def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
+    # Coils.
+    # For layer-adapted meshes for reaction-diffusion problems, check out
+    #
+    # [1] Layer-adapted meshes for reaction-convection-diffusion problems;
+    #     T. Linß;
+    #     <https://www.springer.com/mathematics/computational+science+%26+engineering/book/978-3-642-05133-3>.
+    #
+    # The PDE for the potential \phi is of reaction-diffusion type
+    #
+    #     -eps^2 \Delta u + u = f
+    #
+    # with singularity parameter
+    #
+    #     eps^2 = 1 / (mu*sigma*omega)
+    #
+
+    # mu: magnetic permeability
+    mu_graphite = mu0 * 0.999984
+    # sigma: electrical conductivity
+    T = 1511.0
+    sigma_graphite = (
+        1.0e6 / (28.9 - 18.8 * numpy.exp(-(numpy.log(T/1023.0)/2.37)**2))
+        )
+
+    # It exhibits layers where \phi behaves like exp(-x/eps). This also
+    # corresponds with the skin effect
+    # (https://en.wikipedia.org/wiki/Skin_effect) layer width
+    #
+    #     \delta = \sqrt{2/(mu*sigma*omega)}.
+    #
+    w_b0 = numpy.sqrt(2.0/(mu_graphite*sigma_graphite*omega))
+    # Fit 2*k elements normal into the boundary layer.
+    k = 50
+    lcar_b = min(lcar_coil, w_b0/k)
+
+    print('lcar_coil: %f' % lcar_coil)
+    print('lcar boundary: %f' % lcar_b)
+    print('Coil boundary layer width: %f' % w_b0)
+
+    # Coils to the right.
+    step = 0.0132
+    coils_right = numpy.array([
+        [0.092, 0.107, 0.2792 + k*step, 0.2892 + k*step]
+        for k in range(15)
+        ])
+    # coils at the bottom
+    step = 0.008
+    coils_bottom = numpy.array([
+        [0.031 + k*step, 0.036 + k*step, 0.33, 0.354]
+        for k in range(7)
+        ])
+
+    coils = numpy.vstack([coils_right, coils_bottom])
+
+    line_loops = []
+    fields = []
+
+    for k, data in enumerate(coils):
+        xmin, xmax, ymin, ymax = data
+        surf, ll, lines = \
+            geom.add_rectangle(xmin, xmax, ymin, ymax, z, lcar_coil)
+        line_loops.append(ll)
+        geom.add_physical_surface(surf, 'coil %d' % k)
+        # Refinement around the boundaries.
+        b_id = geom.add_boundary_layer(
+           edges_list=lines,
+           anisomax=100.0,
+           hfar=lcar_far,
+           hwall_n=lcar_b,
+           hwall_t=lcar_b,
+           ratio=1.1,
+           thickness=w_b0
+           )
+        fields.append(b_id)
+
+    return line_loops, fields
+
+
 def generate():
     geom = pygmsh.Geometry()
 
@@ -27,6 +106,7 @@ def generate():
     # omega: current frequency (for boundary layer width)
     omega = 2 * numpy.pi * 300.0
     # omega = 2 * numpy.pi * 10.0e3;
+
     mu0 = numpy.pi * 4e-7
 
     # symmetry axis
@@ -226,85 +306,9 @@ def generate():
        )
     fields.append(b_id)
 
-    # Coils.
-    # For layer-adapted meshes for reaction-diffusion problems, check out
-    #
-    # [1] Layer-adapted meshes for reaction-convection-diffusion problems;
-    #     T. Linß;
-    #     <https://www.springer.com/mathematics/computational+science+%26+engineering/book/978-3-642-05133-3>.
-    #
-    # The PDE for the potential \phi is of reaction-diffusion type
-    #
-    #     -eps^2 \Delta u + u = f
-    #
-    # with singularity parameter
-    #
-    #     eps^2 = 1 / (mu*sigma*omega)
-    #
-
-    # mu: magnetic permeability
-    mu_graphite = mu0 * 0.999984
-    # sigma: electrical conductivity
-    T = 1511.0
-    sigma_graphite = (
-        1.0e6 / (28.9 - 18.8 * numpy.exp(-(numpy.log(T/1023.0)/2.37)**2))
-        )
-
-    # It exhibits layers where \phi behaves like exp(-x/eps). This also
-    # corresponds with the skin effect
-    # (https://en.wikipedia.org/wiki/Skin_effect) layer width
-    #
-    #     \delta = \sqrt{2/(mu*sigma*omega)}.
-    #
-    w_b0 = numpy.sqrt(2.0/(mu_graphite*sigma_graphite*omega))
-    # Fit 2*k elements normal into the boundary layer.
-    k = 50
-    lcar_b = min(lcar_coil, w_b0/k)
-
-    print('lcar_coil: %f' % lcar_coil)
-    print('lcar boundary: %f' % lcar_b)
-    print('Coil boundary layer width: %f' % w_b0)
-
-    # Coils to the right.
-    xmin = 0.092
-    xmax = xmin + 0.015
-    ymin = 0.2792
-    ymax = ymin + 0.010
-    step = 0.0132
-    coils_right = numpy.array([
-        [xmin, xmax, ymin + k*step, ymax + k*step]
-        for k in range(15)
-        ])
-    # coils at the bottom
-    xmin = 0.031
-    xmax = xmin + 0.005
-    ymin = 0.33
-    ymax = ymin + 0.024
-    step = 0.008
-    coils_bottom = numpy.array([
-        [xmin + k*step, xmax + k*step, ymin, ymax]
-        for k in range(7)
-        ])
-
-    coils = numpy.vstack([coils_right, coils_bottom])
-
-    for k, data in enumerate(coils):
-        xmin, xmax, ymin, ymax = data
-        surf, ll, lines = \
-            geom.add_rectangle(xmin, xmax, ymin, ymax, z, lcar_coil)
-        line_loops.append(ll)
-        geom.add_physical_surface(surf, 'coil %d' % k)
-        # Refinement around the boundaries.
-        b_id = geom.add_boundary_layer(
-           edges_list=lines,
-           anisomax=100.0,
-           hfar=lcar_far,
-           hwall_n=lcar_b,
-           hwall_t=lcar_b,
-           ratio=1.1,
-           thickness=w_b0
-           )
-        fields.append(b_id)
+    coil_ll, coil_fields = _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far)
+    line_loops.extend(coil_ll)
+    fields.extend(coil_fields)
 
     # Hold-all domain.
     r = 1.0
@@ -318,8 +322,7 @@ def generate():
     cc1 = geom.add_circle_sector([tp21, tp20, tp22])
     cc2 = geom.add_circle_sector([tp22, tp20, tp23])
 
-    # # Connecting lines.
-    # cc00 = geom.add_line(tp23, tp21)
+    # Connecting lines.
     cl20 = geom.add_line(tp1, tp21)
     cl24 = geom.add_line(tp23, tp11)
 
