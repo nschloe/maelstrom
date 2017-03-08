@@ -268,37 +268,32 @@ def generate():
     # Coils to the right.
     xmin = 0.092
     xmax = xmin + 0.015
-    ymin = 0.266
+    ymin = 0.2792
     ymax = ymin + 0.010
-    for k in range(15):
-        ymin += 0.0132
-        ymax += 0.0132
-        surf, ll, lines = \
-            geom.add_rectangle(xmin, xmax, ymin, ymax, z, lcar_coil)
-        line_loops.append(ll)
-        geom.add_physical_surface(surf, 'coil right %d' % k)
-        # Refinement around the boundaries.
-        b_id = geom.add_boundary_layer(
-           edges_list=lines,
-           anisomax=100.0,
-           hfar=lcar_far,
-           hwall_n=lcar_b,
-           hwall_t=lcar_b,
-           ratio=1.1,
-           thickness=w_b0
-           )
-        fields.append(b_id)
-
+    step = 0.0132
+    coils_right = numpy.array([
+        [xmin, xmax, ymin + k*step, ymax + k*step]
+        for k in range(15)
+        ])
     # coils at the bottom
     xmin = 0.031
     xmax = xmin + 0.005
     ymin = 0.33
     ymax = ymin + 0.024
-    for k in range(7):
+    step = 0.008
+    coils_bottom = numpy.array([
+        [xmin + k*step, xmax + k*step, ymin, ymax]
+        for k in range(7)
+        ])
+
+    coils = numpy.vstack([coils_right, coils_bottom])
+
+    for k, data in enumerate(coils):
+        xmin, xmax, ymin, ymax = data
         surf, ll, lines = \
             geom.add_rectangle(xmin, xmax, ymin, ymax, z, lcar_coil)
         line_loops.append(ll)
-        geom.add_physical_surface(surf, 'coil bottom %d' % k)
+        geom.add_physical_surface(surf, 'coil %d' % k)
         # Refinement around the boundaries.
         b_id = geom.add_boundary_layer(
            edges_list=lines,
@@ -310,8 +305,6 @@ def generate():
            thickness=w_b0
            )
         fields.append(b_id)
-        xmin += 0.008
-        xmax += 0.008
 
     # Hold-all domain.
     r = 1.0
@@ -366,5 +359,11 @@ def generate():
 
 if __name__ == '__main__':
     import meshio
-    points, cells = pygmsh.generate_mesh(generate())
-    meshio.write('out.vtu', points, cells)
+    points, cells, point_data, cell_data, _ = pygmsh.generate_mesh(generate())
+    meshio.write(
+            'out.vtu',
+            points,
+            cells,
+            point_data=point_data,
+            cell_data=cell_data
+            )
