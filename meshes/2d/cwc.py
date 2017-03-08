@@ -124,7 +124,8 @@ def generate():
             '-' + cl100,
             '-' + cl5
             ])
-    geom.add_plane_surface(ll1)
+    surf = geom.add_plane_surface(ll1)
+    geom.add_physical_surface(surf, 'crucible')
 
     # gas above the melt
     x2 = 0.038
@@ -206,23 +207,23 @@ def generate():
     cc2 = geom.add_circle_sector([tp22, tp20, tp23])
 
     # # Connecting lines.
-    cc00 = geom.add_line(tp23, tp21)
-    # cl20 = geom.add_line([tp1, tp21])
-    # cl24 = geom.add_line([tp23, tp11])
+    # cc00 = geom.add_line(tp23, tp21)
+    cl20 = geom.add_line(tp1, tp21)
+    cl24 = geom.add_line(tp23, tp11)
 
     ll = geom.add_line_loop([
-        cc00,
+        cl20,
         cc1,
         cc2,
-        # cl24,
-        # '-' + cl9b,
-        # '-' + cl9a,
-        # '-' + cl9,
-        # '-' + cl6,
-        # '-' + cl3,
-        # '-' + cl2,
-        # '-' + cl1,
-        # '-' + tc1,
+        cl24,
+        '-' + cl9b,
+        '-' + cl9a,
+        '-' + cl9,
+        '-' + cl6,
+        '-' + cl3,
+        '-' + cl2,
+        '-' + cl1,
+        '-' + tc1,
         ])
 
     # prepend the line loop
