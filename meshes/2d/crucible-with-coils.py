@@ -3,7 +3,7 @@
 Creates a crucible similar to what is described in
 
   Mathematical Modeling of Czochralski Type Growth Processes for
-  Semiconductor Bulk Single Crystals},
+  Semiconductor Bulk Single Crystals,
   http://dx.doi.org/10.1007/s00032-012-0184-9
 '''
 import python4gmsh as p4g
