@@ -70,13 +70,12 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
 
     for k, data in enumerate(coils):
         xmin, xmax, ymin, ymax = data
-        surf, ll, lines = \
-            geom.add_rectangle(xmin, xmax, ymin, ymax, z, lcar_coil)
-        line_loops.append(ll)
-        geom.add_physical_surface(surf, 'coil %d' % k)
+        rect = geom.add_rectangle(xmin, xmax, ymin, ymax, z, lcar_coil)
+        line_loops.append(rect.line_loop)
+        geom.add_physical_surface(rect.surface, 'coil %d' % k)
         # Refinement around the boundaries.
         b_id = geom.add_boundary_layer(
-           edges_list=lines,
+           edges_list=rect.line_loop.lines,
            anisomax=100.0,
            hfar=lcar_far,
            hwall_n=lcar_b,
@@ -207,13 +206,13 @@ def generate():
     # Define crucible surface.
     ll1 = geom.add_line_loop([
             tc1, cl1, cl2, cl3, cl31, cl4,
-            # '-' + tc2,
-            '-' + cl111, '-' + cl110, '-' + cl109, '-' + cl108,
-            '-' + cl107, '-' + cl106, '-' + cl105,
-            '-' + cl104, '-' + cl103,
-            '-' + cl102, '-' + cl101,
-            '-' + cl100,
-            '-' + cl5
+            # -tc2,
+            -cl111, -cl110, -cl109, -cl108,
+            -cl107, -cl106, -cl105,
+            -cl104, -cl103,
+            -cl102, -cl101,
+            -cl100,
+            -cl5
             ])
     surf = geom.add_plane_surface(ll1)
     geom.add_physical_surface(surf, 'crucible')
@@ -226,7 +225,7 @@ def generate():
     cl6 = geom.add_line(tp71, tp9)
     cl7 = geom.add_line(tp9, tp8)
     cl8 = geom.add_line(tp8, tp7)
-    ll2 = geom.add_line_loop([cl6, cl7, cl8, '-' + cl31])
+    ll2 = geom.add_line_loop([cl6, cl7, cl8, -cl31])
     #
     boron = geom.add_plane_surface(ll2)
     geom.add_physical_surface(boron, 'gas')
@@ -243,7 +242,7 @@ def generate():
     cl10 = geom.add_line(tp11, tp10)
     cl11 = geom.add_line(tp10, tp8)
     #
-    ll3 = geom.add_line_loop([cl9, cl9a, cl9b, cl10, cl11, '-' + cl7])
+    ll3 = geom.add_line_loop([cl9, cl9a, cl9b, cl10, cl11, -cl7])
     #
     surf = geom.add_plane_surface(ll3)
     geom.add_physical_surface(surf, 'crystal')
@@ -255,7 +254,7 @@ def generate():
         # tc2,
         cl100, cl101, cl102, cl103, cl104, cl105, cl106, cl107,
         cl108, cl109, cl110, cl111,
-        '-' + cl4, '-' + cl8, '-' + cl11
+        -cl4, -cl8, -cl11
         ])
     surf = geom.add_plane_surface(ll4)
     geom.add_physical_surface(surf, 'melt')
@@ -319,8 +318,8 @@ def generate():
     tp23 = geom.add_point([x0, y0+r, z], lcar_far)
 
     # Build circle from arcs.
-    cc1 = geom.add_circle_sector([tp21, tp20, tp22])
-    cc2 = geom.add_circle_sector([tp22, tp20, tp23])
+    cc1 = geom.add_circle_arc([tp21, tp20, tp22])
+    cc2 = geom.add_circle_arc([tp22, tp20, tp23])
 
     # Connecting lines.
     cl20 = geom.add_line(tp1, tp21)
@@ -331,20 +330,17 @@ def generate():
         cc1,
         cc2,
         cl24,
-        '-' + cl9b,
-        '-' + cl9a,
-        '-' + cl9,
-        '-' + cl6,
-        '-' + cl3,
-        '-' + cl2,
-        '-' + cl1,
-        '-' + tc1,
+        -cl9b,
+        -cl9a,
+        -cl9,
+        -cl6,
+        -cl3,
+        -cl2,
+        -cl1,
+        -tc1,
         ])
 
-    # prepend the line loop
-    line_loops.insert(0, ll)
-
-    pl = geom.add_plane_surface(line_loops)
+    pl = geom.add_plane_surface(ll, holes=line_loops)
     geom.add_physical_surface(pl, 'air')
 
     # Finally, let's use the minimum of all the fields as the background mesh
