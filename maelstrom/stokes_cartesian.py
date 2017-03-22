@@ -1,23 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of Maelstrom.
-#
-#  Maelstrom is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  Maelstrom is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
-#
 '''
 Numerical solution schemes for the Stokes equation in cylindrical coordinates.
 '''
@@ -28,7 +10,6 @@ from dolfin import MixedFunctionSpace, DirichletBC, \
     has_petsc, PETScOptions, PETScPreconditioner, SubSpace
 
 
-# -----------------------------------------------------------------------------
 def solve(W, P,
           mu,
           u_bcs, p_bcs,
@@ -78,9 +59,9 @@ def solve(W, P,
     # replace the term dot(grad(p), v) by -p*div(v).
     #
     a = mu * inner(grad(u), grad(v))*dx \
-      - p * div(v) * dx \
-      - q * div(u) * dx
-    #a = mu * inner(grad(u), grad(v))*dx + dot(grad(p), v) * dx \
+        - p * div(v) * dx \
+        - q * div(u) * dx
+    # a = mu * inner(grad(u), grad(v))*dx + dot(grad(p), v) * dx \
     #  - div(u) * q * dx
     L = dot(f, v)*dx
     A, b = assemble_system(a, L, new_bcs)
@@ -169,7 +150,7 @@ def solve(W, P,
         prec = mu * inner(grad(u), grad(v))*dx \
              - p*q*dx
         M, _ = assemble_system(prec, L, new_bcs)
-        #solver = KrylovSolver('tfqmr', 'amg')
+        # solver = KrylovSolver('tfqmr', 'amg')
         solver = KrylovSolver('gmres', 'amg')
         solver.set_operators(A, M)
 
@@ -187,4 +168,3 @@ def solve(W, P,
     u, p = up.split()
 
     return u, p
-# -----------------------------------------------------------------------------

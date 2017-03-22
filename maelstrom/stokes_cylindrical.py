@@ -1,23 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of Maelstrom.
-#
-#  Maelstrom is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  Maelstrom is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
-#
 '''
 Numerical solution schemes for the Stokes equation in cylindrical coordinates.
 '''
@@ -28,15 +10,15 @@ from dolfin import DirichletBC, TrialFunctions, \
 
 
 def stokes_solve(
-    up_out,
-    mu,
-    u_bcs, p_bcs,
-    f,
-    dx=dx,
-    verbose=True,
-    tol=1.0e-10,
-    maxiter=1000
-    ):
+        up_out,
+        mu,
+        u_bcs, p_bcs,
+        f,
+        dx=dx,
+        verbose=True,
+        tol=1.0e-10,
+        maxiter=1000
+        ):
     # Some initial sanity checks.
     assert mu > 0.0
 
@@ -73,8 +55,8 @@ def stokes_solve(
     a = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
         - ((r * v[0]).dx(0) + (r * v[1]).dx(1)) * p * 2 * pi * dx \
         + ((r * u[0]).dx(0) + (r * u[1]).dx(1)) * q * 2 * pi * dx
-      #- div(r*v)*p* 2*pi*dx \
-      #+ q*div(r*u)* 2*pi*dx
+    #   - div(r*v)*p* 2*pi*dx \
+    #   + q*div(r*u)* 2*pi*dx
     L = inner(f, v) * 2 * pi * r * dx
 
     A, b = assemble_system(a, L, new_bcs)
@@ -94,7 +76,7 @@ def stokes_solve(
             - p * q * 2 * pi * r * dx
         P, btmp = assemble_system(prec, L, new_bcs)
         solver = KrylovSolver('tfqmr', 'amg')
-        #solver = KrylovSolver('gmres', 'amg')
+        # solver = KrylovSolver('gmres', 'amg')
         solver.set_operators(A, P)
 
         solver.parameters['monitor_convergence'] = verbose

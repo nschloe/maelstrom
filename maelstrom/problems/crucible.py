@@ -1,24 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of Maelstrom.
-#
-#  Maelstrom is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU General Public License as published by the Free
-#  Software Foundation, either version 3 of the License, or (at your option)
-#  any later version.
-#
-#  Maelstrom is distributed in the hope that it will be useful, but WITHOUT ANY
-#  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#  FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
-#  details.
-#
-#  You should have received a copy of the GNU General Public License along with
-#  Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
-#
-
 DEBUG = False
 
 
@@ -214,7 +195,7 @@ class CrucibleProblem():
                             ('0.0', '0.0', '-2*pi*x[0] * 5.0/60.0'),
                             degree=1
                             ),
-                        #(0.0, 0.0, 0.0),
+                        # (0.0, 0.0, 0.0),
                         crucible),
             DirichletBC(self.W.sub(0), 0.0, left),
             DirichletBC(self.W.sub(2), 0.0, left),
@@ -273,7 +254,7 @@ class CrucibleProblem():
                             0.0 <= theta and theta <= 1.0:
                         # Linear interpolation of the temperature value.
                         value[0] = (1.0-theta) * T_vals[edge[0]-1] \
-                                 + theta       * T_vals[edge[1]-1]
+                                 + theta * T_vals[edge[1]-1]
                         edge_found = True
                         break
                 # This class is supposed to be used for Dirichlet boundary
@@ -284,17 +265,17 @@ class CrucibleProblem():
                 # The assigned values have no meaning though, so not assigning
                 # values[0] here is okay.
                 #
-                #from matplotlib import pyplot as pp
-                #pp.plot(x[0], x[1], 'xg')
+                # from matplotlib import pyplot as pp
+                # pp.plot(x[0], x[1], 'xg')
                 if not edge_found:
                     value[0] = 0.0
                     warnings.warn('Coordinate (%e, %e) doesn\'t sit on edge.'
                                   % (x[0], x[1]))
-                    #pp.plot(RZ[:, 0], RZ[:, 1], '.k')
-                    #pp.plot(x[0], x[1], 'xr')
-                    #pp.show()
-                    #raise RuntimeError('Input coordinate '
-                    #                   '%r is not on boundary.' % x)
+                    # pp.plot(RZ[:, 0], RZ[:, 1], '.k')
+                    # pp.plot(x[0], x[1], 'xr')
+                    # pp.show()
+                    # raise RuntimeError('Input coordinate '
+                    #                    '%r is not on boundary.' % x)
                 return
 
         tecplot_dbc = TecplotDirichletBC()
@@ -438,7 +419,7 @@ class CrucibleProblem():
                 )
             interactive()
 
-        #omega = 2 * pi * 10.0e3
+        # self.omega = 2 * pi * 10.0e3
         self.omega = 2 * pi * 300.0
 
         return

@@ -1,23 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of Maelstrom.
-#
-#  Maelstrom is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  Maelstrom is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
-#
 '''
 Collection of (test) problems.
 '''
@@ -68,17 +50,19 @@ def crucible_without_coils():
 
     class OtherBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary \
-                and not left_boundary.inside(x, on_boundary)  # \
-                #and not surface_boundary.inside(x, on_boundary)
+            return (
+                on_boundary
+                and not left_boundary.inside(x, on_boundary)
+                # and not surface_boundary.inside(x, on_boundary)
+                )
     other_boundary = OtherBoundary()
 
     # Boundary conditions for the velocity.
     u_bcs = [DirichletBC(V, (0.0, 0.0), other_boundary),
              DirichletBC(V.sub(0), 0.0, left_boundary),
-             #DirichletBC(V.sub(1), 0.0, surface_boundary),
+             # DirichletBC(V.sub(1), 0.0, surface_boundary),
              ]
-    #u_bcs = [DirichletBC(V, (0.0, 0.0), 'on_boundary')]
+    # u_bcs = [DirichletBC(V, (0.0, 0.0), 'on_boundary')]
     p_bcs = []
 
     class HeaterBoundary(SubDomain):
@@ -142,7 +126,7 @@ def ball_in_tube():
              DirichletBC(W, (0.0, 0.0), coil_boundary)
              ]
     p_bcs = []
-    #p_bcs = [DirichletBC(Q, 0.0, upper_boundary)]
+    # p_bcs = [DirichletBC(Q, 0.0, upper_boundary)]
     return mesh, W, P, u_bcs, p_bcs
 
 

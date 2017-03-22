@@ -20,5 +20,5 @@ They can be downloaded as a zip file or using the Git client.
 
 ### License
 
-Maelstrom is published under the GPL3 license. See the file COPYING for detailed
+Maelstrom is published under the MIT license. See the file LICENSE for detailed
 information.

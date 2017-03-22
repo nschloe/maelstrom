@@ -1,23 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of Maelstrom.
-#
-#  Maelstrom is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  Maelstrom is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
-#
 '''
 Read Tecplot data.
 '''
@@ -103,7 +85,7 @@ def _read_zone(f, variable_names):
     print('Reading zone data...')
     # Fill in the numerical data into an array.
     num_nodes = zone['Nodes']
-    #data = numpy.empty((num_nodes, num_colums))
+    # data = numpy.empty((num_nodes, num_colums))
     # We're in a ZONE and the pattern doesn't match KEY=value. This must mean
     # we're dealing with numerical values now.  Check out what DT says and
     # build the appropriate regex.

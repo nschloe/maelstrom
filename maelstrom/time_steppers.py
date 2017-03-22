@@ -1,23 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of Maelstrom.
-#
-#  Maelstrom is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  Maelstrom is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Maelstrom.  If not, see <http://www.gnu.org/licenses/>.
-#
 '''
 Routines for one time-stepping of the general equation
 
@@ -235,9 +217,9 @@ def heun_step(V,
               ):
 
     # Heun & variants.
-    #alpha = 0.5
+    # alpha = 0.5
     alpha = 2.0 / 3.0
-    #alpha = 1.0
+    # alpha = 1.0
     c = [0.0, alpha]
     A = [[0.0,   0.0],
          [alpha, 0.0]]
@@ -291,7 +273,7 @@ def rkf_step(V,
          [1932./2197, -7200./2197,  7296./2197,  0.0,         0.0,    0.0],
          [439./216,   -8.,          3680./513,  -845./4104,   0.0,    0.0],
          [-8./27,      2.,         -3544./2565,  1859./4104, -11./40, 0.0]]
-    #b = [25./216, 0.0, 1408./2565, 2197./4104, -1./5,  0.0] # 4th order
+    # b = [25./216, 0.0, 1408./2565, 2197./4104, -1./5,  0.0] # 4th order
     b = [16./135, 0.0, 6656./12825,  28561./56430, -9./50, 2./55]  # 5th order
 
     return runge_kutta_step(A, b, c,
@@ -373,8 +355,8 @@ def runge_kutta_step(A, b, c,
               bcs=BCS[1],
               solver_parameters=solver_params
               )
-        #plot(k[-1])
-        #interactive()
+        # plot(k[-1])
+        # interactive()
 
     # Put it all together.
     U = u0
