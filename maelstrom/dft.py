@@ -36,5 +36,5 @@ def uniform_dft(time_interval_length, data):
     X[1:-1] *= 2
     if n % 2 != 0:
         X[-1] *= 2
-    assert(len(freqs) == len(X))
+    assert len(freqs) == len(X)
     return freqs, X
