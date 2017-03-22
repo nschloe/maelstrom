@@ -64,22 +64,23 @@ import numpy
 
 from message import Message
 
-#parameters.linear_algebra_backend = 'uBLAS'
-#from scipy.sparse import csr_matrix
-#from betterspy import betterspy
+# parameters.linear_algebra_backend = 'uBLAS'
+# from scipy.sparse import csr_matrix
+# from betterspy import betterspy
 
 
 # Don't rename to solve() -- that method already exists in Dolfin. :/
-def solve_maxwell(V, dx,
-                  Mu, Sigma,  # dictionaries
-                  omega,
-                  f_list,  # list of dictionaries
-                  convections,  # dictionary
-                  bcs=None,
-                  tol=1.0e-12,
-                  compute_residuals=True,
-                  verbose=False
-                  ):
+def solve_maxwell(
+        V, dx,
+        Mu, Sigma,  # dictionaries
+        omega,
+        f_list,  # list of dictionaries
+        convections,  # dictionary
+        bcs=None,
+        tol=1.0e-12,
+        compute_residuals=True,
+        verbose=False
+        ):
     '''Solve the complex-valued time-harmonic Maxwell system in 2D cylindrical
     coordinates.
 
@@ -130,7 +131,9 @@ def solve_maxwell(V, dx,
         #
         def xzero(x, on_boundary):
             return on_boundary and abs(x[0]) < DOLFIN_EPS
-        bcs = DirichletBC(V * V, (0.0, 0.0), xzero)
+        ee = V.ufl_element() * V.ufl_element()
+        VV = FunctionSpace(V.mesh(), ee)
+        bcs = DirichletBC(VV, (0.0, 0.0), xzero)
         #
         # Concerning the boundary conditions for the rest of the system:
         # At the other boundaries, it is not uncommon (?) to set so-called
@@ -157,22 +160,22 @@ def solve_maxwell(V, dx,
         #     T.B.A. Senior,
         #     <http://link.springer.com/content/pdf/10.1007/BF02920074>.
         #
-        #class OuterBoundary(SubDomain):
-        #    def inside(self, x, on_boundary):
-        #        return on_boundary and abs(x[0]) > DOLFIN_EPS
-        #boundaries = FacetFunction('size_t', mesh)
-        #boundaries.set_all(0)
-        #outer_boundary = OuterBoundary()
-        #outer_boundary.mark(boundaries, 1)
-        #ds = Measure('ds')[boundaries]
-        ##n = FacetNormal(mesh)
-        ##a += - 1.0/Mu[i] * dot(grad(r*ur), n) * vr * ds(1) \
-        ##     - 1.0/Mu[i] * dot(grad(r*ui), n) * vi * ds(1)
-        ##L += - 1.0/Mu[i] * 1.0 * vr * ds(1) \
-        ##     - 1.0/Mu[i] * 1.0 * vi * ds(1)
-        ## This is -n.grad(r u) = u:
-        #a += 1.0/Mu[i] * ur * vr * ds(1) \
-        #   + 1.0/Mu[i] * ui * vi * ds(1)
+        # class OuterBoundary(SubDomain):
+        #     def inside(self, x, on_boundary):
+        #         return on_boundary and abs(x[0]) > DOLFIN_EPS
+        # boundaries = FacetFunction('size_t', mesh)
+        # boundaries.set_all(0)
+        # outer_boundary = OuterBoundary()
+        # outer_boundary.mark(boundaries, 1)
+        # ds = Measure('ds')[boundaries]
+        # #n = FacetNormal(mesh)
+        # #a += - 1.0/Mu[i] * dot(grad(r*ur), n) * vr * ds(1) \
+        # #     - 1.0/Mu[i] * dot(grad(r*ui), n) * vi * ds(1)
+        # #L += - 1.0/Mu[i] * 1.0 * vr * ds(1) \
+        # #     - 1.0/Mu[i] * 1.0 * vi * ds(1)
+        # # This is -n.grad(r u) = u:
+        # a += 1.0/Mu[i] * ur * vr * ds(1) \
+        #    + 1.0/Mu[i] * ui * vi * ds(1)
 
     # Create the system matrix, preconditioner, and the right-hand sides.
     # For preconditioners, there are two approaches. The first one, described
@@ -194,46 +197,50 @@ def solve_maxwell(V, dx,
                                        bcs
                                        )
 
-    #from matplotlib import pyplot as pp
-    #rows, cols, values = M.data()
-    #from scipy.sparse import csr_matrix
-    #M_matrix = csr_matrix((values, cols, rows))
-    ##from matplotlib import pyplot as pp
-    ###pp.spy(M_matrix, precision=1e-3, marker='.', markersize=5)
-    ##pp.spy(M_matrix)
-    ##pp.show()
-    ## colormap
-    #cmap = pp.cm.gray_r
-    #M_dense = M_matrix.todense()
-    #from matplotlib.colors import LogNorm
-    #im = pp.imshow(abs(M_dense), cmap=cmap, interpolation='nearest', norm=LogNorm())
-    ##im = pp.imshow(abs(M_dense), cmap=cmap, interpolation='nearest')
-    ##im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
-    ##im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
-    #pp.colorbar()
-    #pp.show()
-    #exit()
-    #print A
-    #rows, cols, values = A.data()
-    #from scipy.sparse import csr_matrix
-    #A_matrix = csr_matrix((values, cols, rows))
+    # from matplotlib import pyplot as pp
+    # rows, cols, values = M.data()
+    # from scipy.sparse import csr_matrix
+    # M_matrix = csr_matrix((values, cols, rows))
+    # #from matplotlib import pyplot as pp
+    # ##pp.spy(M_matrix, precision=1e-3, marker='.', markersize=5)
+    # #pp.spy(M_matrix)
+    # #pp.show()
+    # # colormap
+    # cmap = pp.cm.gray_r
+    # M_dense = M_matrix.todense()
+    # from matplotlib.colors import LogNorm
+    # im = pp.imshow(
+    #     abs(M_dense), cmap=cmap, interpolation='nearest', norm=LogNorm()
+    #     )
+    # #im = pp.imshow(abs(M_dense), cmap=cmap, interpolation='nearest')
+    # #im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
+    # #im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
+    # pp.colorbar()
+    # pp.show()
+    # exit()
+    # print A
+    # rows, cols, values = A.data()
+    # from scipy.sparse import csr_matrix
+    # A_matrix = csr_matrix((values, cols, rows))
 
-    ###pp.spy(A_matrix, precision=1e-3, marker='.', markersize=5)
-    ##pp.spy(A_matrix)
-    ##pp.show()
+    # ##pp.spy(A_matrix, precision=1e-3, marker='.', markersize=5)
+    # #pp.spy(A_matrix)
+    # #pp.show()
 
-    ## colormap
-    #cmap = pp.cm.gray_r
-    #A_dense = A_matrix.todense()
-    ##A_r = A_dense[0::2][0::2]
-    ##A_i = A_dense[1::2][0::2]
-    #cmap.set_bad('r')
-    ##im = pp.imshow(abs(A_dense), cmap=cmap, interpolation='nearest', norm=LogNorm())
-    #im = pp.imshow(abs(A_dense), cmap=cmap, interpolation='nearest')
-    ##im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
-    ##im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
-    #pp.colorbar()
-    #pp.show()
+    # # colormap
+    # cmap = pp.cm.gray_r
+    # A_dense = A_matrix.todense()
+    # #A_r = A_dense[0::2][0::2]
+    # #A_i = A_dense[1::2][0::2]
+    # cmap.set_bad('r')
+    # # im = pp.imshow(
+    # #     abs(A_dense), cmap=cmap, interpolation='nearest', norm=LogNorm()
+    # #     )
+    # im = pp.imshow(abs(A_dense), cmap=cmap, interpolation='nearest')
+    # #im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
+    # #im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
+    # pp.colorbar()
+    # pp.show()
 
     # prepare solver
     solver = KrylovSolver('gmres', 'amg')
@@ -256,29 +263,30 @@ def solve_maxwell(V, dx,
             # Define goal functional for adaptivity.
             # Adaptivity not working for subdomains, cf.
             # https://bugs.launchpad.net/dolfin/+bug/872105.
-            #(phi_r, phi_i) = split(phi)
-            #M = (phi_r*phi_r + phi_i*phi_i) * dx(2)
+            # (phi_r, phi_i) = split(phi)
+            # M = (phi_r*phi_r + phi_i*phi_i) * dx(2)
             phi_list.append(Function(W))
             phi_list[-1].rename('phi%d' % k, 'phi%d' % k)
             solver.solve(phi_list[-1].vector(), b)
 
-        ## Adaptive mesh refinement.
-        #_adaptive_mesh_refinement(dx,
-        #                          phi_list[-1],
-        #                          Mu, Sigma, omega,
-        #                          convections,
-        #                          f_list[k]
-        #                          )
-        #exit()
+        # # Adaptive mesh refinement.
+        # _adaptive_mesh_refinement(dx,
+        #                           phi_list[-1],
+        #                           Mu, Sigma, omega,
+        #                           convections,
+        #                           f_list[k]
+        #                           )
+        # exit()
 
         if compute_residuals:
             # Sanity check: Compute residuals.
             # This is quite the good test that we haven't messed up
             # real/imaginary in the above formulation.
-            r_r, r_i = _build_residuals(V, dx, phi_list[-1],
-                                        omega, Mu, Sigma,
-                                        convections, voltages
-                                        )
+            r_r, r_i = _build_residuals(
+                V, dx, phi_list[-1],
+                omega, Mu, Sigma,
+                convections, voltages
+                )
 
             def xzero(x, on_boundary):
                 return on_boundary and abs(x[0]) < DOLFIN_EPS
@@ -296,15 +304,17 @@ def solve_maxwell(V, dx,
 
             # TODO don't hard code the boundary conditions like this
             R_r = Function(V)
-            solve(a == r_r, R_r,
-                  bcs=DirichletBC(V, 0.0, xzero)
-                  )
+            solve(
+                a == r_r, R_r,
+                bcs=DirichletBC(V, 0.0, xzero)
+                )
 
             # TODO don't hard code the boundary conditions like this
             R_i = Function(V)
-            solve(a == r_i, R_i,
-                  bcs=DirichletBC(V, 0.0, xzero)
-                  )
+            solve(
+                a == r_i, R_i,
+                bcs=DirichletBC(V, 0.0, xzero)
+                )
 
             nrm_r = norm(R_r)
             info('||r_r|| = %e' % nrm_r)
@@ -316,53 +326,57 @@ def solve_maxwell(V, dx,
             plot(R_r, title='R_r')
             plot(R_i, title='R_i')
             interactive()
-            #exit()
+            # exit()
     return phi_list
 
 
 def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, voltages):
-    #class OuterBoundary(SubDomain):
-    #    def inside(self, x, on_boundary):
-    #        return on_boundary and abs(x[0]) > DOLFIN_EPS
-    #boundaries = FacetFunction('size_t', mesh)
-    #boundaries.set_all(0)
-    #outer_boundary = OuterBoundary()
-    #outer_boundary.mark(boundaries, 1)
-    #ds = Measure('ds')[boundaries]
+    # class OuterBoundary(SubDomain):
+    #     def inside(self, x, on_boundary):
+    #         return on_boundary and abs(x[0]) > DOLFIN_EPS
+    # boundaries = FacetFunction('size_t', mesh)
+    # boundaries.set_all(0)
+    # outer_boundary = OuterBoundary()
+    # outer_boundary.mark(boundaries, 1)
+    # ds = Measure('ds')[boundaries]
 
     r = Expression('x[0]', degree=1, domain=V.mesh())
 
     subdomain_indices = Mu.keys()
 
-    #u = TrialFunction(V)
+    # u = TrialFunction(V)
     v = TestFunction(V)
 
     r_r = zero() * dx(0)
     for i in subdomain_indices:
-        r_r += 1.0 / (Mu[i] * r) * dot(grad(r * phi[0]), grad(r * v)) * 2 * pi * dx(i) \
+        r_r += (
+            1.0 / (Mu[i] * r) * dot(grad(r * phi[0]), grad(r * v)) * 2*pi*dx(i)
             - omega * Sigma[i] * phi[1] * v * 2 * pi * r * dx(i)
+            )
     # convections
     for i, conv in convections.items():
         r_r += dot(conv, grad(r * phi[0])) * v * 2 * pi * dx(i)
     # rhs
     for i, voltage in voltages.items():
         r_r -= Sigma[i] * voltage.real * v * dx(i)
-    ## boundaries
-    #r_r += 1.0/Mu[i] * phi[0] * v * 2*pi*ds(1)
+    # # boundaries
+    # r_r += 1.0/Mu[i] * phi[0] * v * 2*pi*ds(1)
 
     # imaginary part
     r_i = zero() * dx(0)
     for i in subdomain_indices:
-        r_i += 1.0 / (Mu[i] * r) * dot(grad(r * phi[1]), grad(r * v)) * 2 * pi * dx(i) \
+        r_i += (
+            1.0 / (Mu[i] * r) * dot(grad(r * phi[1]), grad(r * v)) * 2*pi*dx(i)
             + omega * Sigma[i] * phi[0] * v * 2 * pi * r * dx(i)
+            )
     # convections
     for i, conv in convections.items():
         r_i += dot(conv, grad(r * phi[1])) * v * 2 * pi * dx(i)
     # rhs
     for i, voltage in voltages.items():
         r_r -= Sigma[i] * voltage.imag * v * dx(i)
-    ## boundaries
-    #r_i += 1.0/Mu[i] * phi[1] * v * 2*pi*ds(1)
+    # # boundaries
+    # r_i += 1.0/Mu[i] * phi[1] * v * 2*pi*ds(1)
 
     return r_r, r_i
 
@@ -387,7 +401,8 @@ def _build_system(V, dx,
 
     subdomain_indices = Mu.keys()
 
-    W = V * V
+    ee = V.ufl_element() * V.ufl_element()
+    W = FunctionSpace(V.mesh(), ee)
 
     # Bilinear form.
     (ur, ui) = TrialFunctions(W)
@@ -426,8 +441,10 @@ def _build_system(V, dx,
             * 2 * pi * dx(i) \
             + 1.0 / (Mu[i] * r) * dot(grad(r * ui), grad(r * vi)) \
             * 2 * pi * dx(i)
-        a2 += - om * sigma * ui * vr * 2*pi*r * dx(i) \
-              + om * sigma * ur * vi * 2*pi*r * dx(i)
+        a2 += (
+            - om * sigma * ui * vr * 2*pi*r * dx(i)
+            + om * sigma * ur * vi * 2*pi*r * dx(i)
+            )
         # Don't do anything at the interior boundary. Taking the Poisson
         # problem as an example, the weak formulation is
         #
@@ -443,15 +460,20 @@ def _build_system(V, dx,
     # Add the convective component for the workpiece,
     #   a += <u, 1/r grad(r phi)> *2*pi*r*dx
     for i, conv in convections.items():
-        a1 += dot(conv, grad(r * ur)) * vr * 2 * pi * dx(i) \
+        a1 += (
+            + dot(conv, grad(r * ur)) * vr * 2 * pi * dx(i)
             + dot(conv, grad(r * ui)) * vi * 2 * pi * dx(i)
+            )
 
     force_m_matrix = False
     if force_m_matrix:
         A1 = assemble(a1)
-        A2 = assemble(a2,
-                      form_compiler_parameters={'quadrature_rule': 'vertex',
-                                                'quadrature_degree': 1})
+        A2 = assemble(
+            a2,
+            form_compiler_parameters={
+                'quadrature_rule': 'vertex',
+                'quadrature_degree': 1
+                })
         A = A1 + A2
     else:
         # Assembling the thing into one single object makes it possible to
@@ -481,23 +503,29 @@ def _build_system(V, dx,
     p2 = Constant(0.0) * ur * vr * dx(0)
     # Diffusive terms.
     for i in subdomain_indices:
-        p1 += 1.0 / (Mu[i]*r) * dot(grad(r*ur), grad(r*vr)) * 2 * pi * dx(i) \
+        p1 += (
+            + 1.0 / (Mu[i]*r) * dot(grad(r*ur), grad(r*vr)) * 2 * pi * dx(i)
             - 1.0 / (Mu[i]*r) * dot(grad(r*ui), grad(r*vi)) * 2 * pi * dx(i)
-        p2 += om * Constant(Sigma[i]) * ur * vr * 2 * pi * r * dx(i) \
+            )
+        p2 += (
+            + om * Constant(Sigma[i]) * ur * vr * 2 * pi * r * dx(i)
             - om * Constant(Sigma[i]) * ui * vi * 2 * pi * r * dx(i)
+            )
     P = assemble(p1 + p2)
-    #P = assemble(p1)
-    #P2 = assemble(p2)
-    #P = P1 + P2
+    # P = assemble(p1)
+    # P2 = assemble(p2)
+    # P = P1 + P2
 
     # build mass matrix
-    #mm = sum([(ur * vr + ui * vi) * 2*pi*r * dx(i)
-    #          for i in subdomain_indices
-    #          ])
+    # mm = sum([(ur * vr + ui * vi) * 2*pi*r * dx(i)
+    #           for i in subdomain_indices
+    #           ])
     mm = Constant(0.0) * ur * vr * dx(0)
     for i in subdomain_indices:
-        mm += ur * vr * 2*pi*r * dx(i) \
+        mm += (
+            + ur * vr * 2*pi*r * dx(i)
             + ui * vi * 2*pi*r * dx(i)
+            )
     M = assemble(mm)
 
     # Apply boundary conditions.
@@ -508,48 +536,50 @@ def _build_system(V, dx,
         for b in b_list:
             bcs.apply(b)
 
-    #rows, cols, values = A.data()
-    #A = csr_matrix((values, cols, rows))
-    #print A
-    #betterspy(A)
-    #from matplotlib import pyplot as pp
-    #pp.show()
-    #exx
+    # rows, cols, values = A.data()
+    # A = csr_matrix((values, cols, rows))
+    # print A
+    # betterspy(A)
+    # from matplotlib import pyplot as pp
+    # pp.show()
+    # exx
 
-    #M2 = assemble(m)
+    # M2 = assemble(m)
 
-    #Mdiff = M - M2
+    # Mdiff = M - M2
 
-    #print Mdiff
+    # print Mdiff
 
-    #from matplotlib import pyplot as pp
-    #rows, cols, values = Mdiff.data()
-    #print len(rows)
-    #print rows
-    #pp.plot(rows)
-    #pp.show()
-    #print len(cols)
-    #print cols
-    #print len(values)
-    #print values
-    #from scipy.sparse import csr_matrix
-    #M_matrix = csr_matrix((values, cols, rows))
-    #print M_matrix
-    ###from matplotlib import pyplot as pp
-    ####pp.spy(M_matrix, precision=1e-3, marker='.', markersize=5)
-    ###pp.spy(M_matrix)
-    ###pp.show()
-    ### colormap
-    ##cmap = pp.cm.gray_r
-    ##M_dense = M_matrix.todense()
-    ##from matplotlib.colors import LogNorm
-    ##im = pp.imshow(abs(M_dense), cmap=cmap, interpolation='nearest', norm=LogNorm())
-    ###im = pp.imshow(abs(M_dense), cmap=cmap, interpolation='nearest')
-    ###im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
-    ###im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
-    ##pp.colorbar()
-    ##pp.show()
-    #exit()
+    # from matplotlib import pyplot as pp
+    # rows, cols, values = Mdiff.data()
+    # print len(rows)
+    # print rows
+    # pp.plot(rows)
+    # pp.show()
+    # print len(cols)
+    # print cols
+    # print len(values)
+    # print values
+    # from scipy.sparse import csr_matrix
+    # M_matrix = csr_matrix((values, cols, rows))
+    # print M_matrix
+    # ##from matplotlib import pyplot as pp
+    # ###pp.spy(M_matrix, precision=1e-3, marker='.', markersize=5)
+    # ##pp.spy(M_matrix)
+    # ##pp.show()
+    # ## colormap
+    # #cmap = pp.cm.gray_r
+    # #M_dense = M_matrix.todense()
+    # #from matplotlib.colors import LogNorm
+    # # im = pp.imshow(
+    # #     abs(M_dense), cmap=cmap, interpolation='nearest', norm=LogNorm()
+    # #     )
+    # ##im = pp.imshow(abs(M_dense), cmap=cmap, interpolation='nearest')
+    # ##im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
+    # ##im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
+    # #pp.colorbar()
+    # #pp.show()
+    # exit()
 
     return A, P, b_list, M, W
 
@@ -617,14 +647,14 @@ def prescribe_power(A, b, coil_rings, total_power, v_ref, J):
     # We would like to scale the solution with alpha. For this, scale the
     # respective part of the right-hand side.
     b[coils] *= alpha
-
     return A, b
 
 
-def compute_potential(coils, V, dx, mu, sigma, omega, convections,
-                      verbose=True,
-                      io_submesh=None
-                      ):
+def compute_potential(
+        coils, V, dx, mu, sigma, omega, convections,
+        verbose=True,
+        io_submesh=None
+        ):
     '''Compute the magnetic potential :math:`\Phi` with
     :math:`A = \exp(i \omega t) \Phi e_{\\theta}` for a number of coils.
     '''
@@ -652,15 +682,16 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
         # Real an imaginary parts.
         f_list.append({k: (v_ref * sigma[k] / (2 * pi * r), Constant(0.0))})
     # Solve.
-    phi_list = solve_maxwell(V, dx,
-                             mu, sigma,
-                             omega,
-                             f_list,
-                             convections,
-                             tol=1.0e-12,
-                             compute_residuals=False,
-                             verbose=True
-                             )
+    phi_list = solve_maxwell(
+            V, dx,
+            mu, sigma,
+            omega,
+            f_list,
+            convections,
+            tol=1.0e-12,
+            compute_residuals=False,
+            verbose=True
+            )
 
     # Write out these phi's to files.
     if io_submesh:
@@ -675,8 +706,8 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
             phi_file = XDMFFile(io_submesh.mpi_comm(), 'phi%02d.xdmf' % k)
             phi_file.parameters['flush_output'] = True
             phi_file << phi_out
-            #plot(phi_out)
-            #interactive()
+            # plot(phi_out)
+            # interactive()
 
     # Compute weights for the individual coils.
     # First get the voltage--coil-current mapping.
@@ -706,29 +737,29 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
     # Solve the system for the weights.
     weights = numpy.linalg.solve(A, b)
 
-    ## Prescribe total power.
-    #target_total_power = 4.0e3
-    ## Compute all coils with reference voltage.
-    #num_coil_rings = J.shape[0]
-    #A = numpy.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
-    #b = numpy.empty(num_coil_rings)
-    #for k, coil in enumerate(new_coils):
-    #    target_value = v_ref
-    #    A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
-    #weights = numpy.linalg.solve(A, b)
-    #preliminary_voltages = v_ref * weights
-    #preliminary_currents = numpy.dot(J, weights)
-    ## Compute resulting total power.
-    #total_power = 0.0
-    #for coil_loops in new_coils:
-    #    # Currents should be the same all over the entire coil,
-    #    # so take currents[coil_loops[0]].
-    #    total_power += 0.5 \
-    #                 * numpy.sum(preliminary_voltages[coil_loops]) \
-    #                 * preliminary_currents[coil_loops[0]].real
-    #                 # TODO no abs here
-    ## Scale all voltages by necessary factor.
-    #weights *= numpy.sqrt(target_total_power / total_power)
+    # # Prescribe total power.
+    # target_total_power = 4.0e3
+    # # Compute all coils with reference voltage.
+    # num_coil_rings = J.shape[0]
+    # A = numpy.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
+    # b = numpy.empty(num_coil_rings)
+    # for k, coil in enumerate(new_coils):
+    #     target_value = v_ref
+    #     A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
+    # weights = numpy.linalg.solve(A, b)
+    # preliminary_voltages = v_ref * weights
+    # preliminary_currents = numpy.dot(J, weights)
+    # # Compute resulting total power.
+    # total_power = 0.0
+    # for coil_loops in new_coils:
+    #     # Currents should be the same all over the entire coil,
+    #     # so take currents[coil_loops[0]].
+    #     total_power += 0.5 \
+    #                  * numpy.sum(preliminary_voltages[coil_loops]) \
+    #                  * preliminary_currents[coil_loops[0]].real
+    #                  # TODO no abs here
+    # # Scale all voltages by necessary factor.
+    # weights *= numpy.sqrt(target_total_power / total_power)
 
     if verbose:
         info('')
@@ -822,35 +853,35 @@ def get_voltage_current_matrix(phi, physical_indices, dx,
     return J
 
 
-def compute_joule(Phi, voltages,
-                  omega, Sigma, Mu,
-                  subdomain_indices
-                  ):
+def compute_joule(
+        Phi, voltages,
+        omega, Sigma, Mu,
+        subdomain_indices
+        ):
     '''Compute Joule heating term and Lorentz force from given coil voltages.
     '''
-    #j_r = {}
-    #j_i = {}
-    #E_r =  omega*Phi_i + rhs_r
-    #E_i = -omega*Phi_r + rhs_i
-    #plot(E_r)
-    #plot(E_i)
-    #interactive()
-    #exit()
+    # j_r = {}
+    # j_i = {}
+    # E_r =  omega*Phi_i + rhs_r
+    # E_i = -omega*Phi_r + rhs_i
+    # plot(E_r)
+    # plot(E_i)
+    # interactive()
+    # exit()
     # The Joule heating source is
     # https://en.wikipedia.org/wiki/Joule_heating#Differential_Form
     #
     #   P = J.E =  \sigma E.E.
     #
-    #joule_source = zero() * dx(0)
+    # joule_source = zero() * dx(0)
     joule_source = {}
     r = Expression('x[0]', degree=1, domain=Phi[0].function_space().mesh())
     for i in subdomain_indices:
         # See, e.g., equation (2.17) in
         #
-        #     Numerical modeling in induction heating
-        #     for axisymmetric geometries,
-        #     Chaboudez et al.,
-        #     IEEE Transactions of magnetics, vol. 33, no. 1, January 1997.
+        #  Numerical modeling in induction heating for axisymmetric geometries,
+        #  Chaboudez et al.,
+        #  IEEE Transactions of magnetics, vol. 33, no. 1, January 1997.
         #
         # In a time-harmonic approximation with
         #     A = Re(a exp(i omega t)),
@@ -880,23 +911,25 @@ def compute_joule(Phi, voltages,
             E_i += voltages[i].imag / (2*pi*r)
         joule_source[i] = 0.5 * Sigma[i] * (E_r*E_r + E_i*E_i)
 
-    ## Alternative computation.
-    #joule_source = zero() * dx(0)
-    #for i in subdomain_indices:
-    #    joule_source += 1.0/(Mu[i]*r) * dot(grad(r*Phi_r),grad(v)) * dx(i)
+    # # Alternative computation.
+    # joule_source = zero() * dx(0)
+    # for i in subdomain_indices:
+    #     joule_source += 1.0/(Mu[i]*r) * dot(grad(r*Phi_r),grad(v)) * dx(i)
 
-    ## And the third way (for omega==0)
-    #joule_source = zero() * dx(0)
-    #for i in subdomain_indices:
-    #    if i in C:
-    #        joule_source += Sigma[i] * voltages[i].real / (2*pi*r) * v * dx(i)
-    #u = TrialFunction(V)
-    #sol = Function(V)
-    #solve(u*v*dx() == joule_source, sol,
-    #      bcs = DirichletBC(V, 0.0, 'on_boundary'))
-    #plot(sol)
-    #interactive()
-    #exit()
+    # # And the third way (for omega==0)
+    # joule_source = zero() * dx(0)
+    # for i in subdomain_indices:
+    #     if i in C:
+    #         joule_source += (
+    #             Sigma[i] * voltages[i].real / (2*pi*r) * v * dx(i)
+    #             )
+    # u = TrialFunction(V)
+    # sol = Function(V)
+    # solve(u*v*dx() == joule_source, sol,
+    #       bcs = DirichletBC(V, 0.0, 'on_boundary'))
+    # plot(sol)
+    # interactive()
+    # exit()
     return joule_source
 
 
@@ -935,14 +968,15 @@ def compute_lorentz(Phi, omega, sigma):
     we have
 
     .. math::
-       \overline{F_L} &= \\frac{1}{2} \Re\left(j \\frac{d\phi}{dz} e_z + \\frac{j}{r}
-       \\frac{d(r\phi)}{dr} e_r\\right)\\\\
-                      &= \\frac{1}{2} \Re\\left(\\frac{j}{r} \\nabla(r\phi^*)\\right)\\\\
-                      &= \\frac{1}{2} \\left(\\frac{\Re(j)}{r} \\nabla(r \Re(\phi))
-                             +\\frac{\Im(j)}{r} \\nabla(r \Im(\phi))\\right)
+       \overline{F_L}
+           &= \\frac{1}{2} \Re\left(j \\frac{d\phi}{dz} e_z
+              + \\frac{j}{r} \\frac{d(r\phi)}{dr} e_r\\right)\\\\
+           &= \\frac{1}{2} \Re\\left(\\frac{j}{r} \\nabla(r\phi^*)\\right)\\\\
+           &= \\frac{1}{2} \\left(\\frac{\Re(j)}{r} \\nabla(r \Re(\phi))
+              +\\frac{\Im(j)}{r} \\nabla(r \Im(\phi))\\right)
 
-    Only create the Lorentz force for the workpiece. This avoids
-    complications with j(r,z) for which we here can assume
+    Only create the Lorentz force for the workpiece. This avoids complications
+    with j(r,z) for which we here can assume
 
     .. math::
         j = -i \sigma \omega \phi
@@ -952,8 +986,10 @@ def compute_lorentz(Phi, omega, sigma):
     r = Expression('x[0]', degree=1, domain=Phi[0].function_space().mesh())
     j_r = + sigma * omega * Phi[1]
     j_i = - sigma * omega * Phi[0]
-    return 0.5 * (j_r / r * grad(r * Phi[0])
-                 +j_i / r * grad(r * Phi[1]))
+    return 0.5 * (
+            + j_r / r * grad(r * Phi[0])
+            + j_i / r * grad(r * Phi[1])
+            )
 
 
 def _adaptive_mesh_refinement(dx, phi, mu, sigma, omega, conv, voltages):
@@ -978,10 +1014,13 @@ def _adaptive_mesh_refinement(dx, phi, mu, sigma, omega, conv, voltages):
     plot(mesh)
     interactive()
     exit()
-    ## Compute error indicators
-    #K = array([c.volume() for c in cells(mesh)])
-    #R = array([abs(source([c.midpoint().x(), c.midpoint().y()])) for c in cells(mesh)])
-    #gam = h*R*sqrt(K)
+    # # Compute error indicators
+    # K = array([c.volume() for c in cells(mesh)])
+    # R = numpy.array([
+    #     abs(source([c.midpoint().x(), c.midpoint().y()]))
+    #     for c in cells(mesh)
+    #     ])
+    # gam = h*R*sqrt(K)
     return
 
 
@@ -1038,10 +1077,14 @@ def _residual_strong(dx, v, phi, mu, sigma, omega, conv, voltages):
     subdomain_indices = mu.keys()
     for i in subdomain_indices:
         # diffusion, reaction
-        R_r = - div(1 / (mu[i] * r) * grad(r * phi[0])) \
+        R_r = (
+            - div(1 / (mu[i] * r) * grad(r * phi[0]))
             - sigma[i] * omega * phi[1]
-        R_i = - div(1 / (mu[i] * r) * grad(r * phi[1])) \
+            )
+        R_i = (
+            - div(1 / (mu[i] * r) * grad(r * phi[1]))
             + sigma[i] * omega * phi[0]
+            )
         # convection
         if i in conv:
             R_r += dot(conv[i], 1 / r * grad(r * phi[0]))

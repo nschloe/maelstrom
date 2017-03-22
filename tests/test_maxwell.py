@@ -1,21 +1,22 @@
 # -*- coding: utf-8 -*-
 #
-import nose
+import maelstrom.maxwell_cylindrical as mcyl
 
 from dolfin import FunctionSpace, errornorm, RectangleMesh, Measure, \
     CellFunction, FacetFunction, triangle, \
-    Expression, MPI, mpi_comm_world
-
-import maelstrom.maxwell_cylindrical as mcyl
-import sympy as smp
+    Expression, MPI, mpi_comm_world, Point
+import matplotlib.pyplot as plt
+import nose
 import numpy
+import sympy as smp
 import warnings
-from matplotlib import pyplot as pp
 
 # Turn down the log level to only error messages.
-#set_log_level(WARNING)
-#set_log_level(ERROR)
-#set_log_level(0)
+# set_log_level(WARNING)
+# set_log_level(ERROR)
+# set_log_level(0)
+
+MAX_DEGREE = 10
 
 
 def test_generator():
@@ -29,7 +30,7 @@ def test_generator():
 
 def _check_order(problem):
     mesh_sizes = [20, 40, 80]
-    errors, order = _compute_errors(problem, mesh_sizes)
+    errors, order, hmax = _compute_errors(problem, mesh_sizes)
 
     # The test is considered passed if the numerical order of convergence
     # matches the expected order in at least the first step in the coarsest
@@ -39,9 +40,9 @@ def _check_order(problem):
     k = 0
     expected_order = 1
     for i in range(order.shape[0]):
-        nose.tools.assert_almost_equal(order[i], expected_order,
-                                       delta=tol
-                                       )
+        nose.tools.assert_almost_equal(
+            order[i], expected_order, delta=tol
+            )
         while k + 1 < len(order[i]) \
                 and abs(order[i][k + 1] - expected_order) < tol:
             k += 1
@@ -51,23 +52,24 @@ def _check_order(problem):
 def _compute_errors(problem, mesh_sizes):
     mesh_generator, solution, f, cell_type = problem()
 
-    max_degree = 20
-
-    if solution['degree'] > max_degree:
-        warnings.warn(('Expression degree (%r) > maximum degree (%d). '
-                       'Truncating.')
-                      % (solution['degree'], max_degree)
-                      )
-        degree = 20
+    if solution['degree'] > MAX_DEGREE:
+        warnings.warn(
+            'Expression degree (%r) > maximum degree (%d). Truncating.'
+            % (solution['degree'], MAX_DEGREE)
+            )
+        degree = MAX_DEGREE
     else:
         degree = solution['degree']
 
-    sol = Expression((smp.printing.ccode(solution['value'][0]),
-                      smp.printing.ccode(solution['value'][1])),
-                     t=0.0,
-                     degree=degree,
-                     cell=cell_type
-                     )
+    sol = Expression(
+            (
+                smp.printing.ccode(solution['value'][0]),
+                smp.printing.ccode(solution['value'][1])
+            ),
+            t=0.0,
+            degree=degree,
+            cell=cell_type
+            )
 
     errors = numpy.empty(len(mesh_sizes))
     hmax = numpy.empty(len(mesh_sizes))
@@ -76,22 +78,23 @@ def _compute_errors(problem, mesh_sizes):
         hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
         V = FunctionSpace(mesh, 'CG', 1)
         # TODO don't hardcode Mu, Sigma, ...
-        phi_approx = mcyl.solve_maxwell(V, dx,
-                                        Mu={0: 1.0},
-                                        Sigma={0: 1.0},
-                                        omega=1.0,
-                                        f_list=[{0: f['value']}],
-                                        convections={},
-                                        tol=1.0e-12,
-                                        bcs=None,
-                                        compute_residuals=False,
-                                        verbose=False
-                                        )
-        #plot(sol0, mesh=mesh, title='sol')
-        #plot(phi_approx[0][0], title='approx')
-        ##plot(fenics_sol - theta_approx, title='diff')
-        #interactive()
-        #exit()
+        phi_approx = mcyl.solve_maxwell(
+                V, dx,
+                Mu={0: 1.0},
+                Sigma={0: 1.0},
+                omega=1.0,
+                f_list=[{0: f['value']}],
+                convections={},
+                tol=1.0e-12,
+                bcs=None,
+                compute_residuals=False,
+                verbose=False
+                )
+        # plot(sol0, mesh=mesh, title='sol')
+        # plot(phi_approx[0][0], title='approx')
+        # #plot(fenics_sol - theta_approx, title='diff')
+        # interactive()
+        # exit()
         #
         errors[k] = errornorm(sol, phi_approx[0])
 
@@ -114,25 +117,28 @@ def _show_order_info(problem, mesh_sizes):
     print
     print('hmax = %e    error = %e' % (hmax[0], errors[0]))
     for j in range(len(errors) - 1):
-        print('hmax = %e    error = %e    conv. order = %e'
-              % (hmax[j + 1], errors[j + 1], order[j])
-              )
+        print(
+            'hmax = %e    error = %e    conv. order = %e'
+            % (hmax[j + 1], errors[j + 1], order[j])
+            )
 
     # Plot the actual data.
     for i, mesh_size in enumerate(mesh_sizes):
-        pp.loglog(hmax, errors[i], '-o', label=mesh_size)
+        plt.loglog(hmax, errors, '-o', label=mesh_size)
 
     # Compare with order curves.
-    pp.autoscale(False)
+    plt.autoscale(False)
     e0 = errors[-1][0]
-    for o in range(7):
-        pp.loglog([hmax[0], hmax[-1]],
-                  [e0, e0 * (Dt[-1] / Dt[0]) ** o],
-                  color='0.7')
-    pp.xlabel('dt')
-    pp.ylabel('||u-u_h||')
-    pp.legend(loc=4)
-    pp.show()
+    for order in range(7):
+        plt.loglog(
+            [hmax[0], hmax[-1]],
+            [e0, e0 * (hmax[-1] / hmax[0]) ** order],
+            color='0.7'
+            )
+    plt.xlabel('dt')
+    plt.ylabel('||u-u_h||')
+    plt.legend(loc=4)
+    plt.show()
     return
 
 
@@ -140,13 +146,16 @@ def problem_coscos():
     '''cosine example.
     '''
     def mesh_generator(n):
-        mesh = RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n, 'left/right')
+        mesh = RectangleMesh(
+            Point(1.0, 0.0), Point(2.0, 1.0),
+            n, n, 'left/right'
+            )
         domains = CellFunction('uint', mesh)
         domains.set_all(0)
-        dx = Measure('dx')[domains]
+        dx = Measure('dx', subdomain_data=domains)
         boundaries = FacetFunction('uint', mesh)
         boundaries.set_all(0)
-        ds = Measure('ds')[boundaries]
+        ds = Measure('ds', subdomain_data=boundaries)
         return mesh, dx, ds
 
     x = smp.DeferredVector('x')
@@ -165,46 +174,46 @@ def problem_coscos():
 
     # Produce a matching right-hand side.
     mu = 1.0
-    #sigma = 1.0
-    #omega = 1.0
-    #f_sympy = (- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[0]), x[0])
-    #           - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[1]), x[1])
-    #           - omega*sigma*phi[1],
-    #           - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[0]), x[0])
-    #           - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[1]), x[1])
-    #           + omega*sigma*phi[0]
-    #           )
-    f_sympy = (-smp.diff(1 / (mu * x[0])
-                         * smp.diff(x[0] * phi['value'][0], x[0]),
-                         x[0]
-                         )
-               #- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[1]), x[1])
-               #- omega*sigma*phi[1],
-               ,
-               #- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[0]), x[0])
-               #- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[1]), x[1])
-               + 0.0 * phi['value'][0]
-               )
+    # sigma = 1.0
+    # omega = 1.0
+    # f_sympy = (- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[0]), x[0])
+    #            - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[1]), x[1])
+    #            - omega*sigma*phi[1],
+    #            - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[0]), x[0])
+    #            - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[1]), x[1])
+    #            + omega*sigma*phi[0]
+    #            )
+    f_sympy = (
+        -smp.diff(
+            1 / (mu * x[0]) * smp.diff(x[0] * phi['value'][0], x[0]),
+            x[0]
+            ),
+        # - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[1]), x[1])
+        # - omega*sigma*phi[1],
+        # - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[0]), x[0])
+        # - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[1]), x[1])
+        + 0.0 * phi['value'][0]
+        )
 
-    f = {'value': (Expression(smp.printing.ccode(f_sympy[0])),
-                   Expression(smp.printing.ccode(f_sympy[1]))
-                   ),
-         'degree': numpy.infty
-         }
+    f = {
+        'value': (
+            Expression(smp.printing.ccode(f_sympy[0]), degree=MAX_DEGREE),
+            Expression(smp.printing.ccode(f_sympy[1]), degree=MAX_DEGREE)
+            ),
+        'degree': MAX_DEGREE
+        }
 
     # Show the solution and the right-hand side.
     n = 50
     mesh, dx, ds = mesh_generator(n)
-    #plot(Expression(smp.printing.ccode(phi[0])), mesh=mesh, title='phi.real')
-    #plot(Expression(smp.printing.ccode(phi[1])), mesh=mesh, title='phi.imag')
-    #plot(f[0], mesh=mesh, title='f.real')
-    #plot(f[1], mesh=mesh, title='f.imag')
-    #interactive()
+    # plot(Expression(smp.printing.ccode(phi[0])), mesh=mesh, title='phi.real')
+    # plot(Expression(smp.printing.ccode(phi[1])), mesh=mesh, title='phi.imag')
+    # plot(f[0], mesh=mesh, title='f.real')
+    # plot(f[1], mesh=mesh, title='f.imag')
+    # interactive()
     return mesh_generator, phi, f, triangle
 
 
 if __name__ == '__main__':
-    # For debugging purposes, show some info.
-    #mesh_sizes = [20, 40, 80]
-    mesh_sizes = [2]
+    mesh_sizes = [20, 40, 80]
     _show_order_info(problem_coscos, mesh_sizes)
