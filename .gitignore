@@ -6,3 +6,4 @@
 *.vtu
 *.ogv
 *.html
+.cache/
