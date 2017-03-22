@@ -288,10 +288,12 @@ class PressureProjection(object):
                         #  well.
                         'preconditioner': 'ilu',
                         # 'preconditioner': 'hypre_amg',
-                        'krylov_solver': {'relative_tolerance': tol,
-                                          'absolute_tolerance': 0.0,
-                                          'maximum_iterations': 1000,
-                                          'monitor_convergence': verbose}
+                        'krylov_solver': {
+                            'relative_tolerance': tol,
+                            'absolute_tolerance': 0.0,
+                            'maximum_iterations': 1000,
+                            'monitor_convergence': verbose
+                            }
                         }})
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         with Message('Computing pressure correction'):
@@ -487,7 +489,7 @@ class PressureProjection(object):
                 #
                 # If the right hand side is flawed (e.g., by round-off errors),
                 # then it may have a component b1 in the direction of the null
-                # space, orthogonal the image of the operator:
+                # space, orthogonal to the image of the operator:
                 #
                 #     b = b0 + b1.
                 #

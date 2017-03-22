@@ -3,22 +3,16 @@
 '''
 Helper functions for PDE consistency tests.
 '''
-import numpy
-import nose
-
 from dolfin import Expression, info, assemble, FunctionSpace, \
     interpolate, plot, interactive, errornorm, dx, Function, \
     VectorFunctionSpace, DirichletBC, project
+import matplotlib.pyplot as plt
+import nose
+import numpy
 import sympy as smp
 import warnings
 
 from maelstrom.message import Message
-
-try:
-    import prettyplotlib as ppl
-    from prettyplotlib import plt as pp
-except:
-    from matplotlib import pyplot as pp
 
 
 def _truncate_degree(degree, max_degree=10):
@@ -61,23 +55,25 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
 
     # Create a figure
     for label, err in errors.items():
-        pp.figure()
-        ax = pp.axes()
+        plt.figure()
+        ax = plt.axes()
         # Plot the actual data.
         for i, mesh_size in enumerate(mesh_sizes):
-            pp.loglog(Dt, err[i], '-o', label=mesh_size)
+            plt.loglog(Dt, err[i], '-o', label=mesh_size)
         # Compare with order curves.
-        pp.autoscale(False)
+        plt.autoscale(False)
         e0 = err[-1][0]
         for o in range(7):
-            pp.loglog([Dt[0], Dt[-1]],
-                      [e0, e0 * (Dt[-1] / Dt[0]) ** o],
-                      color='0.7')
-        pp.xlabel('dt')
-        pp.ylabel('||%s-%s_h||' % (label, label))
-        # pp.title('Method: %s' % method['name'])
-        ppl.legend(ax, loc=4)
-    pp.show()
+            plt.loglog(
+                    [Dt[0], Dt[-1]],
+                    [e0, e0 * (Dt[-1] / Dt[0]) ** o],
+                    color='0.7'
+                    )
+        plt.xlabel('dt')
+        plt.ylabel('||%s-%s_h||' % (label, label))
+        # plt.title('Method: %s' % method['name'])
+        plt.legend()
+    plt.show()
     return
 
 
@@ -163,13 +159,14 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             mesh_area = assemble(1.0 * dx(mesh))
             W = VectorFunctionSpace(mesh, 'CG', 2)
             P = FunctionSpace(mesh, 'CG', 1)
-            method = MethodClass(W, P,
-                                 rho, mu,
-                                 theta=1.0,
-                                 #theta=0.5,
-                                 stabilization=None
-                                 #stabilization='SUPG'
-                                 )
+            method = MethodClass(
+                    W, P,
+                    rho, mu,
+                    theta=1.0,
+                    # theta=0.5,
+                    stabilization=None
+                    # stabilization='SUPG'
+                    )
             u1 = Function(W)
             p1 = Function(P)
             err_p = Function(P)
@@ -183,16 +180,16 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     cell=cell_type
                     ),
                     # Expression(
-                    #sol_u.cppcode,
-                    #degree=_truncate_degree(solution['u']['degree']),
-                    #t=0.5*dt,
-                    #cell=cell_type
-                    #)
+                    # sol_u.cppcode,
+                    # degree=_truncate_degree(solution['u']['degree']),
+                    # t=0.5*dt,
+                    # cell=cell_type
+                    # )
                     ]
                 sol_u.t = dt
                 u_bcs = [DirichletBC(W, sol_u, 'on_boundary')]
                 sol_p.t = dt
-                #p_bcs = [DirichletBC(P, sol_p, 'on_boundary')]
+                # p_bcs = [DirichletBC(P, sol_p, 'on_boundary')]
                 p_bcs = []
                 fenics_rhs0.t = 0.0
                 fenics_rhs1.t = dt
@@ -240,10 +237,10 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     err_p.vector()[:] = p1.vector()
                     sol_interp = interpolate(sol_p, P)
                     err_p.vector()[:] -= sol_interp.vector()
-                    #plot(sol_p - p1, title='p1 - sol_p', mesh=mesh)
+                    # plot(sol_p - p1, title='p1 - sol_p', mesh=mesh)
                     plot(err_p, title='p1 - sol_p', mesh=mesh)
-                    #r = Expression('x[0]', degree=1, cell=triangle)
-                    #divu1 = 1 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
+                    # r = Expression('x[0]', degree=1, cell=triangle)
+                    # divu1 = 1 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
                     divu1.assign(project(u1[0].dx(0) + u1[1].dx(1), P))
                     plot(divu1, title='div(u1)')
                     interactive()

@@ -20,7 +20,6 @@ def test_dft():
         alpha = x * numpy.exp(1j * 2*numpy.pi * freq * (t - t0))
         data2 += alpha
 
-    print(data - data2)
     assert (abs(data - data2.real) < 1.0e-14).all()
 
     return

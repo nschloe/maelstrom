@@ -21,14 +21,16 @@ class ParabolicProblem(object):
         return
 
     def get_system(self, t):
-        raise NotImplementedError('Classes derived from ParabolicProblem must'
-                                  'implement get_system().'
-                                  )
+        raise NotImplementedError(
+                'Classes derived from ParabolicProblem must '
+                'implement get_system().'
+                )
 
     def get_bcs(self, t):
-        raise NotImplementedError('Classes derived from ParabolicProblem must'
-                                  'implement get_bcs().'
-                                  )
+        raise NotImplementedError(
+                'Classes derived from ParabolicProblem must '
+                'implement get_bcs().'
+                )
 
     def get_preconditioner(self, t):
         return None
@@ -305,15 +307,17 @@ def runge_kutta_step(A, b, c,
     u = TrialFunction(V)
     v = TestFunction(V)
 
-    solver_params = {'linear_solver': 'iterative',
-                     'symmetric': True,
-                     'preconditioner': 'hypre_amg',
-                     'krylov_solver': {'relative_tolerance': tol,
-                                       'absolute_tolerance': 0.0,
-                                       'maximum_iterations': 100,
-                                       'monitor_convergence': verbose
-                                       }
-                     }
+    solver_params = {
+            'linear_solver': 'iterative',
+            'symmetric': True,
+            'preconditioner': 'hypre_amg',
+            'krylov_solver': {
+                'relative_tolerance': tol,
+                'absolute_tolerance': 0.0,
+                'maximum_iterations': 100,
+                'monitor_convergence': verbose
+                }
+            }
 
     # For the boundary values, see
     #

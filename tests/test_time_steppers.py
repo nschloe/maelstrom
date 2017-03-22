@@ -1,24 +1,25 @@
 # -*- coding: utf-8 -*-
 #
-import nose
+import helpers
+import maelstrom.time_steppers as ts
 
 from dolfin import set_log_level, WARNING, Expression, FunctionSpace, \
     DirichletBC, Function, errornorm, project, plot, interactive, triangle, \
     norm, UnitIntervalMesh, pi, inner, grad, dx, ds, dot, UnitSquareMesh, \
     FacetNormal, interval, RectangleMesh, TrialFunction, TestFunction, \
-    assemble, lhs, rhs, MPI
-
-import maelstrom.time_steppers as ts
-import sympy as smp
-import numpy
+    assemble, lhs, rhs, MPI, Point
 import itertools
+import nose
+import numpy
+import sympy as smp
 
-import helpers
 
 # Turn down the log level to only error messages.
 set_log_level(WARNING)
-#set_log_level(ERROR)
-#set_log_level(0)
+# set_log_level(ERROR)
+# set_log_level(0)
+
+MAX_DEGREE = 10
 
 
 def test_generator():
@@ -26,18 +27,18 @@ def test_generator():
     '''
     # TODO add test for spatial order
     problems = [
-        #problem_sinsin1d,
-        #problem_sinsin,
+        # problem_sinsin1d,
+        # problem_sinsin,
         problem_coscos_cartesian,
-        #problem_coscos_cylindrical,
-        #problem_stefanboltzmann
+        # problem_coscos_cylindrical,
+        # problem_stefanboltzmann
         ]
     # Methods together with the expected order of convergence.
     methods = [
-        #ts.Dummy,
+        # ts.Dummy,
         ts.ExplicitEuler
-        #ts.ImplicitEuler
-        #ts.Trapezoidal
+        # ts.ImplicitEuler
+        # ts.Trapezoidal
         ]
     # Loop over all methods and check the order of convergence.
     for method, problem in itertools.product(methods, problems):
@@ -68,21 +69,23 @@ def _check_time_order(problem, method):
 def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
     mesh_generator, solution, ProblemClass, cell_type = problem()
     # Translate data into FEniCS expressions.
-    fenics_sol = Expression(smp.printing.ccode(solution['value']),
-                            degree=solution['degree'],
-                            t=0.0,
-                            cell=cell_type
-                            )
+    fenics_sol = Expression(
+            smp.printing.ccode(solution),
+            degree=MAX_DEGREE,
+            t=0.0,
+            cell=cell_type
+            )
     # Compute the problem
     errors = {'theta': numpy.empty((len(mesh_sizes), len(Dt)))}
     # Create initial state.
     # Deepcopy the expression into theta0. Specify the cell to allow for
     # more involved operations with it (e.g., grad()).
-    theta0 = Expression(fenics_sol.cppcode,
-                        degree=solution['degree'],
-                        t=0.0,
-                        cell=cell_type
-                        )
+    theta0 = Expression(
+            fenics_sol.cppcode,
+            degree=MAX_DEGREE,
+            t=0.0,
+            cell=cell_type
+            )
     for k, mesh_size in enumerate(mesh_sizes):
         mesh = mesh_generator(mesh_size)
         V = FunctionSpace(mesh, 'CG', 1)
@@ -98,11 +101,12 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
             # could allow for arbitrary expressions here, but then the API
             # would need changing for problem.lhs(t, u).
             # Think about this.
-            stepper.step(theta_approx, theta0p,
-                         0.0, dt,
-                         tol=1.0e-12,
-                         verbose=False
-                         )
+            stepper.step(
+                    theta_approx, theta0p,
+                    0.0, dt,
+                    tol=1.0e-12,
+                    verbose=False
+                    )
             fenics_sol.t = dt
             #
             # NOTE
@@ -123,17 +127,19 @@ def _check_space_order(problem, method):
     mesh_generator, solution, weak_F = problem()
 
     # Translate data into FEniCS expressions.
-    fenics_sol = Expression(smp.prining.ccode(solution['value']),
-                            degree=solution['degree'],
-                            t=0.0
-                            )
+    fenics_sol = Expression(
+            smp.prining.ccode(solution['value']),
+            degree=solution['degree'],
+            t=0.0
+            )
 
     # Create initial solution.
-    theta0 = Expression(fenics_sol.cppcode,
-                        degree=solution['degree'],
-                        t=0.0,
-                        cell=triangle
-                        )
+    theta0 = Expression(
+            fenics_sol.cppcode,
+            degree=solution['degree'],
+            t=0.0,
+            cell=triangle
+            )
 
     # Estimate the error component in space.
     # Leave out too rough discretizations to avoid showing spurious errors.
@@ -147,16 +153,17 @@ def _check_space_order(problem, method):
         V = FunctionSpace(mesh, 'CG', 3)
         # Create boundary conditions.
         fenics_sol.t = dt
-        #bcs = DirichletBC(V, fenics_sol, 'on_boundary')
+        # bcs = DirichletBC(V, fenics_sol, 'on_boundary')
         # Create initial state.
-        theta_approx = method(V,
-                              weak_F,
-                              theta0,
-                              0.0, dt,
-                              bcs=[solution],
-                              tol=1.0e-12,
-                              verbose=True
-                              )
+        theta_approx = method(
+                V,
+                weak_F,
+                theta0,
+                0.0, dt,
+                bcs=[solution],
+                tol=1.0e-12,
+                verbose=True
+                )
         # Compute the error.
         fenics_sol.t = dt
         Err.append(errornorm(fenics_sol, theta_approx)
@@ -186,13 +193,13 @@ def problem_sinsin1d():
         return UnitIntervalMesh(n)
     x = smp.DeferredVector('x')
     t = smp.symbols('t')
-    #m = smp.sin(0.5*pi*t)
+    # m = smp.sin(0.5*pi*t)
     m = smp.exp(t) - 0.0
-    #theta = m * x * (1-x)
+    # theta = m * x * (1-x)
     theta = m * smp.sin(1 * pi * x[0])
     # Produce a matching rhs.
     f_sympy = smp.diff(theta, t) - smp.diff(theta, x[0], 2)
-    f = Expression(smp.printing.ccode(f_sympy), degree=numpy.infty, t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
 
     # The corresponding operator in weak form.
     def weak_F(t, u_t, u, v):
@@ -209,17 +216,17 @@ def problem_sinsin():
     '''
     def mesh_generator(n):
         return UnitSquareMesh(n, n, 'left/right')
-        #return RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n)
+        # return RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n)
+    # x, y, t = smp.symbols('x, y, t')
     x = smp.DeferredVector('x')
     t = smp.symbols('t')
-    #x, y, t = smp.symbols('x, y, t')
     # Choose the solution something that cannot exactly be expressed by
     # polynomials. Choosing the sine here makes all first-order scheme be
     # second-order accurate since d2sin/dt2 = 0 at t=0.
-    #m = smp.sin(0.5*pi*t)
     m = smp.exp(t) - 0.0
+    # m = smp.sin(0.5*pi*t)
     theta = m * x[0] * (1.0 - x[0]) * x[1] * (1.0 - x[1])
-    #theta = m * smp.sin(1*pi*x) * smp.sin(1*pi*y)
+    # theta = m * smp.sin(1*pi*x) * smp.sin(1*pi*y)
     rho = 5.0
     cp = 2.0
     kappa = 3.0
@@ -247,8 +254,11 @@ def problem_coscos_cartesian():
     '''cos-cos example. Inhomogeneous boundary conditions.
     '''
     def mesh_generator(n):
-        #mesh = UnitSquareMesh(n, n, 'left/right')
-        mesh = RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n, 'left/right')
+        # mesh = UnitSquareMesh(n, n, 'left/right')
+        mesh = RectangleMesh(
+            Point(1.0, 0.0), Point(2.0, 1.0),
+            n, n, 'left/right'
+            )
         return mesh
     t = smp.symbols('t')
     rho = 6.0
@@ -257,33 +267,35 @@ def problem_coscos_cartesian():
     x = smp.DeferredVector('x')
     # Choose the solution something that cannot exactly be expressed by
     # polynomials.
-    #theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
-    #theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
-    #theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    #theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    #theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
+    # theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
+    # theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
     theta = smp.log(2 + t) * smp.cos(pi * (x[0] - 1.0)) * smp.cos(pi * x[1])
     # Produce a matching rhs.
-    f_sympy = rho * cp * smp.diff(theta, t) \
-        - smp.diff(kappa_sympy * smp.diff(theta, x[0]), x[0]) \
+    f_sympy = (
+        rho * cp * smp.diff(theta, t)
+        - smp.diff(kappa_sympy * smp.diff(theta, x[0]), x[0])
         - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
+        )
 
-    f = Expression(smp.printing.ccode(f_sympy), degree=numpy.infty, t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
     kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
     # The corresponding operator in weak form.
     class HeatEquation(ts.ParabolicProblem):
-
         def __init__(self, V):
             super(HeatEquation, self).__init__()
             # Define the differential equation.
             self.V = V
             self.rho_cp = rho * cp
-            self.sol = Expression(smp.printing.ccode(theta),
-                                  degree=numpy.infty,
-                                  t=0.0,
-                                  cell=triangle
-                                  )
+            self.sol = Expression(
+                    smp.printing.ccode(theta),
+                    degree=MAX_DEGREE,
+                    t=0.0,
+                    cell=triangle
+                    )
             return
 
         def get_system(self, t):
@@ -308,7 +320,7 @@ def problem_coscos_cylindrical():
     '''cos-cos example. Inhomogeneous boundary conditions.
     '''
     def mesh_generator(n):
-        #mesh = UnitSquareMesh(n, n, 'left/right')
+        # mesh = UnitSquareMesh(n, n, 'left/right')
         mesh = RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n, 'left/right')
         return mesh
 
@@ -320,13 +332,13 @@ def problem_coscos_cylindrical():
     # Cylindrical coordinates.
     x = smp.DeferredVector('x')
     # Solution.
-    #theta = smp.sin(t) * smp.sin(pi*(x[0]-1)) * smp.sin(pi*x[1])
     theta = (smp.exp(t) - 1) * smp.cos(pi * (x[0] - 1)) * smp.cos(pi * x[1])
-    #theta = smp.log(2+t) * smp.cos(pi*(x[0]-1.0)) * smp.cos(pi*x[1])
+    # theta = smp.sin(t) * smp.sin(pi*(x[0]-1)) * smp.sin(pi*x[1])
+    # theta = smp.log(2+t) * smp.cos(pi*(x[0]-1.0)) * smp.cos(pi*x[1])
 
     # Convection.
     b_sympy = (-x[1], x[0] - 1)
-    #b_sympy = (0.0, 0.0)
+    # b_sympy = (0.0, 0.0)
 
     # Produce a matching rhs.
     f_sympy = rho * cp * smp.diff(theta, t) \
@@ -338,11 +350,11 @@ def problem_coscos_cylindrical():
 
     # convert to FEniCS expressions
     f = Expression(smp.printing.ccode(f_sympy), numpy.infty, t=0.0)
-    b = Expression((smp.printing.ccode(b_sympy[0]),
-                    smp.printing.ccode(b_sympy[1])),
-                   degree=1,
-                   t=0.0
-                   )
+    b = Expression(
+            (smp.printing.ccode(b_sympy[0]), smp.printing.ccode(b_sympy[1])),
+            degree=1,
+            t=0.0
+            )
     kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
     # The corresponding operator in weak form.
@@ -378,11 +390,11 @@ def problem_stefanboltzmann():
     x = smp.DeferredVector('x')
     # Choose the solution something that cannot exactly be expressed by
     # polynomials.
-    #theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
-    #theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
-    #theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    #theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    #theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
+    # theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
+    # theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
     theta = smp.log(2 + t) * smp.cos(pi * x[0]) * smp.cos(pi * x[1])
     # Produce a matching rhs.
     f_sympy = rho * cp * smp.diff(theta, t) \
@@ -393,8 +405,8 @@ def problem_stefanboltzmann():
     # ONLY WORKS IF du/dn==0.
     u0 = theta
     # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), degree=numpy.infty, t=0.0)
-    u0 = Expression(smp.printing.ccode(u0), degree=numpy.infty, t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=max_degree, t=0.0)
+    u0 = Expression(smp.printing.ccode(u0), degree=max_degree, t=0.0)
 
     # The corresponding operator in weak form.
     def weak_F(t, u_t, u, v):
@@ -410,14 +422,14 @@ def problem_stefanboltzmann():
 
 if __name__ == '__main__':
     # For debugging purposes, show some info.
-    #mesh_sizes = [20, 40, 80]
     mesh_sizes = [40, 80, 160]
+    # mesh_sizes = [20, 40, 80]
     Dt = [0.5 ** k for k in range(7)]
     errors, name, _ = _compute_time_errors(
         problem_coscos_cartesian,
-        #ts.Dummy,
-        #ts.ExplicitEuler,
-        #ts.ImplicitEuler,
+        # ts.Dummy,
+        # ts.ExplicitEuler,
+        # ts.ImplicitEuler,
         ts.Trapezoidal,
         mesh_sizes, Dt,
         )
