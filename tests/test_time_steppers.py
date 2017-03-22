@@ -7,9 +7,9 @@ from dolfin import set_log_level, WARNING, Expression, FunctionSpace, \
     DirichletBC, Function, errornorm, project, plot, interactive, triangle, \
     norm, UnitIntervalMesh, pi, inner, grad, dx, ds, dot, UnitSquareMesh, \
     FacetNormal, interval, RectangleMesh, TrialFunction, TestFunction, \
-    assemble, lhs, rhs, MPI, Point
+    assemble, lhs, rhs, MPI
 import itertools
-import nose
+import matplotlib.pyplot as plt
 import numpy
 import sympy as smp
 
@@ -22,7 +22,7 @@ set_log_level(WARNING)
 MAX_DEGREE = 10
 
 
-def test_generator():
+def test_temporal_order():
     '''Test order of time discretization.
     '''
     # TODO add test for spatial order
@@ -42,28 +42,28 @@ def test_generator():
         ]
     # Loop over all methods and check the order of convergence.
     for method, problem in itertools.product(methods, problems):
-        yield _check_time_order, problem, method
+        yield _assert_temporal_order, problem, method
 
 
-def _check_time_order(problem, method):
-    mesh_sizes = [20, 40, 80]
-    Dt = [0.5 ** k for k in range(15)]
-    errors, order = _compute_time_errors(problem, method, mesh_sizes, Dt)
+def _assert_temporal_order(problem, method):
+    mesh_sizes = [16, 32, 64]
+    Dt = [0.5**k for k in range(2)]
+    errors, _, expected_order = \
+        _compute_time_errors(problem, method, mesh_sizes, Dt)
+
+    # numerical orders of convergence
+    orders = numpy.vstack([
+        numpy.log(errors[:, k] / errors[:, k+1]) / numpy.log(Dt[k] / Dt[k+1])
+        for k in range(len(Dt)-1)
+        ]).T
+
     # The test is considered passed if the numerical order of convergence
     # matches the expected order in at least the first step in the coarsest
     # spatial discretization, and is not getting worse as the spatial
     # discretizations are refining.
     tol = 0.1
-    k = 0
-    expected_order = method['order']
-    for i in range(order.shape[0]):
-        nose.tools.assert_almost_equal(order[i][k], expected_order,
-                                       delta=tol
-                                       )
-        while k + 1 < len(order[i]) \
-                and abs(order[i][k + 1] - expected_order) < tol:
-            k += 1
-    return errors
+    assert (orders[:, 0] > expected_order - tol).all()
+    return
 
 
 def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
@@ -76,7 +76,7 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
             cell=cell_type
             )
     # Compute the problem
-    errors = {'theta': numpy.empty((len(mesh_sizes), len(Dt)))}
+    errors = numpy.empty((len(mesh_sizes), len(Dt)))
     # Create initial state.
     # Deepcopy the expression into theta0. Specify the cell to allow for
     # more involved operations with it (e.g., grad()).
@@ -115,7 +115,7 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
             # analyses "get rid" of this effect by (sometimes implicitly)
             # projecting the exact solution onto the discrete function
             # space.
-            errors['theta'][k][j] = errornorm(fenics_sol, theta_approx)
+            errors[k][j] = errornorm(fenics_sol, theta_approx)
             if plot_error:
                 error.assign(project(fenics_sol - theta_approx, V))
                 plot(error, title='error (dt=%e)' % dt)
@@ -123,7 +123,7 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
     return errors, stepper.name, stepper.order
 
 
-def _check_space_order(problem, method):
+def _check_spatial_order(problem, method):
     mesh_generator, solution, weak_F = problem()
 
     # Translate data into FEniCS expressions.
@@ -143,7 +143,7 @@ def _check_space_order(problem, method):
 
     # Estimate the error component in space.
     # Leave out too rough discretizations to avoid showing spurious errors.
-    N = [2 ** k for k in range(2, 8)]
+    N = [2**k for k in range(2, 8)]
     dt = 1.0e-8
     Err = []
     H = []
@@ -166,23 +166,23 @@ def _check_space_order(problem, method):
                 )
         # Compute the error.
         fenics_sol.t = dt
-        Err.append(errornorm(fenics_sol, theta_approx)
-                   / norm(fenics_sol, mesh=mesh)
-                   )
+        Err.append(
+            errornorm(fenics_sol, theta_approx) / norm(fenics_sol, mesh=mesh)
+            )
         print('n: %d    error: %e' % (n, Err[-1]))
 
-    from matplotlib import pyplot as pp
-    # Compare with order 1, 2, 3 curves.
-    for o in [2, 3, 4]:
-        pp.loglog([H[0], H[-1]],
-                  [Err[0], Err[0] * (H[-1] / H[0]) ** o],
-                  color='0.5'
-                  )
+    # Plot order curves for comparison.
+    for order in [2, 3, 4]:
+        plt.loglog(
+            [H[0], H[-1]],
+            [Err[0], Err[0] * (H[-1] / H[0]) ** order],
+            color='0.5'
+            )
     # Finally, the actual data.
-    pp.loglog(H, Err, '-o')
-    pp.xlabel('h_max')
-    pp.ylabel('||u-u_h|| / ||u||')
-    pp.show()
+    plt.loglog(H, Err, '-o')
+    plt.xlabel('h_max')
+    plt.ylabel('||u-u_h|| / ||u||')
+    plt.show()
     return
 
 
@@ -254,11 +254,11 @@ def problem_coscos_cartesian():
     '''cos-cos example. Inhomogeneous boundary conditions.
     '''
     def mesh_generator(n):
-        # mesh = UnitSquareMesh(n, n, 'left/right')
-        mesh = RectangleMesh(
-            Point(1.0, 0.0), Point(2.0, 1.0),
-            n, n, 'left/right'
-            )
+        mesh = UnitSquareMesh(n, n, 'left/right')
+        # mesh = RectangleMesh(
+        #     Point(1.0, 0.0), Point(2.0, 1.0),
+        #     n, n, 'left/right'
+        #     )
         return mesh
     t = smp.symbols('t')
     rho = 6.0
@@ -405,8 +405,8 @@ def problem_stefanboltzmann():
     # ONLY WORKS IF du/dn==0.
     u0 = theta
     # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), degree=max_degree, t=0.0)
-    u0 = Expression(smp.printing.ccode(u0), degree=max_degree, t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
+    u0 = Expression(smp.printing.ccode(u0), degree=MAX_DEGREE, t=0.0)
 
     # The corresponding operator in weak form.
     def weak_F(t, u_t, u, v):
@@ -422,15 +422,15 @@ def problem_stefanboltzmann():
 
 if __name__ == '__main__':
     # For debugging purposes, show some info.
-    mesh_sizes = [40, 80, 160]
+    mesh_sizes = [32, 64, 128, 256]
     # mesh_sizes = [20, 40, 80]
-    Dt = [0.5 ** k for k in range(7)]
+    Dt = [0.5**k for k in range(10)]
     errors, name, _ = _compute_time_errors(
         problem_coscos_cartesian,
         # ts.Dummy,
         # ts.ExplicitEuler,
-        # ts.ImplicitEuler,
-        ts.Trapezoidal,
+        ts.ImplicitEuler,
+        # ts.Trapezoidal,
         mesh_sizes, Dt,
         )
     helpers.show_timeorder_info(Dt, mesh_sizes, errors)

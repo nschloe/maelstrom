@@ -94,8 +94,8 @@ class ExplicitEuler():
             bc.apply(A, rhs)
 
         # Both Jacobi-and AMG-preconditioners are order-optimal for the mass
-        # matrix, Jacobi is a little more lightweight.
-        solver = KrylovSolver('cg', 'jacobi')
+        # matrix. Since Jacobi isn't available in FEniCS (anymore?), use AMG.
+        solver = KrylovSolver('cg', 'amg')
         solver.parameters['relative_tolerance'] = tol
         solver.parameters['absolute_tolerance'] = 0.0
         solver.parameters['maximum_iterations'] = maxiter
