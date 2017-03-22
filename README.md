@@ -18,6 +18,13 @@ https://github.com/nschloe/maelstrom
 
 They can be downloaded as a zip file or using the Git client.
 
+### Testing
+
+To run the voropy unit tests, check out this repository and type
+```
+pytest
+```
+
 ### License
 
 Maelstrom is published under the MIT license. See the file LICENSE for detailed

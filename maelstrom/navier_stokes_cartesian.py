@@ -29,7 +29,7 @@ from warnings import warn
 import numpy
 
 # import Maelstrom.stabilization as stab
-from Maelstrom.message import Message
+from maelstrom.message import Message
 
 
 def _rhs_weak(u, v, f, rho, mu):
@@ -126,10 +126,12 @@ def _rhs_weak(u, v, f, rho, mu):
     #
     # where more details on SUPG are given.
     #
-    return dot(f, v) * dx \
-        - mu * inner(grad(u), grad(v)) * dx \
+    return (
+        dot(f, v) * dx
+        - mu * inner(grad(u), grad(v)) * dx
         - rho * 0.5 * (inner(grad(u)*u, v) - inner(grad(v)*u, u)) * dx
-        #- rho*inner(grad(u)*u, v) * dx
+        # - rho*inner(grad(u)*u, v) * dx
+        )
 
 
 def _rhs_strong(u, f, rho, mu):
@@ -222,21 +224,21 @@ class PressureProjection(object):
             if p0:
                 F1 += dot(grad(p0), v) * dx
 
-            #if stabilization:
-            #    tau = stab.supg2(V.mesh(),
-            #                     u_1,
-            #                     mu/rho,
-            #                     V.ufl_element().degree()
-            #                     )
-            #    R = rho*(ui - u_1)/k
-            #    if abs(theta) > DOLFIN_EPS:
-            #        R -= theta * _rhs_strong(ui, f1, rho, mu)
-            #    if abs(1.0-theta) > DOLFIN_EPS:
-            #        R -= (1.0-theta) * _rhs_strong(u_1, f0, rho, mu)
-            #    if p_1:
-            #        R += grad(p_1)
-            #    # TODO use u_1 or ui here?
-            #    F1 += tau * dot(R, grad(v)*u_1) * dx
+            # if stabilization:
+            #     tau = stab.supg2(V.mesh(),
+            #                      u_1,
+            #                      mu/rho,
+            #                      V.ufl_element().degree()
+            #                      )
+            #     R = rho*(ui - u_1)/k
+            #     if abs(theta) > DOLFIN_EPS:
+            #         R -= theta * _rhs_strong(ui, f1, rho, mu)
+            #     if abs(1.0-theta) > DOLFIN_EPS:
+            #         R -= (1.0-theta) * _rhs_strong(u_1, f0, rho, mu)
+            #     if p_1:
+            #         R += grad(p_1)
+            #     # TODO use u_1 or ui here?
+            #     F1 += tau * dot(R, grad(v)*u_1) * dx
 
             # Get linearization and solve nonlinear system.
             # If the scheme is fully explicit (theta=0.0), then the system is
@@ -263,14 +265,14 @@ class PressureProjection(object):
 
             # Wrap the solution in a try-catch block to make sure we call end()
             # if necessary.
-            #problem = NonlinearVariationalProblem(F1, ui, u_bcs, J)
-            #solver  = NonlinearVariationalSolver(problem)
+            # problem = NonlinearVariationalProblem(F1, ui, u_bcs, J)
+            # solver  = NonlinearVariationalSolver(problem)
             solve(
                 F1 == 0, ui,
                 bcs=u_bcs,
                 J=J,
                 solver_parameters={
-                    #'nonlinear_solver': 'snes',
+                    # 'nonlinear_solver': 'snes',
                     'nonlinear_solver': 'newton',
                     'newton_solver': {
                         'maximum_iterations': 5,
@@ -278,14 +280,14 @@ class PressureProjection(object):
                         'absolute_tolerance': tol,
                         'relative_tolerance': 0.0,
                         'linear_solver': 'iterative',
-                        ## The nonlinear term makes the problem generally
-                        ## nonsymmetric.
-                        #'symmetric': False,
-                        # If the nonsymmetry is too strong, e.g., if u_1 is
-                        # large, then AMG preconditioning might not work very
-                        # well.
+                        # # The nonlinear term makes the problem generally
+                        # # nonsymmetric.
+                        # 'symmetric': False,
+                        #  If the nonsymmetry is too strong, e.g., if u_1 is
+                        #  large, then AMG preconditioning might not work very
+                        #  well.
                         'preconditioner': 'ilu',
-                        #'preconditioner': 'hypre_amg',
+                        # 'preconditioner': 'hypre_amg',
                         'krylov_solver': {'relative_tolerance': tol,
                                           'absolute_tolerance': 0.0,
                                           'maximum_iterations': 1000,
@@ -334,13 +336,13 @@ class PressureProjection(object):
                                    tol=tol,
                                    verbose=verbose
                                    )
-            #plot(p - phi, title='p-phi')
-            #plot(ui, title='u intermediate')
-            #plot(f, title='f')
-            ##plot(ui[1], title='u intermediate[1]')
-            #plot(div(ui), title='div(u intermediate)')
-            #plot(phi, title='phi')
-            #interactive()
+            # plot(p - phi, title='p-phi')
+            # plot(ui, title='u intermediate')
+            # plot(f, title='f')
+            # #plot(ui[1], title='u intermediate[1]')
+            # plot(div(ui), title='div(u intermediate)')
+            # plot(phi, title='phi')
+            # interactive()
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Velocity correction.
         #   U = U0 - dt/rho \nabla p.
@@ -368,16 +370,16 @@ class PressureProjection(object):
                                         'maximum_iterations': 100,
                                         'monitor_convergence': verbose}
                       })
-        #u = project(ui - k/rho * grad(phi), V)
-        #print '||u||_div = %e' % norm(u, 'Hdiv0')
-        #uu = TrialFunction(Q)
-        #vv = TestFunction(Q)
-        #div_u = Function(Q)
-        #solve(uu*vv*dx == div(u)*vv*dx, div_u,
-        #      #bcs=DirichletBC(Q, 0.0, 'on_boundary')
-        #      )
-        #plot(div_u, title='div(u)')
-        #interactive()
+        # u = project(ui - k/rho * grad(phi), V)
+        # print '||u||_div = %e' % norm(u, 'Hdiv0')
+        # uu = TrialFunction(Q)
+        # vv = TestFunction(Q)
+        # div_u = Function(Q)
+        # solve(uu*vv*dx == div(u)*vv*dx, div_u,
+        #       #bcs=DirichletBC(Q, 0.0, 'on_boundary')
+        #       )
+        # plot(div_u, title='div(u)')
+        # interactive()
         return
 
     def _pressure_poisson(self,
@@ -519,29 +521,31 @@ class PressureProjection(object):
                 normB = norm(b)
                 info('Linear system convergence failure.')
                 info(error.message)
-                message = ('Linear system not consistent! '
-                           '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e, tol = %e.') \
-                           % (alpha, normB, alpha/normB, tol)
+                message = (
+                    'Linear system not consistent! '
+                    '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e, tol = %e.'
+                    ) \
+                    % (alpha, normB, alpha/normB, tol)
                 info(message)
                 if tol < abs(alpha) / normB:
                     info('\int div(u)  =  %e' % assemble(divu * dx))
-                    #n = FacetNormal(Q.mesh())
-                    #info('\int_Gamma n.u = %e' % assemble(dot(n, u)*ds))
-                    #info('\int_Gamma u[0] = %e' % assemble(u[0]*ds))
-                    #info('\int_Gamma u[1] = %e' % assemble(u[1]*ds))
-                    ## Now plot the faulty u on a finer mesh (to resolve the
-                    ## quadratic trial functions).
-                    #fine_mesh = Q.mesh()
-                    #for k in range(1):
-                    #    fine_mesh = refine(fine_mesh)
-                    #V1 = FunctionSpace(fine_mesh, 'CG', 1)
-                    #W1 = V1*V1
-                    #uplot = project(u, W1)
-                    ##uplot = Function(W1)
-                    ##uplot.interpolate(u)
-                    #plot(uplot, title='u_tentative')
-                    #plot(uplot[0], title='u_tentative[0]')
-                    #plot(uplot[1], title='u_tentative[1]')
+                    # n = FacetNormal(Q.mesh())
+                    # info('\int_Gamma n.u = %e' % assemble(dot(n, u)*ds))
+                    # info('\int_Gamma u[0] = %e' % assemble(u[0]*ds))
+                    # info('\int_Gamma u[1] = %e' % assemble(u[1]*ds))
+                    # # Now plot the faulty u on a finer mesh (to resolve the
+                    # # quadratic trial functions).
+                    # fine_mesh = Q.mesh()
+                    # for k in range(1):
+                    #     fine_mesh = refine(fine_mesh)
+                    # V1 = FunctionSpace(fine_mesh, 'CG', 1)
+                    # W1 = V1*V1
+                    # uplot = project(u, W1)
+                    # #uplot = Function(W1)
+                    # #uplot.interpolate(u)
+                    # plot(uplot, title='u_tentative')
+                    # plot(uplot[0], title='u_tentative[0]')
+                    # plot(uplot[1], title='u_tentative[1]')
                     plot(divu, title='div(u_tentative)')
                     interactive()
                     exit()
@@ -644,7 +648,7 @@ class AB2R():
         (u, p) = TrialFunctions(WP)
         (v, q) = TestFunctions(WP)
 
-        #a = rho * dot(u, v) * dx + dot(grad(p), v) * dx \
+        # a = rho * dot(u, v) * dx + dot(grad(p), v) * dx \
         a = rho * inner(u, v) * dx - p * div(v) * dx \
             - div(u) * q * dx
         L = _rhs_weak(u0, v, f, rho, mu)
@@ -667,7 +671,7 @@ class AB2R():
 
         # Associate operator (A) and preconditioner matrix (M)
         solver.set_operators(A, M)
-        #solver.set_operator(A)
+        # solver.set_operator(A)
 
         # Solve
         up = Function(WP)
@@ -783,15 +787,15 @@ class AB2R():
         # Subtract the right-hand side.
         F -= dot(rho*(2.0/dt0*u0 + dudt0) + f1, vv[0]) * dx
 
-        #J = derivative(F, up1)
+        # J = derivative(F, up1)
 
         # Solve nonlinear system for u1, p1.
         solve(
             F == 0, up1,
             bcs=u_bcs_new + p_bcs_new,
-            #J = J,
+            # J = J,
             solver_parameters={
-              #'nonlinear_solver': 'snes',
+              # 'nonlinear_solver': 'snes',
               'nonlinear_solver': 'newton',
               'newton_solver': {'maximum_iterations': 5,
                                 'report': True,
@@ -799,23 +803,23 @@ class AB2R():
                                 'relative_tolerance': 0.0
                                 },
               'linear_solver': 'direct',
-              #'linear_solver': 'iterative',
-              ## The nonlinear term makes the problem
-              ## generally nonsymmetric.
-              #'symmetric': False,
-              ## If the nonsymmetry is too strong, e.g., if
-              ## u_1 is large, then AMG preconditioning
-              ## might not work very well.
-              #'preconditioner': 'ilu',
-              ##'preconditioner': 'hypre_amg',
-              #'krylov_solver': {'relative_tolerance': tol,
-              #                  'absolute_tolerance': 0.0,
-              #                  'maximum_iterations': 100,
-              #                  'monitor_convergence': verbose}
+              # 'linear_solver': 'iterative',
+              # # The nonlinear term makes the problem
+              # # generally nonsymmetric.
+              # 'symmetric': False,
+              # # If the nonsymmetry is too strong, e.g., if
+              # # u_1 is large, then AMG preconditioning
+              # # might not work very well.
+              # 'preconditioner': 'ilu',
+              # #'preconditioner': 'hypre_amg',
+              # 'krylov_solver': {'relative_tolerance': tol,
+              #                   'absolute_tolerance': 0.0,
+              #                   'maximum_iterations': 100,
+              #                   'monitor_convergence': verbose}
               })
 
-        ## Simpler access to the solution.
-        #u1, p1 = up1.split()
+        # # Simpler access to the solution.
+        # u1, p1 = up1.split()
 
         # Invert trapezoidal rule for next du/dt.
         dudt1 = 2 * (u1 - u0)/dt0 - dudt0
