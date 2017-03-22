@@ -11,6 +11,7 @@ from dolfin import set_log_level, WARNING, Expression, FunctionSpace, \
 import itertools
 import matplotlib.pyplot as plt
 import numpy
+import pytest
 import sympy as smp
 
 
@@ -22,7 +23,17 @@ set_log_level(WARNING)
 MAX_DEGREE = 10
 
 
-def test_temporal_order():
+@pytest.mark.parametrize(
+    'method',
+    [ts.ExplicitEuler]
+    # [
+    #     # ts.Dummy,
+    #     ts.ExplicitEuler
+    #     # ts.ImplicitEuler
+    #     # ts.Trapezoidal
+    # ]
+    )
+def test_temporal_order(method):
     '''Test order of time discretization.
     '''
     # TODO add test for spatial order
@@ -34,15 +45,9 @@ def test_temporal_order():
         # problem_stefanboltzmann
         ]
     # Methods together with the expected order of convergence.
-    methods = [
-        # ts.Dummy,
-        ts.ExplicitEuler
-        # ts.ImplicitEuler
-        # ts.Trapezoidal
-        ]
-    # Loop over all methods and check the order of convergence.
-    for method, problem in itertools.product(methods, problems):
-        yield _assert_temporal_order, problem, method
+    for problem in itertools.product(problems):
+        _assert_temporal_order, problem, method
+    return
 
 
 def _assert_temporal_order(problem, method):
