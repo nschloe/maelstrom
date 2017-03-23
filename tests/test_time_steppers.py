@@ -192,8 +192,11 @@ def problem_coscos_cylindrical():
     '''cos-cos example. Inhomogeneous boundary conditions.
     '''
     def mesh_generator(n):
-        # mesh = UnitSquareMesh(n, n, 'left/right')
-        mesh = RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n, 'left/right')
+        mesh = UnitSquareMesh(n, n, 'left/right')
+        # mesh = RectangleMesh(
+        #     Point(1.0, 0.0), Point(2.0, 1.0),
+        #     n, n, 'left/right'
+        #     )
         return mesh
 
     t = smp.symbols('t')
@@ -224,7 +227,7 @@ def problem_coscos_cylindrical():
         )
 
     # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), numpy.infty, t=0.0)
+    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
     b = Expression(
             (smp.printing.ccode(b_sympy[0]), smp.printing.ccode(b_sympy[1])),
             degree=1,
@@ -232,24 +235,44 @@ def problem_coscos_cylindrical():
             )
     kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
-    # The corresponding operator in weak form.
-    def weak_F(t, u_t, u, v):
-        # Define the differential equation.
-        mesh = v.function_space().mesh()
-        n = FacetNormal(mesh)
-        r = Expression('x[0]', degree=1, cell=triangle)
-        # All time-dependent components be set to t.
-        f.t = t
-        b.t = t
-        kappa.t = t
-        F = (
-            - inner(b, grad(u)) * v * dx
-            - 1.0 / (rho * cp) * dot(r * kappa * grad(u), grad(v / r)) * dx
-            + 1.0 / (rho * cp) * dot(r * kappa * grad(u), n) * v / r * ds
-            + 1.0 / (rho * cp) * f * v * dx
-            )
-        return F
-    return mesh_generator, theta, weak_F, triangle
+    class HeatEquation(ts.ParabolicProblem):
+        def __init__(self, V):
+            super(HeatEquation, self).__init__()
+            # Define the differential equation.
+            self.V = V
+            self.rho_cp = rho * cp
+            self.sol = Expression(
+                    smp.printing.ccode(theta),
+                    degree=MAX_DEGREE,
+                    t=0.0,
+                    cell=triangle
+                    )
+            return
+
+        def get_system(self, t):
+            kappa.t = t
+            f.t = t
+            n = FacetNormal(self.V.mesh())
+            u = TrialFunction(self.V)
+            v = TestFunction(self.V)
+            r = Expression('x[0]', degree=1, cell=triangle)
+            # All time-dependent components be set to t.
+            f.t = t
+            b.t = t
+            kappa.t = t
+            F = (
+                - inner(b, grad(u)) * v * dx
+                - 1.0 / (rho * cp) * dot(r * kappa * grad(u), grad(v / r)) * dx
+                + 1.0 / (rho * cp) * dot(r * kappa * grad(u), n) * v / r * ds
+                + 1.0 / (rho * cp) * f * v * dx
+                )
+            return assemble(lhs(F)), assemble(rhs(F))
+
+        def get_bcs(self, t):
+            self.sol.t = t
+            return [DirichletBC(self.V, self.sol, 'on_boundary')]
+
+    return mesh_generator, theta, HeatEquation, triangle
 
 
 def problem_stefanboltzmann():
@@ -287,16 +310,35 @@ def problem_stefanboltzmann():
     f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
     u0 = Expression(smp.printing.ccode(u0), degree=MAX_DEGREE, t=0.0)
 
-    # The corresponding operator in weak form.
-    def weak_F(t, u_t, u, v):
-        # All time-dependent components be set to t.
-        u0.t = t
-        f.t = f
-        F = - 1.0 / (rho * cp) * kappa * dot(grad(u), grad(v)) * dx \
-            + 1.0 / (rho * cp) * kappa * (u*u*u*u - u0*u0*u0*u0) * v * ds \
-            + 1.0 / (rho * cp) * f * v * dx
-        return F
-    return mesh_generator, theta, weak_F, triangle
+    class HeatEquation(ts.ParabolicProblem):
+        def __init__(self, V):
+            super(HeatEquation, self).__init__()
+            # Define the differential equation.
+            self.V = V
+            self.rho_cp = rho * cp
+            self.sol = Expression(
+                    smp.printing.ccode(theta),
+                    degree=MAX_DEGREE,
+                    t=0.0,
+                    cell=triangle
+                    )
+            return
+
+        def get_system(self, t):
+            u0.t = t
+            f.t = t
+            u = TrialFunction(self.V)
+            v = TestFunction(self.V)
+            F = - 1.0 / (rho * cp) * kappa * dot(grad(u), grad(v)) * dx \
+                + 1.0 / (rho * cp) * kappa * (u*u*u*u - u0*u0*u0*u0) * v * ds \
+                + 1.0 / (rho * cp) * f * v * dx
+            return assemble(lhs(F)), assemble(rhs(F))
+
+        def get_bcs(self, t):
+            self.sol.t = t
+            return [DirichletBC(self.V, self.sol, 'on_boundary')]
+
+    return mesh_generator, theta, HeatEquation, triangle
 
 
 @pytest.mark.parametrize(
@@ -306,8 +348,8 @@ def problem_stefanboltzmann():
 @pytest.mark.parametrize(
     'problem', [
         problem_sin1d,
-        problem_coscos_cartesian,
         problem_sinsin,
+        problem_coscos_cartesian,
         # problem_coscos_cylindrical,
         # problem_stefanboltzmann
         ])
