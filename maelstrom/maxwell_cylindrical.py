@@ -59,7 +59,7 @@ avoids dividing by r in the convections and the right hand side.
 from dolfin import (
     info, Expression, DOLFIN_EPS, DirichletBC, Function, KrylovSolver, dot,
     grad, pi, TrialFunctions, TestFunctions, assemble, Constant, project,
-    FunctionSpace
+    FunctionSpace, SpatialCoordinate
     )
 import numpy
 
@@ -70,6 +70,7 @@ def solve(
         omega,
         f_list,  # list of dictionaries
         convections,  # dictionary
+        f_degree=None,
         bcs=None,
         tol=1.0e-12,
         verbose=False
@@ -208,54 +209,10 @@ def solve(
             Mu, Sigma,
             omega,
             f_list,
+            f_degree,
             convections,
             bcs
             )
-
-    # from matplotlib import pyplot as pp
-    # rows, cols, values = M.data()
-    # from scipy.sparse import csr_matrix
-    # M_matrix = csr_matrix((values, cols, rows))
-    # #from matplotlib import pyplot as pp
-    # ##pp.spy(M_matrix, precision=1e-3, marker='.', markersize=5)
-    # #pp.spy(M_matrix)
-    # #pp.show()
-    # # colormap
-    # cmap = pp.cm.gray_r
-    # M_dense = M_matrix.todense()
-    # from matplotlib.colors import LogNorm
-    # im = pp.imshow(
-    #     abs(M_dense), cmap=cmap, interpolation='nearest', norm=LogNorm()
-    #     )
-    # #im = pp.imshow(abs(M_dense), cmap=cmap, interpolation='nearest')
-    # #im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
-    # #im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
-    # pp.colorbar()
-    # pp.show()
-    # exit()
-    # print A
-    # rows, cols, values = A.data()
-    # from scipy.sparse import csr_matrix
-    # A_matrix = csr_matrix((values, cols, rows))
-
-    # ##pp.spy(A_matrix, precision=1e-3, marker='.', markersize=5)
-    # #pp.spy(A_matrix)
-    # #pp.show()
-
-    # # colormap
-    # cmap = pp.cm.gray_r
-    # A_dense = A_matrix.todense()
-    # #A_r = A_dense[0::2][0::2]
-    # #A_i = A_dense[1::2][0::2]
-    # cmap.set_bad('r')
-    # # im = pp.imshow(
-    # #     abs(A_dense), cmap=cmap, interpolation='nearest', norm=LogNorm()
-    # #     )
-    # im = pp.imshow(abs(A_dense), cmap=cmap, interpolation='nearest')
-    # #im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
-    # #im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
-    # pp.colorbar()
-    # pp.show()
 
     # prepare solver
     solver = KrylovSolver('gmres', 'amg')
@@ -266,7 +223,7 @@ def solve(
     # the order 10^2. While this isn't too bad (after all the equations are
     # upscaled by a large factor), one can choose a very small relative
     # tolerance here to get a visually pleasing residual norm.
-    solver.parameters['relative_tolerance'] = 1.0e-12
+    solver.parameters['relative_tolerance'] = 1.0e-15
     solver.parameters['absolute_tolerance'] = 0.0
     solver.parameters['maximum_iterations'] = 100
     solver.parameters['report'] = verbose
@@ -286,6 +243,7 @@ def _build_system(
         Mu, Sigma,
         omega,
         f_list,
+        f_degree,
         convections,
         bcs
         ):
@@ -298,7 +256,7 @@ def _build_system(
 
     by multiplying with :math:`2\pi r v` and integrating over the domain.
     '''
-    r = Expression('x[0]', degree=1, domain=V.mesh())
+    r = SpatialCoordinate(V.mesh())[0]
 
     subdomain_indices = Mu.keys()
 
@@ -318,8 +276,8 @@ def _build_system(
             )
         for i, fval in f.items():
             L += (
-                + fval[0] * vr * 2*pi*r * dx(i)
-                + fval[1] * vi * 2*pi*r * dx(i)
+                + fval[0] * vr * 2*pi*r * dx(i, degree=f_degree)
+                + fval[1] * vi * 2*pi*r * dx(i, degree=f_degree)
                 )
         b_list.append(assemble(L))
 
@@ -417,9 +375,6 @@ def _build_system(
             - om * Constant(Sigma[i]) * ui * vi * 2 * pi * r * dx(i)
             )
     P = assemble(p1 + p2)
-    # P = assemble(p1)
-    # P2 = assemble(p2)
-    # P = P1 + P2
 
     # build mass matrix
     # mm = sum([(ur * vr + ui * vi) * 2*pi*r * dx(i)
@@ -441,50 +396,10 @@ def _build_system(
         for b in b_list:
             bcs.apply(b)
 
-    # rows, cols, values = A.data()
-    # A = csr_matrix((values, cols, rows))
-    # print A
-    # betterspy(A)
-    # from matplotlib import pyplot as pp
-    # pp.show()
-    # exx
-
-    # M2 = assemble(m)
-
-    # Mdiff = M - M2
-
-    # print Mdiff
-
-    # from matplotlib import pyplot as pp
-    # rows, cols, values = Mdiff.data()
-    # print len(rows)
-    # print rows
-    # pp.plot(rows)
-    # pp.show()
-    # print len(cols)
-    # print cols
-    # print len(values)
-    # print values
-    # from scipy.sparse import csr_matrix
-    # M_matrix = csr_matrix((values, cols, rows))
-    # print M_matrix
-    # ##from matplotlib import pyplot as pp
-    # ###pp.spy(M_matrix, precision=1e-3, marker='.', markersize=5)
-    # ##pp.spy(M_matrix)
-    # ##pp.show()
-    # ## colormap
-    # #cmap = pp.cm.gray_r
-    # #M_dense = M_matrix.todense()
-    # #from matplotlib.colors import LogNorm
-    # # im = pp.imshow(
-    # #     abs(M_dense), cmap=cmap, interpolation='nearest', norm=LogNorm()
-    # #     )
-    # ##im = pp.imshow(abs(M_dense), cmap=cmap, interpolation='nearest')
-    # ##im = pp.imshow(abs(A_r), cmap=cmap, interpolation='nearest')
-    # ##im = pp.imshow(abs(A_i), cmap=cmap, interpolation='nearest')
-    # #pp.colorbar()
-    # #pp.show()
-    # exit()
+    # helpers.show_matrix(A)
+    # print(helpers.get_eigenvalues(A))
+    # helpers.show_matrix(M)
+    # helpers.show_matrix(P)
 
     return A, P, b_list, M, W
 
@@ -580,7 +495,7 @@ def compute_potential(
     # Set arbitrary reference voltage.
     v_ref = 1.0
 
-    r = Expression('x[0]', degree=1, domain=V.mesh())
+    r = SpatialCoordinate(V.mesh())[0]
 
     # Compute reference potentials for all coil rings.
     # Prepare the right-hand sides according to :cite:`Cha97`.
@@ -741,7 +656,8 @@ def get_voltage_current_matrix(
     the potential generated by coil :math:`l` to the current in coil :math:`k`.
     '''
     mesh = phi[0].function_space().mesh()
-    r = Expression('x[0]', degree=1, domain=mesh)
+
+    r = SpatialCoordinate(mesh)[0]
 
     num_coil_rings = len(phi)
     J = numpy.empty((num_coil_rings, num_coil_rings), dtype=numpy.complex)
@@ -786,7 +702,8 @@ def compute_joule(
     #
     # joule_source = zero() * dx(0)
     joule_source = {}
-    r = Expression('x[0]', degree=1, domain=Phi[0].function_space().mesh())
+    mesh = Phi[0].function_space().mesh()
+    r = SpatialCoordinate(mesh)[0]
     for i in subdomain_indices:
         # See, e.g., equation (2.17) in
         #
@@ -894,7 +811,9 @@ def compute_lorentz(Phi, omega, sigma):
 
     (in particular not containing a voltage term).
     '''
-    r = Expression('x[0]', degree=1, domain=Phi[0].function_space().mesh())
+    mesh = Phi[0].function_space().mesh()
+    r = SpatialCoordinate(mesh)[0]
+
     j_r = + sigma * omega * Phi[1]
     j_i = - sigma * omega * Phi[0]
     return 0.5 * (

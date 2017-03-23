@@ -7,20 +7,19 @@ from dolfin import FunctionSpace, Constant, Measure, TrialFunction, \
 
 from maelstrom.materials_database import MATERIAL_PARAMETERS as params
 import maelstrom.time_steppers as ts
-#import maelstrom.stabilization as stab
+# import maelstrom.stabilization as stab
 import maelstrom.problems as probs
 
 
-# --------------------------------------------------------------------------
 def _main():
 
-    #mesh, f, boundaries, boundary_indices, theta0 = probs.coil_in_box()
+    # mesh, f, boundaries, boundary_indices, theta0 = probs.coil_in_box()
     mesh, f, boundaries, boundary_indices, theta0 = \
         probs.square_with_obstacle()
 
     Q = FunctionSpace(mesh, 'CG', 1)
 
-    #material = 'graphite'
+    # material = 'graphite'
     material = 'water'
     background_temp = 293.0
     rho = params[material]['density'](background_temp)
@@ -34,18 +33,17 @@ def _main():
 
     ds = Measure('ds')[boundaries]
 
-    #tau = stab.supg2(Q.mesh(),
-    #                 b,
-    #                 kappa/(rho*cp),
-    #                 Q.ufl_element().degree()
-    #                 )
+    # tau = stab.supg2(Q.mesh(),
+    #                  b,
+    #                  kappa/(rho*cp),
+    #                  Q.ufl_element().degree()
+    #                  )
 
-    #plot(tau, mesh=mesh)
-    #interactive()
+    # plot(tau, mesh=mesh)
+    # interactive()
 
     # The corresponding operator in weak form.
     class HeatEquation():
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         def __init__(self, Q, kappa, rho, cp, b, stabilization=None):
             self.V = Q
             u = TrialFunction(Q)
@@ -100,20 +98,19 @@ def _main():
             #
             self.P = A + assemble(dot(b, b) * u * v * dx)
             return
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
         def get_system(self, t):
             f.t = t
             v = TestFunction(self.V)
             self.f += assemble(f * v/self.rho_cp * dx)
             return self.L, self.f
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
         def get_preconditioner(self, t):
             return self.P
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
         def get_bcs(self, t):
             return []
-            #return [DirichletBC(self.V, 0.0, 'on_boundary')]
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            # return [DirichletBC(self.V, 0.0, 'on_boundary')]
 
     # Play with the stationary problem.
     problem = HeatEquation(Q, kappa, rho, cp, b)
@@ -141,9 +138,9 @@ def _main():
 
     # Time stepping.
     t = 0.0
-    #stepper = ts.ExplicitEuler(problem)
+    # stepper = ts.ExplicitEuler(problem)
     stepper = ts.ImplicitEuler(problem)
-    #stepper = ts.Trapezoidal(problem)
+    # stepper = ts.Trapezoidal(problem)
     while t < T:
         theta = stepper.step(theta_1,
                              t, dt,
@@ -151,18 +148,18 @@ def _main():
                              # parameters"
                              tol=1.0e-12,
                              maxiter=1000,
-                             #verbose=True,
+                             # verbose=True,
                              krylov='gmres',
                              preconditioner='amg'
                              )
         theta_1.assign(theta)
         theta_file << (theta_1, t)
         plot(theta_1, title='temperature')
-        #interactive()
+        # interactive()
         t += dt
 
     return
-# --------------------------------------------------------------------------
+
+
 if __name__ == '__main__':
     _main()
-# --------------------------------------------------------------------------

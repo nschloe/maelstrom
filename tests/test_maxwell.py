@@ -4,10 +4,10 @@ import helpers
 import maelstrom.maxwell_cylindrical as mcyl
 
 from dolfin import (
-    FunctionSpace, errornorm, RectangleMesh, Measure, CellFunction,
-    FacetFunction, triangle, Expression, MPI, mpi_comm_world, Point,
+    FunctionSpace, errornorm, UnitSquareMesh, Measure, CellFunction,
+    FacetFunction, triangle, Expression, MPI, mpi_comm_world,
     dot, TestFunction, TrialFunction, grad, pi, Function, solve,
-    DirichletBC, DOLFIN_EPS, norm, sqrt, Constant
+    DirichletBC, DOLFIN_EPS, norm, Constant, FiniteElement, sqrt
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -20,17 +20,18 @@ import warnings
 # set_log_level(ERROR)
 # set_log_level(0)
 
-MAX_DEGREE = 10
+# Needed for matrix inspection via scipy:
+# from dolfin import parameters
+# parameters['linear_algebra_backend'] = 'Eigen'
+
+MAX_DEGREE = 5
 
 
 def problem_coscos():
     '''cosine example.
     '''
     def mesh_generator(n):
-        mesh = RectangleMesh(
-            Point(1.0, 0.0), Point(2.0, 1.0),
-            n, n, 'left/right'
-            )
+        mesh = UnitSquareMesh(n, n, 'left/right')
         domains = CellFunction('uint', mesh)
         domains.set_all(0)
         dx = Measure('dx', subdomain_data=domains)
@@ -51,58 +52,93 @@ def problem_coscos():
         'value': (
             beta * (1.0 - sympy.cos(alpha * x[0])),
             beta * (1.0 - sympy.cos(alpha * x[0]))
+            # beta * sympy.sin(alpha * x[0]),
+            # beta * sympy.sin(alpha * x[0])
             ),
         'degree': MAX_DEGREE
         }
 
     # Produce a matching right-hand side.
-    mu = 1.0
+    phi = solution['value']
+    # mu = 1.0
     # sigma = 1.0
     # omega = 1.0
-    # f_sympy = (
+    # rhs_sympy = (
     #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[0]), x[0])
     #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
-    #     - omega*sigma*phi[1],
+    #     - omega * sigma * phi[1],
     #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
     #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
-    #     + omega*sigma*phi[0]
+    #     + omega * sigma * phi[0]
     #     )
     rhs_sympy = (
-        -sympy.diff(
-            1 / (mu * x[0]) * sympy.diff(x[0] * solution['value'][0], x[0]),
-            x[0]
-            ),
-        # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
-        # - omega*sigma*phi[1],
-        # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
-        # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
-        + 0.0 * solution['value'][0]
+        - sympy.diff(1/(x[0]) * sympy.diff(x[0]*phi[0], x[0]), x[0])
+        - sympy.diff(1/(x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
+        - 1.0 * phi[1],
+        - 1.0 * phi[0]
         )
 
+    rhs_sympy = (
+        sympy.simplify(rhs_sympy[0]),
+        sympy.simplify(rhs_sympy[1])
+        )
+
+    # rhs_sympy = (
+    #     -sympy.diff(
+    #         1 / (mu * x[0]) * sympy.diff(x[0] * solution['value'][0], x[0]),
+    #         x[0]
+    #         ),
+    #     # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
+    #     # - omega*sigma*phi[1],
+    #     # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
+    #     # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
+    #     + 0.0 * solution['value'][0]
+    #     )
+
+    # The rhs expressions contain terms like 1/x[0]. If naively evaluated, this
+    # will result in NaNs, even for points where not x[0]==0. This is because,
+    # by default, expressions get interpolated to polynomials.
+    # See
+    # <https://fenicsproject.org/qa/12796/1-x-near-boundary-nans-where-there-shouldnt-be-nans>,
+    # <https://bitbucket.org/fenics-project/dolfin/issues/831/some-problems-with-quadrature-expressions>.
+    # for a workaround.
+    Q = FiniteElement(
+            'Quadrature',
+            triangle,
+            degree=MAX_DEGREE,
+            quad_scheme='default'
+            )
     rhs = {
         'value': (
-            Expression(sympy.printing.ccode(rhs_sympy[0]), degree=MAX_DEGREE),
-            Expression(sympy.printing.ccode(rhs_sympy[1]), degree=MAX_DEGREE)
+            Expression(sympy.printing.ccode(rhs_sympy[0]), element=Q),
+            Expression(sympy.printing.ccode(rhs_sympy[1]), element=Q),
             ),
         'degree': MAX_DEGREE
         }
 
     # Show the solution and the right-hand side.
-    n = 50
-    mesh, dx, ds = mesh_generator(n)
-    # plot(
-    #     Expression(sympy.printing.ccode(phi[0])), mesh=mesh, title='phi.real'
-    #     )
-    # plot(
-    #     Expression(sympy.printing.ccode(phi[1])), mesh=mesh, title='phi.imag'
-    #     )
-    # plot(f[0], mesh=mesh, title='f.real')
-    # plot(f[1], mesh=mesh, title='f.imag')
-    # interactive()
+    show = False
+    if show:
+        from dolfin import plot, interactive
+        n = 50
+        mesh, dx, ds = mesh_generator(n)
+        plot(
+            Expression(sympy.printing.ccode(phi[0])),
+            mesh=mesh, title='phi.real'
+            )
+        plot(
+            Expression(sympy.printing.ccode(phi[1])),
+            mesh=mesh, title='phi.imag'
+            )
+        plot(rhs[0], mesh=mesh, title='f.real')
+        plot(rhs[1], mesh=mesh, title='f.imag')
+        interactive()
     return mesh_generator, solution, rhs, triangle
 
 
-def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs):
+def _build_residuals(
+        V, dx, phi, omega, Mu, Sigma, convections, Rhs, rhs_degree
+        ):
     r = Expression('x[0]', degree=1, domain=V.mesh())
 
     subdomain_indices = Mu.keys()
@@ -116,11 +152,11 @@ def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs):
     for i in subdomain_indices:
         r_r += (
             1.0 / (Mu[i] * r) * dot(grad(r * phi_r), grad(r * v)) * 2*pi*dx(i)
-            - omega * Sigma[i] * phi[1] * v * 2*pi*r * dx(i)
+            - omega * Sigma[i] * phi[1] * v * 2*pi*r*dx(i)
             )
         r_i += (
             1.0 / (Mu[i] * r) * dot(grad(r * phi_i), grad(r * v)) * 2*pi*dx(i)
-            + omega * Sigma[i] * phi[0] * v * 2*pi * r * dx(i)
+            + omega * Sigma[i] * phi[0] * v * 2*pi*r*dx(i)
             )
     # convections
     for i, conv in convections.items():
@@ -129,11 +165,8 @@ def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs):
     # rhs
     for i, rhs in Rhs.items():
         rhs_r, rhs_i = rhs
-        r_r -= rhs_r * v * dx(i)
-        r_i -= rhs_i * v * dx(i)
-
-    def xzero(x, on_boundary):
-        return on_boundary and abs(x[0]) < DOLFIN_EPS
+        r_r -= rhs_r * v * 2*pi*r * dx(i, degree=rhs_degree)
+        r_i -= rhs_i * v * 2*pi*r * dx(i, degree=rhs_degree)
 
     # Solve an FEM problem to get the corresponding residual function out.
     # This is exactly what we need here! :)
@@ -147,18 +180,37 @@ def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs):
     R_i = Function(V)
 
     # TODO don't hard code the boundary conditions like this
+    def xzero(x, on_boundary):
+        return on_boundary and abs(x[0]) < DOLFIN_EPS
+
     solve(a == r_r, R_r, bcs=DirichletBC(V, 0.0, xzero))
     solve(a == r_i, R_i, bcs=DirichletBC(V, 0.0, xzero))
 
-    return R_r, R_i
+    from dolfin import plot, interactive
+    plot(R_r, title='R_r')
+    plot(R_i, title='R_i')
+    interactive()
+
+    # solve mass-matrix system for RHS
+    frhs_r = Constant(0.0) * v * dx(0)
+    frhs_i = Constant(0.0) * v * dx(0)
+    for i, rhs in Rhs.items():
+        rhs_r, rhs_i = rhs
+        frhs_r -= rhs_r * v * 2*pi*r * dx(i, degree=rhs_degree)
+        frhs_i -= rhs_i * v * 2*pi*r * dx(i, degree=rhs_degree)
+    Rhs_r = Function(V)
+    Rhs_i = Function(V)
+    solve(a == frhs_r, Rhs_r)
+    solve(a == frhs_i, Rhs_i)
+
+    return R_r, R_i, Rhs_r, Rhs_i
 
 
 # def _residual_strong(dx, v, phi, mu, sigma, omega, conv, voltages):
 #     '''Get the residual in strong form, projected onto V.
 #     '''
 #     r = Expression('x[0]', degree=1, cell=triangle)
-#     R = [zero() * dx(0),
-#          zero() * dx(0)]
+#     R = [zero() * dx(0), zero() * dx(0)]
 #     subdomain_indices = mu.keys()
 #     for i in subdomain_indices:
 #         # diffusion, reaction
@@ -183,6 +235,8 @@ def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs):
 #     return R
 
 
+# Sanity check: Compute residuals.
+# This is quite the good test that real/imaginary aren't messed up.
 @pytest.mark.parametrize(
     'problem', [
         problem_coscos
@@ -191,6 +245,11 @@ def test_residual(problem):
     mesh_size = 16
     mesh_generator, solution, f, cell_type = problem()
     mesh, dx, ds = mesh_generator(mesh_size)
+
+    # from dolfin import plot, interactive
+    # plot(mesh)
+    # interactive()
+
     V = FunctionSpace(mesh, 'CG', 1)
 
     Mu = {0: 1.0}
@@ -199,36 +258,32 @@ def test_residual(problem):
     convections = {}
     rhs = {0: f['value']}
 
+    # solve equation system
     phi_list = mcyl.solve(
             V, dx,
             Mu=Mu,
             Sigma=Sigma,
             omega=omega,
             f_list=[rhs],
+            f_degree=f['degree'],
             convections=convections,
             tol=1.0e-12,
             bcs=None,
-            verbose=False
+            verbose=True
             )
     phi = phi_list[0]
 
-    # Sanity check: Compute residuals.
-    # This is quite the good test that we haven't messed up real/imaginary in
-    # the above formulation.
-    R_r, R_i = _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, rhs)
+    # build residuals
+    Res_r, Res_i, Rhs_r, Rhs_i = _build_residuals(
+            V, dx, phi, omega, Mu, Sigma, convections, rhs, f['degree']
+            )
 
-    # plot(R_r, title='R_r')
-    # plot(R_i, title='R_i')
-    # interactive()
+    # Assert that the norm of the residual is smaller than a tolerance times
+    # the norm of the right-hand side. This is a typical Krylov criterion.
+    nrm_rhs = sqrt(norm(Rhs_r)**2 + norm(Rhs_i)**2)
+    nrm_res = sqrt(norm(Res_r)**2 + norm(Res_i)**2)
+    assert nrm_res < 1.0e-13 * nrm_rhs
 
-    nrm_r = norm(R_r)
-    assert nrm_r < 1.0e-13
-    print('||r_r|| = %e' % nrm_r)
-    nrm_i = norm(R_i)
-    print('||r_i|| = %e' % nrm_i)
-    assert nrm_i < 1.0e-13
-    # res_norm = sqrt(nrm_r * nrm_r + nrm_i * nrm_i)
-    # print('||r|| = %e' % res_norm)
     return
 
 
