@@ -8,7 +8,6 @@ from dolfin import set_log_level, WARNING, Expression, FunctionSpace, \
     norm, UnitIntervalMesh, pi, inner, grad, dx, ds, dot, UnitSquareMesh, \
     FacetNormal, interval, RectangleMesh, TrialFunction, TestFunction, \
     assemble, lhs, rhs, MPI
-import itertools
 import matplotlib.pyplot as plt
 import numpy
 import pytest
@@ -23,34 +22,297 @@ set_log_level(WARNING)
 MAX_DEGREE = 10
 
 
-@pytest.mark.parametrize(
-    'method',
-    [ts.ExplicitEuler]
-    # [
-    #     # ts.Dummy,
-    #     ts.ExplicitEuler
-    #     # ts.ImplicitEuler
-    #     # ts.Trapezoidal
-    # ]
-    )
-def test_temporal_order(method):
-    '''Test order of time discretization.
+def problem_sin1d():
+    '''sin-sin example.
     '''
-    # TODO add test for spatial order
-    problems = [
-        # problem_sinsin1d,
-        # problem_sinsin,
+    def mesh_generator(n):
+        return UnitIntervalMesh(n)
+    x = smp.DeferredVector('x')
+    t = smp.symbols('t')
+    # m = smp.sin(0.5*pi*t)
+    m = smp.exp(t) - 0.0
+    # theta = m * x * (1-x)
+    theta = m * smp.sin(1 * pi * x[0])
+    # Produce a matching rhs.
+    f_sympy = smp.diff(theta, t) - smp.diff(theta, x[0], 2)
+    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
+
+    # The corresponding operator in weak form.
+    class HeatEquation(ts.ParabolicProblem):
+        def __init__(self, V):
+            super(HeatEquation, self).__init__()
+            self.V = V
+            self.sol = Expression(
+                    smp.printing.ccode(theta),
+                    degree=MAX_DEGREE,
+                    t=0.0,
+                    cell=triangle
+                    )
+            return
+
+        def get_system(self, t):
+            f.t = t
+            u = TrialFunction(self.V)
+            v = TestFunction(self.V)
+            F = + inner(grad(u), grad(v)) * dx \
+                - f * v * dx
+            return assemble(lhs(F)), assemble(rhs(F))
+
+        def get_bcs(self, t):
+            self.sol.t = t
+            return [DirichletBC(self.V, self.sol, 'on_boundary')]
+
+    return mesh_generator, theta, HeatEquation, interval
+
+
+def problem_sinsin():
+    '''sin-sin example.
+    '''
+    def mesh_generator(n):
+        return UnitSquareMesh(n, n, 'left/right')
+        # return RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n)
+    # x, y, t = smp.symbols('x, y, t')
+    x = smp.DeferredVector('x')
+    t = smp.symbols('t')
+    # Choose the solution something that cannot exactly be expressed by
+    # polynomials. Choosing the sine here makes all first-order scheme be
+    # second-order accurate since d2sin/dt2 = 0 at t=0.
+    m = smp.exp(t) - 0.0
+    # m = smp.sin(0.5*pi*t)
+    theta = m * x[0] * (1.0 - x[0]) * x[1] * (1.0 - x[1])
+    # theta = m * smp.sin(1*pi*x) * smp.sin(1*pi*y)
+    rho = 5.0
+    cp = 2.0
+    kappa = 3.0
+    # Produce a matching rhs.
+    f_sympy = (
+        + rho * cp * smp.diff(theta, t)
+        - smp.diff(kappa * smp.diff(theta, x[0]), x[0])
+        - smp.diff(kappa * smp.diff(theta, x[1]), x[1])
+        )
+    f = Expression(smp.printing.ccode(f_sympy), degree=4, t=0.0)
+
+    # The corresponding operator in weak form.
+    class HeatEquation(ts.ParabolicProblem):
+        def __init__(self, V):
+            super(HeatEquation, self).__init__()
+            self.V = V
+            self.sol = Expression(
+                    smp.printing.ccode(theta),
+                    degree=MAX_DEGREE,
+                    t=0.0,
+                    cell=triangle
+                    )
+            return
+
+        def get_system(self, t):
+            f.t = t
+            n = FacetNormal(self.V.mesh())
+            u = TrialFunction(self.V)
+            v = TestFunction(self.V)
+            F = - inner(kappa * grad(u), grad(v / (rho * cp))) * dx \
+                + inner(kappa * grad(u), n) * v / (rho * cp) * ds \
+                + f * v / (rho * cp) * dx
+            return assemble(lhs(F)), assemble(rhs(F))
+
+        def get_bcs(self, t):
+            self.sol.t = t
+            return [DirichletBC(self.V, self.sol, 'on_boundary')]
+
+    return mesh_generator, theta, HeatEquation, triangle
+
+
+def problem_coscos_cartesian():
+    '''cos-cos example. Inhomogeneous boundary conditions.
+    '''
+    def mesh_generator(n):
+        mesh = UnitSquareMesh(n, n, 'left/right')
+        # mesh = RectangleMesh(
+        #     Point(1.0, 0.0), Point(2.0, 1.0),
+        #     n, n, 'left/right'
+        #     )
+        return mesh
+    t = smp.symbols('t')
+    rho = 6.0
+    cp = 4.0
+    kappa_sympy = smp.exp(t)
+    x = smp.DeferredVector('x')
+    # Choose the solution something that cannot exactly be expressed by
+    # polynomials.
+    # theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
+    # theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
+    # theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    theta = smp.log(2 + t) * smp.cos(pi * (x[0] - 1.0)) * smp.cos(pi * x[1])
+    # Produce a matching rhs.
+    f_sympy = (
+        rho * cp * smp.diff(theta, t)
+        - smp.diff(kappa_sympy * smp.diff(theta, x[0]), x[0])
+        - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
+        )
+
+    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
+    kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
+
+    # The corresponding operator in weak form.
+    class HeatEquation(ts.ParabolicProblem):
+        def __init__(self, V):
+            super(HeatEquation, self).__init__()
+            # Define the differential equation.
+            self.V = V
+            self.rho_cp = rho * cp
+            self.sol = Expression(
+                    smp.printing.ccode(theta),
+                    degree=MAX_DEGREE,
+                    t=0.0,
+                    cell=triangle
+                    )
+            return
+
+        def get_system(self, t):
+            kappa.t = t
+            f.t = t
+            n = FacetNormal(self.V.mesh())
+            u = TrialFunction(self.V)
+            v = TestFunction(self.V)
+            F = inner(kappa * grad(u), grad(v / self.rho_cp)) * dx \
+                - inner(kappa * grad(u), n) * v / self.rho_cp * ds \
+                - f * v / self.rho_cp * dx
+            return assemble(lhs(F)), assemble(rhs(F))
+
+        def get_bcs(self, t):
+            self.sol.t = t
+            return [DirichletBC(self.V, self.sol, 'on_boundary')]
+
+    return mesh_generator, theta, HeatEquation, triangle
+
+
+def problem_coscos_cylindrical():
+    '''cos-cos example. Inhomogeneous boundary conditions.
+    '''
+    def mesh_generator(n):
+        # mesh = UnitSquareMesh(n, n, 'left/right')
+        mesh = RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n, 'left/right')
+        return mesh
+
+    t = smp.symbols('t')
+    rho = 2.0
+    cp = 3.0
+    kappa_sympy = smp.exp(t)
+
+    # Cylindrical coordinates.
+    x = smp.DeferredVector('x')
+    # Solution.
+    theta = (smp.exp(t) - 1) * smp.cos(pi * (x[0] - 1)) * smp.cos(pi * x[1])
+    # theta = smp.sin(t) * smp.sin(pi*(x[0]-1)) * smp.sin(pi*x[1])
+    # theta = smp.log(2+t) * smp.cos(pi*(x[0]-1.0)) * smp.cos(pi*x[1])
+
+    # Convection.
+    b_sympy = (-x[1], x[0] - 1)
+    # b_sympy = (0.0, 0.0)
+
+    # Produce a matching rhs.
+    f_sympy = (
+        + rho * cp * smp.diff(theta, t)
+        + rho * cp * (
+            + b_sympy[0] * smp.diff(theta, x[0])
+            + b_sympy[1] * smp.diff(theta, x[1])
+            )
+        - 1 / x[0] * smp.diff(x[0]*kappa_sympy * smp.diff(theta, x[0]), x[0])
+        - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
+        )
+
+    # convert to FEniCS expressions
+    f = Expression(smp.printing.ccode(f_sympy), numpy.infty, t=0.0)
+    b = Expression(
+            (smp.printing.ccode(b_sympy[0]), smp.printing.ccode(b_sympy[1])),
+            degree=1,
+            t=0.0
+            )
+    kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
+
+    # The corresponding operator in weak form.
+    def weak_F(t, u_t, u, v):
+        # Define the differential equation.
+        mesh = v.function_space().mesh()
+        n = FacetNormal(mesh)
+        r = Expression('x[0]', degree=1, cell=triangle)
+        # All time-dependent components be set to t.
+        f.t = t
+        b.t = t
+        kappa.t = t
+        F = (
+            - inner(b, grad(u)) * v * dx
+            - 1.0 / (rho * cp) * dot(r * kappa * grad(u), grad(v / r)) * dx
+            + 1.0 / (rho * cp) * dot(r * kappa * grad(u), n) * v / r * ds
+            + 1.0 / (rho * cp) * f * v * dx
+            )
+        return F
+    return mesh_generator, theta, weak_F, triangle
+
+
+def problem_stefanboltzmann():
+    '''Heat equation with Stefan-Boltzmann boundary conditions, i.e.,
+    du/dn = u^4 - u_0^4
+    '''
+    def mesh_generator(n):
+        mesh = UnitSquareMesh(n, n, 'left/right')
+        return mesh
+
+    t = smp.symbols('t')
+    rho = 1.0
+    cp = 1.0
+    kappa = 1.0
+    x = smp.DeferredVector('x')
+    # Choose the solution something that cannot exactly be expressed by
+    # polynomials.
+    # theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
+    # theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
+    # theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    # theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
+    theta = smp.log(2 + t) * smp.cos(pi * x[0]) * smp.cos(pi * x[1])
+    # Produce a matching rhs.
+    f_sympy = (
+        + rho * cp * smp.diff(theta, t)
+        - smp.diff(kappa * smp.diff(theta, x[0]), x[0])
+        - smp.diff(kappa * smp.diff(theta, x[1]), x[1])
+        )
+    # Produce a matching u0.
+    # u_0^4 = u^4 - du/dn
+    # ONLY WORKS IF du/dn==0.
+    u0 = theta
+    # convert to FEniCS expressions
+    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
+    u0 = Expression(smp.printing.ccode(u0), degree=MAX_DEGREE, t=0.0)
+
+    # The corresponding operator in weak form.
+    def weak_F(t, u_t, u, v):
+        # All time-dependent components be set to t.
+        u0.t = t
+        f.t = f
+        F = - 1.0 / (rho * cp) * kappa * dot(grad(u), grad(v)) * dx \
+            + 1.0 / (rho * cp) * kappa * (u*u*u*u - u0*u0*u0*u0) * v * ds \
+            + 1.0 / (rho * cp) * f * v * dx
+        return F
+    return mesh_generator, theta, weak_F, triangle
+
+
+@pytest.mark.parametrize(
+    'method', [
+        ts.ExplicitEuler
+        ])
+@pytest.mark.parametrize(
+    'problem', [
+        problem_sin1d,
         problem_coscos_cartesian,
+        problem_sinsin,
         # problem_coscos_cylindrical,
         # problem_stefanboltzmann
-        ]
-    # Methods together with the expected order of convergence.
-    for problem in itertools.product(problems):
-        _assert_temporal_order, problem, method
-    return
-
-
-def _assert_temporal_order(problem, method):
+        ])
+def test_temporal_order(problem, method):
+    # TODO add test for spatial order
     mesh_sizes = [16, 32, 64]
     Dt = [0.5**k for k in range(2)]
     errors, _, expected_order = \
@@ -189,240 +451,6 @@ def _check_spatial_order(problem, method):
     plt.ylabel('||u-u_h|| / ||u||')
     plt.show()
     return
-
-
-def problem_sinsin1d():
-    '''sin-sin example.
-    '''
-    def mesh_generator(n):
-        return UnitIntervalMesh(n)
-    x = smp.DeferredVector('x')
-    t = smp.symbols('t')
-    # m = smp.sin(0.5*pi*t)
-    m = smp.exp(t) - 0.0
-    # theta = m * x * (1-x)
-    theta = m * smp.sin(1 * pi * x[0])
-    # Produce a matching rhs.
-    f_sympy = smp.diff(theta, t) - smp.diff(theta, x[0], 2)
-    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
-
-    # The corresponding operator in weak form.
-    def weak_F(t, u_t, u, v):
-        # All time-dependent components be set to t.
-        f.t = t
-        F = - inner(grad(u), grad(v)) * dx \
-            + f * v * dx
-        return F
-    return mesh_generator, theta, weak_F, interval
-
-
-def problem_sinsin():
-    '''sin-sin example.
-    '''
-    def mesh_generator(n):
-        return UnitSquareMesh(n, n, 'left/right')
-        # return RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n)
-    # x, y, t = smp.symbols('x, y, t')
-    x = smp.DeferredVector('x')
-    t = smp.symbols('t')
-    # Choose the solution something that cannot exactly be expressed by
-    # polynomials. Choosing the sine here makes all first-order scheme be
-    # second-order accurate since d2sin/dt2 = 0 at t=0.
-    m = smp.exp(t) - 0.0
-    # m = smp.sin(0.5*pi*t)
-    theta = m * x[0] * (1.0 - x[0]) * x[1] * (1.0 - x[1])
-    # theta = m * smp.sin(1*pi*x) * smp.sin(1*pi*y)
-    rho = 5.0
-    cp = 2.0
-    kappa = 3.0
-    # Produce a matching rhs.
-    f_sympy = rho * cp * smp.diff(theta, t) \
-        - smp.diff(kappa * smp.diff(theta, x[0]), x[0]) \
-        - smp.diff(kappa * smp.diff(theta, x[1]), x[1])
-    f = Expression(smp.printing.ccode(f_sympy), degree=4, t=0.0)
-
-    # The corresponding operator in weak form.
-    def weak_F(t, u_t, u, v):
-        # Define the differential equation.
-        mesh = v.function_space().mesh()
-        n = FacetNormal(mesh)
-        # All time-dependent components be set to t.
-        f.t = t
-        F = - inner(kappa * grad(u), grad(v / (rho * cp))) * dx \
-            + inner(kappa * grad(u), n) * v / (rho * cp) * ds \
-            + f * v / (rho * cp) * dx
-        return F
-    return mesh_generator, theta, weak_F, triangle
-
-
-def problem_coscos_cartesian():
-    '''cos-cos example. Inhomogeneous boundary conditions.
-    '''
-    def mesh_generator(n):
-        mesh = UnitSquareMesh(n, n, 'left/right')
-        # mesh = RectangleMesh(
-        #     Point(1.0, 0.0), Point(2.0, 1.0),
-        #     n, n, 'left/right'
-        #     )
-        return mesh
-    t = smp.symbols('t')
-    rho = 6.0
-    cp = 4.0
-    kappa_sympy = smp.exp(t)
-    x = smp.DeferredVector('x')
-    # Choose the solution something that cannot exactly be expressed by
-    # polynomials.
-    # theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
-    # theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
-    # theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    # theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    # theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    theta = smp.log(2 + t) * smp.cos(pi * (x[0] - 1.0)) * smp.cos(pi * x[1])
-    # Produce a matching rhs.
-    f_sympy = (
-        rho * cp * smp.diff(theta, t)
-        - smp.diff(kappa_sympy * smp.diff(theta, x[0]), x[0])
-        - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
-        )
-
-    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
-    kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
-
-    # The corresponding operator in weak form.
-    class HeatEquation(ts.ParabolicProblem):
-        def __init__(self, V):
-            super(HeatEquation, self).__init__()
-            # Define the differential equation.
-            self.V = V
-            self.rho_cp = rho * cp
-            self.sol = Expression(
-                    smp.printing.ccode(theta),
-                    degree=MAX_DEGREE,
-                    t=0.0,
-                    cell=triangle
-                    )
-            return
-
-        def get_system(self, t):
-            kappa.t = t
-            f.t = t
-            n = FacetNormal(self.V.mesh())
-            u = TrialFunction(self.V)
-            v = TestFunction(self.V)
-            F = inner(kappa * grad(u), grad(v / self.rho_cp)) * dx \
-                - inner(kappa * grad(u), n) * v / self.rho_cp * ds \
-                - f * v / self.rho_cp * dx
-            return assemble(lhs(F)), assemble(rhs(F))
-
-        def get_bcs(self, t):
-            self.sol.t = t
-            return [DirichletBC(self.V, self.sol, 'on_boundary')]
-
-    return mesh_generator, theta, HeatEquation, triangle
-
-
-def problem_coscos_cylindrical():
-    '''cos-cos example. Inhomogeneous boundary conditions.
-    '''
-    def mesh_generator(n):
-        # mesh = UnitSquareMesh(n, n, 'left/right')
-        mesh = RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n, 'left/right')
-        return mesh
-
-    t = smp.symbols('t')
-    rho = 2.0
-    cp = 3.0
-    kappa_sympy = smp.exp(t)
-
-    # Cylindrical coordinates.
-    x = smp.DeferredVector('x')
-    # Solution.
-    theta = (smp.exp(t) - 1) * smp.cos(pi * (x[0] - 1)) * smp.cos(pi * x[1])
-    # theta = smp.sin(t) * smp.sin(pi*(x[0]-1)) * smp.sin(pi*x[1])
-    # theta = smp.log(2+t) * smp.cos(pi*(x[0]-1.0)) * smp.cos(pi*x[1])
-
-    # Convection.
-    b_sympy = (-x[1], x[0] - 1)
-    # b_sympy = (0.0, 0.0)
-
-    # Produce a matching rhs.
-    f_sympy = rho * cp * smp.diff(theta, t) \
-        + rho * cp * (b_sympy[0] * smp.diff(theta, x[0])
-                      + b_sympy[1] * smp.diff(theta, x[1])
-                      ) \
-        - 1 / x[0] * smp.diff(x[0]*kappa_sympy * smp.diff(theta, x[0]), x[0]) \
-        - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
-
-    # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), numpy.infty, t=0.0)
-    b = Expression(
-            (smp.printing.ccode(b_sympy[0]), smp.printing.ccode(b_sympy[1])),
-            degree=1,
-            t=0.0
-            )
-    kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
-
-    # The corresponding operator in weak form.
-    def weak_F(t, u_t, u, v):
-        # Define the differential equation.
-        mesh = v.function_space().mesh()
-        n = FacetNormal(mesh)
-        r = Expression('x[0]', degree=1, cell=triangle)
-        # All time-dependent components be set to t.
-        f.t = t
-        b.t = t
-        kappa.t = t
-        F = - inner(b, grad(u)) * v * dx \
-            - 1.0 / (rho * cp) * dot(r * kappa * grad(u), grad(v / r)) * dx \
-            + 1.0 / (rho * cp) * dot(r * kappa * grad(u), n) * v / r * ds \
-            + 1.0 / (rho * cp) * f * v * dx
-        return F
-    return mesh_generator, theta, weak_F, triangle
-
-
-def problem_stefanboltzmann():
-    '''Heat equation with Stefan-Boltzmann boundary conditions, i.e.,
-    du/dn = u^4 - u_0^4
-    '''
-    def mesh_generator(n):
-        mesh = UnitSquareMesh(n, n, 'left/right')
-        return mesh
-
-    t = smp.symbols('t')
-    rho = 1.0
-    cp = 1.0
-    kappa = 1.0
-    x = smp.DeferredVector('x')
-    # Choose the solution something that cannot exactly be expressed by
-    # polynomials.
-    # theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
-    # theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
-    # theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    # theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    # theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    theta = smp.log(2 + t) * smp.cos(pi * x[0]) * smp.cos(pi * x[1])
-    # Produce a matching rhs.
-    f_sympy = rho * cp * smp.diff(theta, t) \
-        - smp.diff(kappa * smp.diff(theta, x[0]), x[0]) \
-        - smp.diff(kappa * smp.diff(theta, x[1]), x[1])
-    # Produce a matching u0.
-    # u_0^4 = u^4 - du/dn
-    # ONLY WORKS IF du/dn==0.
-    u0 = theta
-    # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
-    u0 = Expression(smp.printing.ccode(u0), degree=MAX_DEGREE, t=0.0)
-
-    # The corresponding operator in weak form.
-    def weak_F(t, u_t, u, v):
-        # All time-dependent components be set to t.
-        u0.t = t
-        f.t = f
-        F = - 1.0 / (rho * cp) * kappa * dot(grad(u), grad(v)) * dx \
-            + 1.0 / (rho * cp) * kappa * (u*u*u*u - u0*u0*u0*u0) * v * ds \
-            + 1.0 / (rho * cp) * f * v * dx
-        return F
-    return mesh_generator, theta, weak_F, triangle
 
 
 if __name__ == '__main__':

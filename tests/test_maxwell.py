@@ -215,5 +215,5 @@ def problem_coscos():
 
 
 if __name__ == '__main__':
-    mesh_sizes = [20, 40, 80]
+    mesh_sizes = [16, 32, 64, 128]
     _show_order_info(problem_coscos, mesh_sizes)
