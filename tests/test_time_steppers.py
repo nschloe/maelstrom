@@ -357,8 +357,8 @@ def test_temporal_order(problem, method):
     # TODO add test for spatial order
     mesh_sizes = [16, 32, 64]
     Dt = [0.5**k for k in range(2)]
-    errors, _, expected_order = \
-        _compute_time_errors(problem, method, mesh_sizes, Dt)
+    errors = _compute_time_errors(problem, method, mesh_sizes, Dt)
+    expected_order = method.order
 
     # numerical orders of convergence
     orders = helpers._compute_numerical_order_of_convergence(Dt, errors)
@@ -426,7 +426,7 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
                 error.assign(project(fenics_sol - theta_approx, V))
                 plot(error, title='error (dt=%e)' % dt)
                 interactive()
-    return errors, stepper.name, stepper.order
+    return errors
 
 
 def _check_spatial_order(problem, method):
@@ -497,7 +497,7 @@ if __name__ == '__main__':
     mesh_sizes = [32, 64, 128, 256]
     # mesh_sizes = [20, 40, 80]
     Dt = [0.5**k for k in range(10)]
-    errors, name, _ = _compute_time_errors(
+    errors = _compute_time_errors(
         problem_coscos_cartesian,
         # ts.Dummy,
         ts.ExplicitEuler,

@@ -40,13 +40,13 @@ class Dummy():
     '''
     Dummy method for :math:`u' = F(u)`.
     '''
+    name = 'Dummy'
+    order = 0.0
+
     def __init__(self, problem):
         self.problem = problem
         # (u - u0) / dt = 0
         # u = u0
-        #
-        self.name = 'Dummy'
-        self.order = 0.0
         return
 
     def step(self, u0, t, dt, bcs1,
@@ -62,6 +62,9 @@ class ExplicitEuler():
     '''
     Explicit Euler method for :math:`u' = F(u)`.
     '''
+    name = 'Explicit Euler'
+    order = 1.0
+
     def __init__(self, problem):
         self.problem = problem
         # (u - u0) / dt = F(t, u0, v)
@@ -70,8 +73,6 @@ class ExplicitEuler():
         u = TrialFunction(problem.V)
         v = TestFunction(problem.V)
         self.M = assemble(u * v * problem.dx_multiplier * problem.dx)
-        self.name = 'Explicit Euler'
-        self.order = 1.0
         return
 
     def step(self, u1, u0, t, dt,
@@ -110,6 +111,9 @@ class ImplicitEuler():
     '''
     Implicit Euler method for :math:`u' = F(u)`.
     '''
+    name = 'Implicit Euler'
+    order = 1.0
+
     def __init__(self, problem):
         self.problem = problem
         # (u - u0) / dt = F(t, u, v)
@@ -118,8 +122,6 @@ class ImplicitEuler():
         u = TrialFunction(problem.V)
         v = TestFunction(problem.V)
         self.M = assemble(u * v * problem.dx_multiplier * problem.dx)
-        self.name = 'Implicit Euler'
-        self.order = 1.0
         return
 
     def step(self, u1, u0, t, dt,
@@ -158,8 +160,12 @@ class ImplicitEuler():
 
 class Trapezoidal():
     '''
-    Trapezoidal method for :math:`u' = F(u)`.
+    Trapezoidal method for :math:`u' = F(u)`. (Known as Crank-Nicolson in the
+    ODE context.)
     '''
+    name = 'Trapezoidal'
+    order = 2.0
+
     def __init__(self, problem):
         self.problem = problem
         #  (u - u0) / dt = 0.5 * F(t,    u0, v)
@@ -168,8 +174,6 @@ class Trapezoidal():
         u = TrialFunction(problem.V)
         v = TestFunction(problem.V)
         self.M = assemble(u * v * problem.dx_multiplier * problem.dx)
-        self.name = 'Trapezoidal'
-        self.order = 2.0
         return
 
     def step(self, u1, u0,
