@@ -5,7 +5,9 @@ import maelstrom.maxwell_cylindrical as mcyl
 
 from dolfin import (
     FunctionSpace, errornorm, RectangleMesh, Measure, CellFunction,
-    FacetFunction, triangle, Expression, MPI, mpi_comm_world, Point
+    FacetFunction, triangle, Expression, MPI, mpi_comm_world, Point,
+    dot, TestFunction, TrialFunction, zero, grad, pi, Function, solve,
+    DirichletBC, DOLFIN_EPS, norm, sqrt
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -45,11 +47,13 @@ def problem_coscos():
     r1 = 1.0
     beta = numpy.cos(alpha * r1) - r1 * alpha * numpy.sin(alpha * r1)
 
-    phi = {'value': (beta * (1.0 - sympy.cos(alpha * x[0])),
-                     beta * (1.0 - sympy.cos(alpha * x[0]))
-                     ),
-           'degree': numpy.infty
-           }
+    solution = {
+        'value': (
+            beta * (1.0 - sympy.cos(alpha * x[0])),
+            beta * (1.0 - sympy.cos(alpha * x[0]))
+            ),
+        'degree': MAX_DEGREE
+        }
 
     # Produce a matching right-hand side.
     mu = 1.0
@@ -63,22 +67,22 @@ def problem_coscos():
     #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
     #     + omega*sigma*phi[0]
     #     )
-    f_sympy = (
+    rhs_sympy = (
         -sympy.diff(
-            1 / (mu * x[0]) * sympy.diff(x[0] * phi['value'][0], x[0]),
+            1 / (mu * x[0]) * sympy.diff(x[0] * solution['value'][0], x[0]),
             x[0]
             ),
         # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
         # - omega*sigma*phi[1],
         # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
         # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
-        + 0.0 * phi['value'][0]
+        + 0.0 * solution['value'][0]
         )
 
-    f = {
+    rhs = {
         'value': (
-            Expression(sympy.printing.ccode(f_sympy[0]), degree=MAX_DEGREE),
-            Expression(sympy.printing.ccode(f_sympy[1]), degree=MAX_DEGREE)
+            Expression(sympy.printing.ccode(rhs_sympy[0]), degree=MAX_DEGREE),
+            Expression(sympy.printing.ccode(rhs_sympy[1]), degree=MAX_DEGREE)
             ),
         'degree': MAX_DEGREE
         }
@@ -95,7 +99,136 @@ def problem_coscos():
     # plot(f[0], mesh=mesh, title='f.real')
     # plot(f[1], mesh=mesh, title='f.imag')
     # interactive()
-    return mesh_generator, phi, f, triangle
+    return mesh_generator, solution, rhs, triangle
+
+
+def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs):
+    r = Expression('x[0]', degree=1, domain=V.mesh())
+
+    subdomain_indices = Mu.keys()
+
+    phi_r, phi_i = phi
+
+    v = TestFunction(V)
+
+    r_r = zero() * dx(0)
+    r_i = zero() * dx(0)
+    for i in subdomain_indices:
+        r_r += (
+            1.0 / (Mu[i] * r) * dot(grad(r * phi_r), grad(r * v)) * 2*pi*dx(i)
+            - omega * Sigma[i] * phi[1] * v * 2*pi*r * dx(i)
+            )
+        r_i += (
+            1.0 / (Mu[i] * r) * dot(grad(r * phi_i), grad(r * v)) * 2*pi*dx(i)
+            + omega * Sigma[i] * phi[0] * v * 2*pi * r * dx(i)
+            )
+    # convections
+    for i, conv in convections.items():
+        r_r += dot(conv, grad(r * phi_r)) * v * 2*pi * dx(i)
+        r_i += dot(conv, grad(r * phi_i)) * v * 2*pi * dx(i)
+    # rhs
+    for i, rhs in Rhs.items():
+        rhs_r, rhs_i = rhs
+        r_r -= rhs_r * v * dx(i)
+        r_i -= rhs_i * v * dx(i)
+
+    def xzero(x, on_boundary):
+        return on_boundary and abs(x[0]) < DOLFIN_EPS
+
+    subdomain_indices = Mu.keys()
+
+    # Solve an FEM problem to get the corresponding residual function out.
+    # This is exactly what we need here! :)
+    u = TrialFunction(V)
+    v = TestFunction(V)
+    a = zero() * dx(0)
+    for i in subdomain_indices:
+        a += u * v * dx(i)
+
+    # TODO don't hard code the boundary conditions like this
+    R_r = Function(V)
+    R_i = Function(V)
+    solve(a == r_r, R_r, bcs=DirichletBC(V, 0.0, xzero))
+    solve(a == r_i, R_i, bcs=DirichletBC(V, 0.0, xzero))
+
+    return R_r, R_i
+
+
+# def _residual_strong(dx, v, phi, mu, sigma, omega, conv, voltages):
+#     '''Get the residual in strong form, projected onto V.
+#     '''
+#     r = Expression('x[0]', degree=1, cell=triangle)
+#     R = [zero() * dx(0),
+#          zero() * dx(0)]
+#     subdomain_indices = mu.keys()
+#     for i in subdomain_indices:
+#         # diffusion, reaction
+#         R_r = (
+#             - div(1 / (mu[i] * r) * grad(r * phi[0]))
+#             - sigma[i] * omega * phi[1]
+#             )
+#         R_i = (
+#             - div(1 / (mu[i] * r) * grad(r * phi[1]))
+#             + sigma[i] * omega * phi[0]
+#             )
+#         # convection
+#         if i in conv:
+#             R_r += dot(conv[i], 1 / r * grad(r * phi[0]))
+#             R_i += dot(conv[i], 1 / r * grad(r * phi[1]))
+#         # right-hand side
+#         if i in voltages:
+#             R_r -= sigma[i] * voltages[i].real / (2 * pi * r)
+#             R_i -= sigma[i] * voltages[i].imag / (2 * pi * r)
+#         R[0] += R_r * v * dx(i)
+#         R[1] += R_i * v * dx(i)
+#     return R
+
+
+@pytest.mark.parametrize(
+    'problem', [
+        problem_coscos
+        ])
+def test_residual(problem):
+    mesh_size = 16
+    mesh_generator, solution, f, cell_type = problem()
+    mesh, dx, ds = mesh_generator(mesh_size)
+    V = FunctionSpace(mesh, 'CG', 1)
+
+    Mu = {0: 1.0}
+    Sigma = {0: 1.0}
+    omega = 1.0
+    convections = {}
+    rhs = {0: f['value']}
+
+    phi_list = mcyl.solve(
+            V, dx,
+            Mu=Mu,
+            Sigma=Sigma,
+            omega=omega,
+            f_list=[rhs],
+            convections=convections,
+            tol=1.0e-12,
+            bcs=None,
+            verbose=False
+            )
+    phi = phi_list[0]
+
+    # Sanity check: Compute residuals.
+    # This is quite the good test that we haven't messed up real/imaginary in
+    # the above formulation.
+    R_r, R_i = _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, rhs)
+
+    nrm_r = norm(R_r)
+    print('||r_r|| = %e' % nrm_r)
+    nrm_i = norm(R_i)
+    print('||r_i|| = %e' % nrm_i)
+    res_norm = sqrt(nrm_r * nrm_r + nrm_i * nrm_i)
+    print('||r|| = %e' % res_norm)
+
+    # plot(R_r, title='R_r')
+    # plot(R_i, title='R_i')
+    # interactive()
+    return
 
 
 @pytest.mark.parametrize(
@@ -150,7 +283,7 @@ def _compute_errors(problem, mesh_sizes):
         hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
         V = FunctionSpace(mesh, 'CG', 1)
         # TODO don't hardcode Mu, Sigma, ...
-        phi_approx = mcyl.solve_maxwell(
+        phi_approx = mcyl.solve(
                 V, dx,
                 Mu={0: 1.0},
                 Sigma={0: 1.0},
@@ -159,7 +292,6 @@ def _compute_errors(problem, mesh_sizes):
                 convections={},
                 tol=1.0e-12,
                 bcs=None,
-                compute_residuals=False,
                 verbose=False
                 )
         # plot(sol0, mesh=mesh, title='sol')

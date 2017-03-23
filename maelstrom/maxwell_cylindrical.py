@@ -14,7 +14,8 @@ which leads to
 .. math::
      curl(\sigma^{-1} (J - u\\times B) + i \omega A) = 0.
 
-Since :math:`u` only has components in :math:`r`- and :math:`z`-direction,
+Assuming that :math:`u` only has components in :math:`r`- and
+:math:`z`-direction,
 
 .. math::
      u = u_r e_r + u_z e_z,
@@ -41,8 +42,8 @@ Following Chaboudez, this eventually leads to the equation system
     \\end{cases}
 
 The differential operators are interpreted like 2D for :math:`r` and :math:`z`.
-The seemingly complex additional term :math:`u\\times B` finally breaks down
-to just a convective component.
+The seemingly complicated additional term :math:`u\\times B` finally breaks
+down to just a convective component.
 
 For the weak formulation, the volume elements :math:`2\pi r dx` are used. This
 corresponds to the full 3D rotational formulation and also makes
@@ -56,18 +57,14 @@ avoids dividing by r in the convections and the right hand side.
    = \int \sigma v_k v.
 '''
 from dolfin import (
-    info, Expression, triangle, plot, interactive, DOLFIN_EPS, DirichletBC,
-    Function, TestFunction, TrialFunction, solve, zero, norm, KrylovSolver,
-    dot, grad, pi, TrialFunctions, TestFunctions, assemble, div, Constant,
-    project, FunctionSpace, sqrt, MPI, MeshFunction
+    info, Expression, DOLFIN_EPS, DirichletBC, Function, KrylovSolver, dot,
+    grad, pi, TrialFunctions, TestFunctions, assemble, Constant, project,
+    FunctionSpace
     )
 import numpy
 
-from message import Message
 
-
-# Don't rename to solve() -- that method already exists in Dolfin. :/
-def solve_maxwell(
+def solve(
         V, dx,
         Mu, Sigma,  # dictionaries
         omega,
@@ -75,24 +72,45 @@ def solve_maxwell(
         convections,  # dictionary
         bcs=None,
         tol=1.0e-12,
-        compute_residuals=True,
         verbose=False
         ):
     '''Solve the complex-valued time-harmonic Maxwell system in 2D cylindrical
-    coordinates.
+    coordinates
+
+    .. math::
+         div\\left(\\frac{1}{\mu r} \\nabla(r\phi)\\right)
+         + \langle u, 1/r \\nabla(r\phi)\\rangle + i \sigma \omega \phi
+            = f
+
+    with finite elements.
 
     :param V: function space for potentials
+
     :param dx: measure
+
+    :param Mu: mu per subdomain
+    :type Mu: dictionary
+
+    :param Sigma: sigma per subdomain
+    :type Sigma: dictionary
+
     :param omega: current frequency
     :type omega: float
-    :param f_list: list of right-hand sides
-    :param convections: convection terms by subdomains
+
+    :param f_list: list of right-hand sides for each of which a solution will
+                   be computed
+
+    :param convections: convection, defined per subdomain
     :type convections: dictionary
+
     :param bcs: Dirichlet boundary conditions
+
     :param tol: solver tolerance
     :type tol: float
+
     :param verbose: solver verbosity
     :type verbose: boolean
+
     :rtype: list of functions
     '''
     # For the exact solution of the magnetic scalar potential, see
@@ -187,10 +205,10 @@ def solve_maxwell(
     #
     A, P, b_list, M, W = _build_system(
             V, dx,
-            Mu, Sigma,  # dictionaries
+            Mu, Sigma,
             omega,
-            f_list,  # list of dicts
-            convections,  # dict
+            f_list,
+            convections,
             bcs
             )
 
@@ -256,125 +274,19 @@ def solve_maxwell(
 
     phi_list = []
     for k, b in enumerate(b_list):
-        # Define goal functional for adaptivity.
-        # Adaptivity not working for subdomains, cf.
-        # https://bugs.launchpad.net/dolfin/+bug/872105.
-        # (phi_r, phi_i) = split(phi)
-        # M = (phi_r*phi_r + phi_i*phi_i) * dx(2)
         phi_list.append(Function(W))
         phi_list[-1].rename('phi%d' % k, 'phi%d' % k)
         solver.solve(phi_list[-1].vector(), b)
 
-        # # Adaptive mesh refinement.
-        # _adaptive_mesh_refinement(dx,
-        #                           phi_list[-1],
-        #                           Mu, Sigma, omega,
-        #                           convections,
-        #                           f_list[k]
-        #                           )
-        # exit()
-
-        if compute_residuals:
-            # Sanity check: Compute residuals.
-            # This is quite the good test that we haven't messed up
-            # real/imaginary in the above formulation.
-            r_r, r_i = _build_residuals(
-                V, dx, phi_list[-1],
-                omega, Mu, Sigma,
-                convections, voltages
-                )
-
-            def xzero(x, on_boundary):
-                return on_boundary and abs(x[0]) < DOLFIN_EPS
-
-            subdomain_indices = Mu.keys()
-
-            # Solve an FEM problem to get the corresponding residual function
-            # out.
-            # This is exactly what we need here! :)
-            u = TrialFunction(V)
-            v = TestFunction(V)
-            a = zero() * dx(0)
-            for i in subdomain_indices:
-                a += u * v * dx(i)
-
-            # TODO don't hard code the boundary conditions like this
-            R_r = Function(V)
-            R_i = Function(V)
-            solve(a == r_r, R_r, bcs=DirichletBC(V, 0.0, xzero))
-            solve(a == r_i, R_i, bcs=DirichletBC(V, 0.0, xzero))
-
-            nrm_r = norm(R_r)
-            info('||r_r|| = %e' % nrm_r)
-            nrm_i = norm(R_i)
-            info('||r_i|| = %e' % nrm_i)
-            res_norm = sqrt(nrm_r * nrm_r + nrm_i * nrm_i)
-            info('||r|| = %e' % res_norm)
-
-            plot(R_r, title='R_r')
-            plot(R_i, title='R_i')
-            interactive()
-            # exit()
     return phi_list
-
-
-def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, voltages):
-    # class OuterBoundary(SubDomain):
-    #     def inside(self, x, on_boundary):
-    #         return on_boundary and abs(x[0]) > DOLFIN_EPS
-    # boundaries = FacetFunction('size_t', mesh)
-    # boundaries.set_all(0)
-    # outer_boundary = OuterBoundary()
-    # outer_boundary.mark(boundaries, 1)
-    # ds = Measure('ds')[boundaries]
-
-    r = Expression('x[0]', degree=1, domain=V.mesh())
-
-    subdomain_indices = Mu.keys()
-
-    # u = TrialFunction(V)
-    v = TestFunction(V)
-
-    r_r = zero() * dx(0)
-    for i in subdomain_indices:
-        r_r += (
-            1.0 / (Mu[i] * r) * dot(grad(r * phi[0]), grad(r * v)) * 2*pi*dx(i)
-            - omega * Sigma[i] * phi[1] * v * 2 * pi * r * dx(i)
-            )
-    # convections
-    for i, conv in convections.items():
-        r_r += dot(conv, grad(r * phi[0])) * v * 2 * pi * dx(i)
-    # rhs
-    for i, voltage in voltages.items():
-        r_r -= Sigma[i] * voltage.real * v * dx(i)
-    # # boundaries
-    # r_r += 1.0/Mu[i] * phi[0] * v * 2*pi*ds(1)
-
-    # imaginary part
-    r_i = zero() * dx(0)
-    for i in subdomain_indices:
-        r_i += (
-            1.0 / (Mu[i] * r) * dot(grad(r * phi[1]), grad(r * v)) * 2*pi*dx(i)
-            + omega * Sigma[i] * phi[0] * v * 2 * pi * r * dx(i)
-            )
-    # convections
-    for i, conv in convections.items():
-        r_i += dot(conv, grad(r * phi[1])) * v * 2 * pi * dx(i)
-    # rhs
-    for i, voltage in voltages.items():
-        r_r -= Sigma[i] * voltage.imag * v * dx(i)
-    # # boundaries
-    # r_i += 1.0/Mu[i] * phi[1] * v * 2*pi*ds(1)
-
-    return r_r, r_i
 
 
 def _build_system(
         V, dx,
-        Mu, Sigma,  # dictionaries
+        Mu, Sigma,
         omega,
-        f_list,  # list of dictionaries
-        convections,  # dictionary
+        f_list,
+        convections,
         bcs
         ):
     '''Build FEM system for
@@ -605,42 +517,44 @@ def prescribe_voltage(A, b, coil_rings, voltage, v_ref, J):
     return A, b
 
 
-def prescribe_power(A, b, coil_rings, total_power, v_ref, J):
-    '''Get the voltage coefficients c_l with the total power prescribed.
-    '''
-    raise RuntimeError('Not yet implemented.')
-    # There are different notions of power for AC current; for an overview, see
-    # [1]. With
-    #
-    #     v(t) = V exp(i omega t),
-    #     i(t) = I exp(i omega t),
-    #
-    # V, I\in\C, we have
-    #
-    #     p(t) = v(t) * i(t).
-    #
-    # The time-average over one period is
-    #
-    #     P = 1/2 Re(V I*)
-    #       = Re(V_RMS I_RMS*)
-    #
-    # with the root-mean-square (RMS) quantities. This corresponds wit the
-    # _real power_ in [1].
-    # When assuming that the voltage is real-valued, the power is
-    #
-    #    P = V/2 Re(I).
-    #
-    # [1] <https://en.wikipedia.org/wiki/AC_power>.
-    #
-    voltage = v_ref
-    A, b = prescribe_voltage(A, b, coil_rings, voltage, v_ref, J)
-
-    # Unconditionally take J[0] here. -- It shouldn't make a difference.
-    alpha = numpy.sqrt(2 * total_power / (v_ref * numpy.sum(J[0][:] * c).real))
-    # We would like to scale the solution with alpha. For this, scale the
-    # respective part of the right-hand side.
-    b[coils] *= alpha
-    return A, b
+# def prescribe_power(A, b, coil_rings, total_power, v_ref, J):
+#     '''Get the voltage coefficients c_l with the total power prescribed.
+#     '''
+#     raise RuntimeError('Not yet implemented.')
+#     # There are different notions of power for AC current; for an overview,
+#     # see [1]. With
+#     #
+#     #     v(t) = V exp(i omega t),
+#     #     i(t) = I exp(i omega t),
+#     #
+#     # V, I\in\C, we have
+#     #
+#     #     p(t) = v(t) * i(t).
+#     #
+#     # The time-average over one period is
+#     #
+#     #     P = 1/2 Re(V I*)
+#     #       = Re(V_RMS I_RMS*)
+#     #
+#     # with the root-mean-square (RMS) quantities. This corresponds with the
+#     # _real power_ in [1].
+#     # When assuming that the voltage is real-valued, the power is
+#     #
+#     #    P = V/2 Re(I).
+#     #
+#     # [1] <https://en.wikipedia.org/wiki/AC_power>.
+#     #
+#     voltage = v_ref
+#     A, b = prescribe_voltage(A, b, coil_rings, voltage, v_ref, J)
+#
+#     # Unconditionally take J[0] here. -- It shouldn't make a difference.
+#      alpha = numpy.sqrt(
+#          2 * total_power / (v_ref * numpy.sum(J[0][:] * c).real)
+#          )
+#     # We would like to scale the solution with alpha. For this, scale the
+#     # respective part of the right-hand side.
+#     b[coils] *= alpha
+#     return A, b
 
 
 def compute_potential(
@@ -675,7 +589,7 @@ def compute_potential(
         # Real an imaginary parts.
         f_list.append({k: (v_ref * sigma[k] / (2 * pi * r), Constant(0.0))})
     # Solve.
-    phi_list = solve_maxwell(
+    phi_list = solve(
             V, dx,
             mu, sigma,
             omega,
@@ -686,7 +600,7 @@ def compute_potential(
             verbose=True
             )
 
-    # Write out these phi's to files.
+    # Write out these `phi`s to files.
     if io_submesh:
         V_submesh = FunctionSpace(io_submesh, 'CG', 1)
         W_submesh = V_submesh * V_submesh
@@ -704,11 +618,12 @@ def compute_potential(
 
     # Compute weights for the individual coils.
     # First get the voltage--coil-current mapping.
-    J = get_voltage_current_matrix(phi_list, physical_indices, dx,
-                                   sigma,
-                                   omega,
-                                   v_ref
-                                   )
+    J = get_voltage_current_matrix(
+            phi_list, physical_indices, dx,
+            sigma,
+            omega,
+            v_ref
+            )
 
     num_coil_rings = len(phi_list)
     A = numpy.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
@@ -722,9 +637,9 @@ def compute_potential(
             assert weight_type == 'voltage'
             A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
 
-    # TODO write out the equation system to a file
-    if io_submesh:
-        numpy.savetxt('matrix.dat', A)
+    # # TODO write out the equation system to a file
+    # if io_submesh:
+    #     numpy.savetxt('matrix.dat', A)
 
     # Solve the system for the weights.
     weights = numpy.linalg.solve(A, b)
@@ -854,7 +769,7 @@ def compute_joule(
         omega, Sigma, Mu,
         subdomain_indices
         ):
-    '''Compute Joule heating term and Lorentz force from given coil voltages.
+    '''Compute Joule heating term from given coil voltages.
     '''
     # j_r = {}
     # j_i = {}
@@ -986,109 +901,3 @@ def compute_lorentz(Phi, omega, sigma):
             + j_r / r * grad(r * Phi[0])
             + j_i / r * grad(r * Phi[1])
             )
-
-
-def _adaptive_mesh_refinement(dx, phi, mu, sigma, omega, conv, voltages):
-    from dolfin import cells, refine
-    eta = _error_estimator(dx, phi, mu, sigma, omega, conv, voltages)
-    mesh = phi.function_space().mesh()
-    level = 0
-    TOL = 1.0e-4
-    E = sum([e * e for e in eta])
-    E = sqrt(MPI.sum(E))
-    info('Level %d: E = %g (TOL = %g)' % (level, E, TOL))
-    # Mark cells for refinement
-    REFINE_RATIO = 0.5
-    cell_markers = MeshFunction('bool', mesh, mesh.topology().dim())
-    eta_0 = sorted(eta, reverse=True)[int(len(eta) * REFINE_RATIO)]
-    eta_0 = MPI.max(eta_0)
-    for c in cells(mesh):
-        cell_markers[c] = eta[c.index()] > eta_0
-    # Refine mesh
-    mesh = refine(mesh, cell_markers)
-    # Plot mesh
-    plot(mesh)
-    interactive()
-    exit()
-    # # Compute error indicators
-    # K = array([c.volume() for c in cells(mesh)])
-    # R = numpy.array([
-    #     abs(source([c.midpoint().x(), c.midpoint().y()]))
-    #     for c in cells(mesh)
-    #     ])
-    # gam = h*R*sqrt(K)
-    return
-
-
-def _error_estimator(dx, phi, mu, sigma, omega, conv, voltages):
-    '''Simple error estimator from
-
-        A posteriori error estimation and adaptive mesh-refinement techniques;
-        R. Verfürth;
-        Journal of Computational and Applied Mathematics;
-        Volume 50, Issues 1-3, 20 May 1994, Pages 67-83;
-        <https://www.sciencedirect.com/science/article/pii/0377042794902909>.
-
-    The strong PDE is
-
-        - div(1/(mu r) grad(rphi)) + <u, 1/r grad(rphi)> + i sigma omega phi
-      = sigma v_k / (2 pi r).
-    '''
-    from dolfin import cells
-    mesh = phi.function_space().mesh()
-    # Assemble the cell-wise residual in DG space
-    DG = FunctionSpace(mesh, 'DG', 0)
-    # get residual in DG
-    v = TestFunction(DG)
-    R = _residual_strong(dx, v, phi, mu, sigma, omega, conv, voltages)
-    r_r = assemble(R[0])
-    r_i = assemble(R[1])
-    r = r_r * r_r + r_i * r_i
-    visualize = True
-    if visualize:
-        # Plot the cell-wise residual
-        u = TrialFunction(DG)
-        a = zero() * dx(0)
-        subdomain_indices = mu.keys()
-        for i in subdomain_indices:
-            a += u * v * dx(i)
-        A = assemble(a)
-        R2 = Function(DG)
-        solve(A, R2.vector(), r)
-        plot(R2, title='||R||^2')
-        interactive()
-    K = r.array()
-    info('%r' % K)
-    h = numpy.array([c.diameter() for c in cells(mesh)])
-    eta = h * numpy.sqrt(K)
-    return eta
-
-
-def _residual_strong(dx, v, phi, mu, sigma, omega, conv, voltages):
-    '''Get the residual in strong form, projected onto V.
-    '''
-    r = Expression('x[0]', degree=1, cell=triangle)
-    R = [zero() * dx(0),
-         zero() * dx(0)]
-    subdomain_indices = mu.keys()
-    for i in subdomain_indices:
-        # diffusion, reaction
-        R_r = (
-            - div(1 / (mu[i] * r) * grad(r * phi[0]))
-            - sigma[i] * omega * phi[1]
-            )
-        R_i = (
-            - div(1 / (mu[i] * r) * grad(r * phi[1]))
-            + sigma[i] * omega * phi[0]
-            )
-        # convection
-        if i in conv:
-            R_r += dot(conv[i], 1 / r * grad(r * phi[0]))
-            R_i += dot(conv[i], 1 / r * grad(r * phi[1]))
-        # right-hand side
-        if i in voltages:
-            R_r -= sigma[i] * voltages[i].real / (2 * pi * r)
-            R_i -= sigma[i] * voltages[i].imag / (2 * pi * r)
-        R[0] += R_r * v * dx(i)
-        R[1] += R_i * v * dx(i)
-    return R
