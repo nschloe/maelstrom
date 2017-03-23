@@ -3,15 +3,16 @@
 import helpers
 import maelstrom.time_steppers as ts
 
-from dolfin import set_log_level, WARNING, Expression, FunctionSpace, \
-    DirichletBC, Function, errornorm, project, plot, interactive, triangle, \
-    norm, UnitIntervalMesh, pi, inner, grad, dx, ds, dot, UnitSquareMesh, \
-    FacetNormal, interval, RectangleMesh, TrialFunction, TestFunction, \
-    assemble, lhs, rhs, MPI
+from dolfin import (
+    set_log_level, WARNING, Expression, FunctionSpace, DirichletBC, Function,
+    errornorm, project, plot, interactive, triangle, norm, UnitIntervalMesh,
+    pi, inner, grad, dx, ds, dot, UnitSquareMesh, FacetNormal, interval,
+    TrialFunction, TestFunction, assemble, lhs, rhs, MPI
+    )
 import matplotlib.pyplot as plt
 import numpy
 import pytest
-import sympy as smp
+import sympy
 
 
 # Turn down the log level to only error messages.
@@ -27,15 +28,15 @@ def problem_sin1d():
     '''
     def mesh_generator(n):
         return UnitIntervalMesh(n)
-    x = smp.DeferredVector('x')
-    t = smp.symbols('t')
-    # m = smp.sin(0.5*pi*t)
-    m = smp.exp(t) - 0.0
+    x = sympy.DeferredVector('x')
+    t = sympy.symbols('t')
+    # m = sympy.sin(0.5*pi*t)
+    m = sympy.exp(t) - 0.0
     # theta = m * x * (1-x)
-    theta = m * smp.sin(1 * pi * x[0])
+    theta = m * sympy.sin(1 * pi * x[0])
     # Produce a matching rhs.
-    f_sympy = smp.diff(theta, t) - smp.diff(theta, x[0], 2)
-    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
+    f_sympy = sympy.diff(theta, t) - sympy.diff(theta, x[0], 2)
+    f = Expression(sympy.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
 
     # The corresponding operator in weak form.
     class HeatEquation(ts.ParabolicProblem):
@@ -43,7 +44,7 @@ def problem_sin1d():
             super(HeatEquation, self).__init__()
             self.V = V
             self.sol = Expression(
-                    smp.printing.ccode(theta),
+                    sympy.printing.ccode(theta),
                     degree=MAX_DEGREE,
                     t=0.0,
                     cell=triangle
@@ -71,26 +72,26 @@ def problem_sinsin():
     def mesh_generator(n):
         return UnitSquareMesh(n, n, 'left/right')
         # return RectangleMesh(1.0, 0.0, 2.0, 1.0, n, n)
-    # x, y, t = smp.symbols('x, y, t')
-    x = smp.DeferredVector('x')
-    t = smp.symbols('t')
+    # x, y, t = sympy.symbols('x, y, t')
+    x = sympy.DeferredVector('x')
+    t = sympy.symbols('t')
     # Choose the solution something that cannot exactly be expressed by
     # polynomials. Choosing the sine here makes all first-order scheme be
     # second-order accurate since d2sin/dt2 = 0 at t=0.
-    m = smp.exp(t) - 0.0
-    # m = smp.sin(0.5*pi*t)
+    m = sympy.exp(t) - 0.0
+    # m = sympy.sin(0.5*pi*t)
     theta = m * x[0] * (1.0 - x[0]) * x[1] * (1.0 - x[1])
-    # theta = m * smp.sin(1*pi*x) * smp.sin(1*pi*y)
+    # theta = m * sympy.sin(1*pi*x) * sympy.sin(1*pi*y)
     rho = 5.0
     cp = 2.0
     kappa = 3.0
     # Produce a matching rhs.
     f_sympy = (
-        + rho * cp * smp.diff(theta, t)
-        - smp.diff(kappa * smp.diff(theta, x[0]), x[0])
-        - smp.diff(kappa * smp.diff(theta, x[1]), x[1])
+        + rho * cp * sympy.diff(theta, t)
+        - sympy.diff(kappa * sympy.diff(theta, x[0]), x[0])
+        - sympy.diff(kappa * sympy.diff(theta, x[1]), x[1])
         )
-    f = Expression(smp.printing.ccode(f_sympy), degree=4, t=0.0)
+    f = Expression(sympy.printing.ccode(f_sympy), degree=4, t=0.0)
 
     # The corresponding operator in weak form.
     class HeatEquation(ts.ParabolicProblem):
@@ -98,7 +99,7 @@ def problem_sinsin():
             super(HeatEquation, self).__init__()
             self.V = V
             self.sol = Expression(
-                    smp.printing.ccode(theta),
+                    sympy.printing.ccode(theta),
                     degree=MAX_DEGREE,
                     t=0.0,
                     cell=triangle
@@ -132,28 +133,29 @@ def problem_coscos_cartesian():
         #     n, n, 'left/right'
         #     )
         return mesh
-    t = smp.symbols('t')
+    t = sympy.symbols('t')
     rho = 6.0
     cp = 4.0
-    kappa_sympy = smp.exp(t)
-    x = smp.DeferredVector('x')
+    kappa_sympy = sympy.exp(t)
+    x = sympy.DeferredVector('x')
     # Choose the solution something that cannot exactly be expressed by
     # polynomials.
-    # theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
-    # theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
-    # theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    # theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    # theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    theta = smp.log(2 + t) * smp.cos(pi * (x[0] - 1.0)) * smp.cos(pi * x[1])
+    # theta = sympy.sin(t) * sympy.sin(pi*x) * sympy.sin(pi*y)
+    # theta = sympy.cos(0.5*pi*t) * sympy.sin(pi*x) * sympy.sin(pi*y)
+    # theta = (sympy.exp(t)-1) * sympy.cos(3*pi*(x-1.0)) * sympy.cos(7*pi*y)
+    # theta = (1-sympy.cos(t)) * sympy.cos(3*pi*(x-1.0)) * sympy.cos(7*pi*y)
+    # theta = sympy.log(1+t) * sympy.cos(3*pi*(x-1.0)) * sympy.cos(7*pi*y)
+    solution = \
+        sympy.log(2 + t) * sympy.cos(pi * (x[0] - 1.0)) * sympy.cos(pi * x[1])
     # Produce a matching rhs.
     f_sympy = (
-        rho * cp * smp.diff(theta, t)
-        - smp.diff(kappa_sympy * smp.diff(theta, x[0]), x[0])
-        - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
+        rho * cp * sympy.diff(solution, t)
+        - sympy.diff(kappa_sympy * sympy.diff(solution, x[0]), x[0])
+        - sympy.diff(kappa_sympy * sympy.diff(solution, x[1]), x[1])
         )
 
-    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
-    kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
+    f = Expression(sympy.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
+    kappa = Expression(sympy.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
     # The corresponding operator in weak form.
     class HeatEquation(ts.ParabolicProblem):
@@ -163,7 +165,7 @@ def problem_coscos_cartesian():
             self.V = V
             self.rho_cp = rho * cp
             self.sol = Expression(
-                    smp.printing.ccode(theta),
+                    sympy.printing.ccode(solution),
                     degree=MAX_DEGREE,
                     t=0.0,
                     cell=triangle
@@ -185,7 +187,7 @@ def problem_coscos_cartesian():
             self.sol.t = t
             return [DirichletBC(self.V, self.sol, 'on_boundary')]
 
-    return mesh_generator, theta, HeatEquation, triangle
+    return mesh_generator, solution, HeatEquation, triangle
 
 
 def problem_coscos_cylindrical():
@@ -199,17 +201,18 @@ def problem_coscos_cylindrical():
         #     )
         return mesh
 
-    t = smp.symbols('t')
+    t = sympy.symbols('t')
     rho = 2.0
     cp = 3.0
-    kappa_sympy = smp.exp(t)
+    kappa_sympy = sympy.exp(t)
 
     # Cylindrical coordinates.
-    x = smp.DeferredVector('x')
+    x = sympy.DeferredVector('x')
     # Solution.
-    theta = (smp.exp(t) - 1) * smp.cos(pi * (x[0] - 1)) * smp.cos(pi * x[1])
-    # theta = smp.sin(t) * smp.sin(pi*(x[0]-1)) * smp.sin(pi*x[1])
-    # theta = smp.log(2+t) * smp.cos(pi*(x[0]-1.0)) * smp.cos(pi*x[1])
+    sol = \
+        (sympy.exp(t) - 1) * sympy.cos(pi * (x[0] - 1)) * sympy.cos(pi * x[1])
+    # theta = sympy.sin(t) * sympy.sin(pi*(x[0]-1)) * sympy.sin(pi*x[1])
+    # theta = sympy.log(2+t) * sympy.cos(pi*(x[0]-1.0)) * sympy.cos(pi*x[1])
 
     # Convection.
     b_sympy = (-x[1], x[0] - 1)
@@ -217,23 +220,26 @@ def problem_coscos_cylindrical():
 
     # Produce a matching rhs.
     f_sympy = (
-        + rho * cp * smp.diff(theta, t)
+        + rho * cp * sympy.diff(sol, t)
         + rho * cp * (
-            + b_sympy[0] * smp.diff(theta, x[0])
-            + b_sympy[1] * smp.diff(theta, x[1])
+            + b_sympy[0] * sympy.diff(sol, x[0])
+            + b_sympy[1] * sympy.diff(sol, x[1])
             )
-        - 1 / x[0] * smp.diff(x[0]*kappa_sympy * smp.diff(theta, x[0]), x[0])
-        - smp.diff(kappa_sympy * smp.diff(theta, x[1]), x[1])
+        - 1 / x[0] * sympy.diff(x[0]*kappa_sympy * sympy.diff(sol, x[0]), x[0])
+        - sympy.diff(kappa_sympy * sympy.diff(sol, x[1]), x[1])
         )
 
     # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
+    f = Expression(sympy.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
     b = Expression(
-            (smp.printing.ccode(b_sympy[0]), smp.printing.ccode(b_sympy[1])),
+            (
+                sympy.printing.ccode(b_sympy[0]),
+                sympy.printing.ccode(b_sympy[1])
+            ),
             degree=1,
             t=0.0
             )
-    kappa = Expression(smp.printing.ccode(kappa_sympy), degree=1, t=0.0)
+    kappa = Expression(sympy.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
     class HeatEquation(ts.ParabolicProblem):
         def __init__(self, V):
@@ -242,7 +248,7 @@ def problem_coscos_cylindrical():
             self.V = V
             self.rho_cp = rho * cp
             self.sol = Expression(
-                    smp.printing.ccode(theta),
+                    sympy.printing.ccode(sol),
                     degree=MAX_DEGREE,
                     t=0.0,
                     cell=triangle
@@ -272,7 +278,7 @@ def problem_coscos_cylindrical():
             self.sol.t = t
             return [DirichletBC(self.V, self.sol, 'on_boundary')]
 
-    return mesh_generator, theta, HeatEquation, triangle
+    return mesh_generator, sol, HeatEquation, triangle
 
 
 def problem_stefanboltzmann():
@@ -283,32 +289,32 @@ def problem_stefanboltzmann():
         mesh = UnitSquareMesh(n, n, 'left/right')
         return mesh
 
-    t = smp.symbols('t')
+    t = sympy.symbols('t')
     rho = 1.0
     cp = 1.0
     kappa = 1.0
-    x = smp.DeferredVector('x')
+    x = sympy.DeferredVector('x')
     # Choose the solution something that cannot exactly be expressed by
     # polynomials.
-    # theta = smp.sin(t) * smp.sin(pi*x) * smp.sin(pi*y)
-    # theta = smp.cos(0.5*pi*t) * smp.sin(pi*x) * smp.sin(pi*y)
-    # theta = (smp.exp(t)-1) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    # theta = (1-smp.cos(t)) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    # theta = smp.log(1+t) * smp.cos(3*pi*(x-1.0)) * smp.cos(7*pi*y)
-    theta = smp.log(2 + t) * smp.cos(pi * x[0]) * smp.cos(pi * x[1])
+    # theta = sympy.sin(t) * sympy.sin(pi*x) * sympy.sin(pi*y)
+    # theta = sympy.cos(0.5*pi*t) * sympy.sin(pi*x) * sympy.sin(pi*y)
+    # theta = (sympy.exp(t)-1) * sympy.cos(3*pi*(x-1.0)) * sympy.cos(7*pi*y)
+    # theta = (1-sympy.cos(t)) * sympy.cos(3*pi*(x-1.0)) * sympy.cos(7*pi*y)
+    # theta = sympy.log(1+t) * sympy.cos(3*pi*(x-1.0)) * sympy.cos(7*pi*y)
+    theta = sympy.log(2 + t) * sympy.cos(pi * x[0]) * sympy.cos(pi * x[1])
     # Produce a matching rhs.
     f_sympy = (
-        + rho * cp * smp.diff(theta, t)
-        - smp.diff(kappa * smp.diff(theta, x[0]), x[0])
-        - smp.diff(kappa * smp.diff(theta, x[1]), x[1])
+        + rho * cp * sympy.diff(theta, t)
+        - sympy.diff(kappa * sympy.diff(theta, x[0]), x[0])
+        - sympy.diff(kappa * sympy.diff(theta, x[1]), x[1])
         )
     # Produce a matching u0.
     # u_0^4 = u^4 - du/dn
     # ONLY WORKS IF du/dn==0.
     u0 = theta
     # convert to FEniCS expressions
-    f = Expression(smp.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
-    u0 = Expression(smp.printing.ccode(u0), degree=MAX_DEGREE, t=0.0)
+    f = Expression(sympy.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
+    u0 = Expression(sympy.printing.ccode(u0), degree=MAX_DEGREE, t=0.0)
 
     class HeatEquation(ts.ParabolicProblem):
         def __init__(self, V):
@@ -317,7 +323,7 @@ def problem_stefanboltzmann():
             self.V = V
             self.rho_cp = rho * cp
             self.sol = Expression(
-                    smp.printing.ccode(theta),
+                    sympy.printing.ccode(theta),
                     degree=MAX_DEGREE,
                     t=0.0,
                     cell=triangle
@@ -358,7 +364,6 @@ def test_temporal_order(problem, method):
     mesh_sizes = [16, 32, 64]
     Dt = [0.5**k for k in range(2)]
     errors = _compute_time_errors(problem, method, mesh_sizes, Dt)
-    expected_order = method.order
 
     # numerical orders of convergence
     orders = helpers._compute_numerical_order_of_convergence(Dt, errors)
@@ -368,7 +373,7 @@ def test_temporal_order(problem, method):
     # spatial discretization, and is not getting worse as the spatial
     # discretizations are refining.
     tol = 0.1
-    assert (orders[:, 0] > expected_order - tol).all()
+    assert (orders[:, 0] > method.order - tol).all()
     return
 
 
@@ -376,7 +381,7 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
     mesh_generator, solution, ProblemClass, cell_type = problem()
     # Translate data into FEniCS expressions.
     fenics_sol = Expression(
-            smp.printing.ccode(solution),
+            sympy.printing.ccode(solution),
             degree=MAX_DEGREE,
             t=0.0,
             cell=cell_type
@@ -434,7 +439,7 @@ def _check_spatial_order(problem, method):
 
     # Translate data into FEniCS expressions.
     fenics_sol = Expression(
-            smp.prining.ccode(solution['value']),
+            sympy.printing.ccode(solution['value']),
             degree=solution['degree'],
             t=0.0
             )
