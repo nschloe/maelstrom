@@ -6,8 +6,8 @@ import maelstrom.maxwell_cylindrical as mcyl
 from dolfin import (
     FunctionSpace, errornorm, RectangleMesh, Measure, CellFunction,
     FacetFunction, triangle, Expression, MPI, mpi_comm_world, Point,
-    dot, TestFunction, TrialFunction, zero, grad, pi, Function, solve,
-    DirichletBC, DOLFIN_EPS, norm, sqrt
+    dot, TestFunction, TrialFunction, grad, pi, Function, solve,
+    DirichletBC, DOLFIN_EPS, norm, sqrt, Constant
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -111,8 +111,8 @@ def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs):
 
     v = TestFunction(V)
 
-    r_r = zero() * dx(0)
-    r_i = zero() * dx(0)
+    r_r = Constant(0.0) * v * dx(0)
+    r_i = Constant(0.0) * v * dx(0)
     for i in subdomain_indices:
         r_r += (
             1.0 / (Mu[i] * r) * dot(grad(r * phi_r), grad(r * v)) * 2*pi*dx(i)
@@ -135,19 +135,18 @@ def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs):
     def xzero(x, on_boundary):
         return on_boundary and abs(x[0]) < DOLFIN_EPS
 
-    subdomain_indices = Mu.keys()
-
     # Solve an FEM problem to get the corresponding residual function out.
     # This is exactly what we need here! :)
     u = TrialFunction(V)
     v = TestFunction(V)
-    a = zero() * dx(0)
+    a = Constant(0.0) * u * v * dx(0)
     for i in subdomain_indices:
         a += u * v * dx(i)
 
-    # TODO don't hard code the boundary conditions like this
     R_r = Function(V)
     R_i = Function(V)
+
+    # TODO don't hard code the boundary conditions like this
     solve(a == r_r, R_r, bcs=DirichletBC(V, 0.0, xzero))
     solve(a == r_i, R_i, bcs=DirichletBC(V, 0.0, xzero))
 
@@ -218,16 +217,18 @@ def test_residual(problem):
     # the above formulation.
     R_r, R_i = _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, rhs)
 
-    nrm_r = norm(R_r)
-    print('||r_r|| = %e' % nrm_r)
-    nrm_i = norm(R_i)
-    print('||r_i|| = %e' % nrm_i)
-    res_norm = sqrt(nrm_r * nrm_r + nrm_i * nrm_i)
-    print('||r|| = %e' % res_norm)
-
     # plot(R_r, title='R_r')
     # plot(R_i, title='R_i')
     # interactive()
+
+    nrm_r = norm(R_r)
+    assert nrm_r < 1.0e-13
+    print('||r_r|| = %e' % nrm_r)
+    nrm_i = norm(R_i)
+    print('||r_i|| = %e' % nrm_i)
+    assert nrm_i < 1.0e-13
+    # res_norm = sqrt(nrm_r * nrm_r + nrm_i * nrm_i)
+    # print('||r|| = %e' % res_norm)
     return
 
 
