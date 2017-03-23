@@ -78,12 +78,10 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
 
 
 def _compute_numerical_order_of_convergence(Dt, errors):
-    orders = numpy.empty((errors.shape[0], errors.shape[1] - 1))
-    for i in range(errors.shape[0]):
-        for j in range(errors.shape[1] - 1):
-            orders[i, j] = numpy.log(errors[i][j + 1] / errors[i][j]) \
-                / numpy.log(Dt[j + 1] / Dt[j])
-    return orders
+    return numpy.vstack([
+        numpy.log(errors[:, k] / errors[:, k+1]) / numpy.log(Dt[k] / Dt[k+1])
+        for k in range(len(Dt)-1)
+        ]).T
 
 
 def _check_time_order(problem, MethodClass, tol=1.0e-10):
