@@ -55,18 +55,15 @@ avoids dividing by r in the convections and the right hand side.
      + i \sigma \omega u 2 \pi r v
    = \int \sigma v_k v.
 '''
-from dolfin import info, Expression, triangle, plot, interactive, \
-    DOLFIN_EPS, DirichletBC, Function, TestFunction, \
-    TrialFunction, solve, zero, norm, KrylovSolver, dot, grad, pi, \
-    TrialFunctions, TestFunctions, assemble, div, Constant, project, \
-    FunctionSpace, sqrt, MPI, MeshFunction
+from dolfin import (
+    info, Expression, triangle, plot, interactive, DOLFIN_EPS, DirichletBC,
+    Function, TestFunction, TrialFunction, solve, zero, norm, KrylovSolver,
+    dot, grad, pi, TrialFunctions, TestFunctions, assemble, div, Constant,
+    project, FunctionSpace, sqrt, MPI, MeshFunction
+    )
 import numpy
 
 from message import Message
-
-# parameters.linear_algebra_backend = 'uBLAS'
-# from scipy.sparse import csr_matrix
-# from betterspy import betterspy
 
 
 # Don't rename to solve() -- that method already exists in Dolfin. :/
@@ -155,10 +152,9 @@ def solve_maxwell(
         # https://en.wikipedia.org/wiki/Robin_boundary_condition).
         # The classical reference is
         #
-        #     Impedance boundary conditions for imperfectly conducting
-        #     surfaces,
-        #     T.B.A. Senior,
-        #     <http://link.springer.com/content/pdf/10.1007/BF02920074>.
+        #   Impedance boundary conditions for imperfectly conducting surfaces,
+        #   T.B.A. Senior,
+        #   <http://link.springer.com/content/pdf/10.1007/BF02920074>.
         #
         # class OuterBoundary(SubDomain):
         #     def inside(self, x, on_boundary):
@@ -189,13 +185,14 @@ def solve_maxwell(
     # The matrix P, created in _build_system(), provides a better alternative.
     # For more details, see documentation in _build_system().
     #
-    A, P, b_list, M, W = _build_system(V, dx,
-                                       Mu, Sigma,  # dictionaries
-                                       omega,
-                                       f_list,  # list of dicts
-                                       convections,  # dict
-                                       bcs
-                                       )
+    A, P, b_list, M, W = _build_system(
+            V, dx,
+            Mu, Sigma,  # dictionaries
+            omega,
+            f_list,  # list of dicts
+            convections,  # dict
+            bcs
+            )
 
     # from matplotlib import pyplot as pp
     # rows, cols, values = M.data()
@@ -259,15 +256,14 @@ def solve_maxwell(
 
     phi_list = []
     for k, b in enumerate(b_list):
-        with Message('Computing coil ring %d/%d...' % (k + 1, len(b_list))):
-            # Define goal functional for adaptivity.
-            # Adaptivity not working for subdomains, cf.
-            # https://bugs.launchpad.net/dolfin/+bug/872105.
-            # (phi_r, phi_i) = split(phi)
-            # M = (phi_r*phi_r + phi_i*phi_i) * dx(2)
-            phi_list.append(Function(W))
-            phi_list[-1].rename('phi%d' % k, 'phi%d' % k)
-            solver.solve(phi_list[-1].vector(), b)
+        # Define goal functional for adaptivity.
+        # Adaptivity not working for subdomains, cf.
+        # https://bugs.launchpad.net/dolfin/+bug/872105.
+        # (phi_r, phi_i) = split(phi)
+        # M = (phi_r*phi_r + phi_i*phi_i) * dx(2)
+        phi_list.append(Function(W))
+        phi_list[-1].rename('phi%d' % k, 'phi%d' % k)
+        solver.solve(phi_list[-1].vector(), b)
 
         # # Adaptive mesh refinement.
         # _adaptive_mesh_refinement(dx,
@@ -304,17 +300,9 @@ def solve_maxwell(
 
             # TODO don't hard code the boundary conditions like this
             R_r = Function(V)
-            solve(
-                a == r_r, R_r,
-                bcs=DirichletBC(V, 0.0, xzero)
-                )
-
-            # TODO don't hard code the boundary conditions like this
             R_i = Function(V)
-            solve(
-                a == r_i, R_i,
-                bcs=DirichletBC(V, 0.0, xzero)
-                )
+            solve(a == r_r, R_r, bcs=DirichletBC(V, 0.0, xzero))
+            solve(a == r_i, R_i, bcs=DirichletBC(V, 0.0, xzero))
 
             nrm_r = norm(R_r)
             info('||r_r|| = %e' % nrm_r)
@@ -381,13 +369,14 @@ def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, voltages):
     return r_r, r_i
 
 
-def _build_system(V, dx,
-                  Mu, Sigma,  # dictionaries
-                  omega,
-                  f_list,  # list of dictionaries
-                  convections,  # dictionary
-                  bcs
-                  ):
+def _build_system(
+        V, dx,
+        Mu, Sigma,  # dictionaries
+        omega,
+        f_list,  # list of dictionaries
+        convections,  # dictionary
+        bcs
+        ):
     '''Build FEM system for
 
     .. math::
@@ -405,18 +394,22 @@ def _build_system(V, dx,
     W = FunctionSpace(V.mesh(), ee)
 
     # Bilinear form.
-    (ur, ui) = TrialFunctions(W)
-    (vr, vi) = TestFunctions(W)
+    ur, ui = TrialFunctions(W)
+    vr, vi = TestFunctions(W)
 
-    with Message('Build right-hand sides...'):
-        b_list = []
-        for f in f_list:
-            L = Constant(0.0) * vr * dx(0) \
-                + Constant(0.0) * vi * dx(0)
-            for i, fval in f.items():
-                L += fval[0] * vr * 2*pi*r * dx(i) \
-                    + fval[1] * vi * 2*pi*r * dx(i)
-            b_list.append(assemble(L))
+    # build right-hand sides
+    b_list = []
+    for f in f_list:
+        L = (
+            + Constant(0.0) * vr * dx(0)
+            + Constant(0.0) * vi * dx(0)
+            )
+        for i, fval in f.items():
+            L += (
+                + fval[0] * vr * 2*pi*r * dx(i)
+                + fval[1] * vi * 2*pi*r * dx(i)
+                )
+        b_list.append(assemble(L))
 
     # div(1/(mu r) grad(r phi)) + i sigma omega phi
     #
@@ -437,10 +430,10 @@ def _build_system(V, dx,
         # functions u. This is guaranteed when taking Dirichlet boundary
         # conditions at r=0.
         sigma = Constant(Sigma[i])
-        a1 += 1.0 / (Mu[i] * r) * dot(grad(r * ur), grad(r * vr)) \
-            * 2 * pi * dx(i) \
-            + 1.0 / (Mu[i] * r) * dot(grad(r * ui), grad(r * vi)) \
-            * 2 * pi * dx(i)
+        a1 += (
+            + 1.0 / (Mu[i] * r) * dot(grad(r * ur), grad(r * vr)) * 2*pi*dx(i)
+            + 1.0 / (Mu[i] * r) * dot(grad(r * ui), grad(r * vi)) * 2*pi*dx(i)
+            )
         a2 += (
             - om * sigma * ui * vr * 2*pi*r * dx(i)
             + om * sigma * ur * vi * 2*pi*r * dx(i)
@@ -482,8 +475,8 @@ def _build_system(V, dx,
 
     # Compute the preconditioner as described in
     #
-    #     A robust preconditioned MINRES-solver
-    #     for time-periodic eddy-current problems;
+    #     A robust preconditioned MINRES-solver for time-periodic eddy-current
+    #     problems;
     #     M. Kolmbauer, U. Langer;
     #     <http://www.numa.uni-linz.ac.at/Publications/List/2012/2012-02.pdf>.
     #
@@ -725,10 +718,9 @@ def compute_potential(
         target_value = coils[k]['c_value']
         if weight_type == 'current':
             A, b = prescribe_current(A, b, coil, target_value)
-        elif weight_type == 'voltage':
-            A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
         else:
-            raise RuntimeError('Illegal weight type \'%r\'.' % weight_type)
+            assert weight_type == 'voltage'
+            A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
 
     # TODO write out the equation system to a file
     if io_submesh:
@@ -801,8 +793,10 @@ def compute_potential(
     # since phi is from the FunctionSpace V*V and thus .vector() is not
     # available for the individual components.
     #
-    Phi = [Constant(0.0),
-           Constant(0.0)]
+    Phi = [
+        Constant(0.0),
+        Constant(0.0)
+        ]
     for phi, c in zip(phi_list, weights):
         # Phi += c * phi
         Phi[0] += c.real * phi[0] - c.imag * phi[1]
@@ -817,11 +811,12 @@ def compute_potential(
     return Phi, voltages
 
 
-def get_voltage_current_matrix(phi, physical_indices, dx,
-                               Sigma,
-                               omega,
-                               v_ref
-                               ):
+def get_voltage_current_matrix(
+        phi, physical_indices, dx,
+        Sigma,
+        omega,
+        v_ref
+        ):
     '''Compute the matrix that relates the voltages with the currents in the
     coil rings. (The relationship is indeed linear.)
 
@@ -848,8 +843,9 @@ def get_voltage_current_matrix(phi, physical_indices, dx,
         # For assemble() to work, a mesh needs to be supplied either implicitly
         # by the integrand, or explicitly. Since the integrand doesn't contain
         # mesh information here, pass it through explicitly.
-        J[l][l] += v_ref / (2 * pi) \
-            * assemble(Sigma[pi0] / r * dx(pi0))
+        J[l][l] += (
+            v_ref / (2 * pi) * assemble(Sigma[pi0] / r * dx(pi0))
+            )
     return J
 
 

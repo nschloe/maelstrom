@@ -33,7 +33,8 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
     # Compute the numerical order of convergence.
     orders = {}
     for key in errors:
-        orders[key] = _compute_numerical_order_of_convergence(Dt, errors[key])
+        orders[key] = \
+            _compute_numerical_order_of_convergence(Dt, errors[key].T).T
 
     # Print the data to the screen
     for i, mesh_size in enumerate(mesh_sizes):
@@ -78,10 +79,10 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
 
 
 def _compute_numerical_order_of_convergence(Dt, errors):
-    return numpy.vstack([
-        numpy.log(errors[:, k] / errors[:, k+1]) / numpy.log(Dt[k] / Dt[k+1])
+    return numpy.array([
+        numpy.log(errors[k] / errors[k+1]) / numpy.log(Dt[k] / Dt[k+1])
         for k in range(len(Dt)-1)
-        ]).T
+        ])
 
 
 def _check_time_order(problem, MethodClass, tol=1.0e-10):

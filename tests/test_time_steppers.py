@@ -366,7 +366,7 @@ def test_temporal_order(problem, method):
     errors = _compute_time_errors(problem, method, mesh_sizes, Dt)
 
     # numerical orders of convergence
-    orders = helpers._compute_numerical_order_of_convergence(Dt, errors)
+    orders = helpers._compute_numerical_order_of_convergence(Dt, errors.T).T
 
     # The test is considered passed if the numerical order of convergence
     # matches the expected order in at least the first step in the coarsest

@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 #
+import helpers
 import maelstrom.maxwell_cylindrical as mcyl
 
-from dolfin import FunctionSpace, errornorm, RectangleMesh, Measure, \
-    CellFunction, FacetFunction, triangle, \
-    Expression, MPI, mpi_comm_world, Point
+from dolfin import (
+    FunctionSpace, errornorm, RectangleMesh, Measure, CellFunction,
+    FacetFunction, triangle, Expression, MPI, mpi_comm_world, Point
+    )
 import matplotlib.pyplot as plt
-import nose
 import numpy
-import sympy as smp
+import pytest
+import sympy
 import warnings
 
 # Turn down the log level to only error messages.
@@ -19,34 +21,104 @@ import warnings
 MAX_DEGREE = 10
 
 
-def test_generator():
-    '''Test order of time discretization.
+def problem_coscos():
+    '''cosine example.
     '''
-    problems = [problem_coscos]
-    # Loop over all methods and check the order of convergence.
-    for problem in problems:
-        yield _check_order, problem
+    def mesh_generator(n):
+        mesh = RectangleMesh(
+            Point(1.0, 0.0), Point(2.0, 1.0),
+            n, n, 'left/right'
+            )
+        domains = CellFunction('uint', mesh)
+        domains.set_all(0)
+        dx = Measure('dx', subdomain_data=domains)
+        boundaries = FacetFunction('uint', mesh)
+        boundaries.set_all(0)
+        ds = Measure('ds', subdomain_data=boundaries)
+        return mesh, dx, ds
+
+    x = sympy.DeferredVector('x')
+
+    # Choose the solution, the parameters specifically, such that the boundary
+    # conditions are fulfilled exactly
+    alpha = 1.0
+    r1 = 1.0
+    beta = numpy.cos(alpha * r1) - r1 * alpha * numpy.sin(alpha * r1)
+
+    phi = {'value': (beta * (1.0 - sympy.cos(alpha * x[0])),
+                     beta * (1.0 - sympy.cos(alpha * x[0]))
+                     ),
+           'degree': numpy.infty
+           }
+
+    # Produce a matching right-hand side.
+    mu = 1.0
+    # sigma = 1.0
+    # omega = 1.0
+    # f_sympy = (
+    #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[0]), x[0])
+    #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
+    #     - omega*sigma*phi[1],
+    #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
+    #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
+    #     + omega*sigma*phi[0]
+    #     )
+    f_sympy = (
+        -sympy.diff(
+            1 / (mu * x[0]) * sympy.diff(x[0] * phi['value'][0], x[0]),
+            x[0]
+            ),
+        # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
+        # - omega*sigma*phi[1],
+        # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
+        # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
+        + 0.0 * phi['value'][0]
+        )
+
+    f = {
+        'value': (
+            Expression(sympy.printing.ccode(f_sympy[0]), degree=MAX_DEGREE),
+            Expression(sympy.printing.ccode(f_sympy[1]), degree=MAX_DEGREE)
+            ),
+        'degree': MAX_DEGREE
+        }
+
+    # Show the solution and the right-hand side.
+    n = 50
+    mesh, dx, ds = mesh_generator(n)
+    # plot(
+    #     Expression(sympy.printing.ccode(phi[0])), mesh=mesh, title='phi.real'
+    #     )
+    # plot(
+    #     Expression(sympy.printing.ccode(phi[1])), mesh=mesh, title='phi.imag'
+    #     )
+    # plot(f[0], mesh=mesh, title='f.real')
+    # plot(f[1], mesh=mesh, title='f.imag')
+    # interactive()
+    return mesh_generator, phi, f, triangle
 
 
-def _check_order(problem):
-    mesh_sizes = [20, 40, 80]
-    errors, order, hmax = _compute_errors(problem, mesh_sizes)
+@pytest.mark.parametrize(
+    'problem', [
+        problem_coscos
+        ])
+def test_order(problem):
+    '''Assert the correct discretization order.
+    '''
+    mesh_sizes = [16, 32, 64]
+    errors, hmax = _compute_errors(problem, mesh_sizes)
+
+    # Compute the numerical order of convergence.
+    order = helpers._compute_numerical_order_of_convergence(hmax, errors)
 
     # The test is considered passed if the numerical order of convergence
     # matches the expected order in at least the first step in the coarsest
     # spatial discretization, and is not getting worse as the spatial
     # discretizations are refining.
     tol = 0.1
-    k = 0
     expected_order = 1
-    for i in range(order.shape[0]):
-        nose.tools.assert_almost_equal(
-            order[i], expected_order, delta=tol
-            )
-        while k + 1 < len(order[i]) \
-                and abs(order[i][k + 1] - expected_order) < tol:
-            k += 1
-    return errors
+    assert (order > expected_order - tol).all()
+    return
 
 
 def _compute_errors(problem, mesh_sizes):
@@ -63,8 +135,8 @@ def _compute_errors(problem, mesh_sizes):
 
     sol = Expression(
             (
-                smp.printing.ccode(solution['value'][0]),
-                smp.printing.ccode(solution['value'][1])
+                sympy.printing.ccode(solution['value'][0]),
+                sympy.printing.ccode(solution['value'][1])
             ),
             t=0.0,
             degree=degree,
@@ -98,29 +170,23 @@ def _compute_errors(problem, mesh_sizes):
         #
         errors[k] = errornorm(sol, phi_approx[0])
 
-    # Compute the numerical order of convergence.
-    order = numpy.empty(len(errors) - 1)
-    for i in range(len(errors) - 1):
-        order[i] = numpy.log(errors[i + 1] / errors[i]) \
-            / numpy.log(hmax[i + 1] / hmax[i])
-
-    return errors, order, hmax
+    return errors, hmax
 
 
 def _show_order_info(problem, mesh_sizes):
     '''Performs consistency check for the given problem/method combination and
     show some information about it. Useful for debugging.
     '''
-    errors, order, hmax = _compute_errors(problem, mesh_sizes)
+    errors, hmax = _compute_errors(problem, mesh_sizes)
+    order = helpers._compute_numerical_order_of_convergence(hmax, errors)
 
     # Print the data
     print
-    print('hmax = %e    error = %e' % (hmax[0], errors[0]))
+    print('hmax            ||u - u_h||     conv. order')
+    print('%e    %e' % (hmax[0], errors[0]))
     for j in range(len(errors) - 1):
-        print(
-            'hmax = %e    error = %e    conv. order = %e'
-            % (hmax[j + 1], errors[j + 1], order[j])
-            )
+        print(32 * ' ' + '%2.5f' % order[j])
+        print('%e    %e' % (hmax[j + 1], errors[j + 1]))
 
     # Plot the actual data.
     for i, mesh_size in enumerate(mesh_sizes):
@@ -128,90 +194,18 @@ def _show_order_info(problem, mesh_sizes):
 
     # Compare with order curves.
     plt.autoscale(False)
-    e0 = errors[-1][0]
-    for order in range(7):
+    e0 = errors[0]
+    for order in range(2):
         plt.loglog(
             [hmax[0], hmax[-1]],
             [e0, e0 * (hmax[-1] / hmax[0]) ** order],
             color='0.7'
             )
-    plt.xlabel('dt')
+    plt.xlabel('hmax')
     plt.ylabel('||u-u_h||')
-    plt.legend(loc=4)
+    plt.legend()
     plt.show()
     return
-
-
-def problem_coscos():
-    '''cosine example.
-    '''
-    def mesh_generator(n):
-        mesh = RectangleMesh(
-            Point(1.0, 0.0), Point(2.0, 1.0),
-            n, n, 'left/right'
-            )
-        domains = CellFunction('uint', mesh)
-        domains.set_all(0)
-        dx = Measure('dx', subdomain_data=domains)
-        boundaries = FacetFunction('uint', mesh)
-        boundaries.set_all(0)
-        ds = Measure('ds', subdomain_data=boundaries)
-        return mesh, dx, ds
-
-    x = smp.DeferredVector('x')
-
-    # Choose the solution, the parameters specifically, such that the boundary
-    # conditions are fulfilled exactly
-    alpha = 1.0
-    r1 = 1.0
-    beta = numpy.cos(alpha * r1) - r1 * alpha * numpy.sin(alpha * r1)
-
-    phi = {'value': (beta * (1.0 - smp.cos(alpha * x[0])),
-                     beta * (1.0 - smp.cos(alpha * x[0]))
-                     ),
-           'degree': numpy.infty
-           }
-
-    # Produce a matching right-hand side.
-    mu = 1.0
-    # sigma = 1.0
-    # omega = 1.0
-    # f_sympy = (- smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[0]), x[0])
-    #            - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[1]), x[1])
-    #            - omega*sigma*phi[1],
-    #            - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[0]), x[0])
-    #            - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[1]), x[1])
-    #            + omega*sigma*phi[0]
-    #            )
-    f_sympy = (
-        -smp.diff(
-            1 / (mu * x[0]) * smp.diff(x[0] * phi['value'][0], x[0]),
-            x[0]
-            ),
-        # - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[0], x[1]), x[1])
-        # - omega*sigma*phi[1],
-        # - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[0]), x[0])
-        # - smp.diff(1/(mu*x[0]) * smp.diff(x[0]*phi[1], x[1]), x[1])
-        + 0.0 * phi['value'][0]
-        )
-
-    f = {
-        'value': (
-            Expression(smp.printing.ccode(f_sympy[0]), degree=MAX_DEGREE),
-            Expression(smp.printing.ccode(f_sympy[1]), degree=MAX_DEGREE)
-            ),
-        'degree': MAX_DEGREE
-        }
-
-    # Show the solution and the right-hand side.
-    n = 50
-    mesh, dx, ds = mesh_generator(n)
-    # plot(Expression(smp.printing.ccode(phi[0])), mesh=mesh, title='phi.real')
-    # plot(Expression(smp.printing.ccode(phi[1])), mesh=mesh, title='phi.imag')
-    # plot(f[0], mesh=mesh, title='f.real')
-    # plot(f[1], mesh=mesh, title='f.imag')
-    # interactive()
-    return mesh_generator, phi, f, triangle
 
 
 if __name__ == '__main__':
