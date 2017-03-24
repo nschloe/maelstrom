@@ -186,10 +186,10 @@ def _build_residuals(
     solve(a == r_r, R_r, bcs=DirichletBC(V, 0.0, xzero))
     solve(a == r_i, R_i, bcs=DirichletBC(V, 0.0, xzero))
 
-    from dolfin import plot, interactive
-    plot(R_r, title='R_r')
-    plot(R_i, title='R_i')
-    interactive()
+    # from dolfin import plot, interactive
+    # plot(R_r, title='R_r')
+    # plot(R_i, title='R_i')
+    # interactive()
 
     # solve mass-matrix system for RHS
     frhs_r = Constant(0.0) * v * dx(0)
@@ -267,9 +267,9 @@ def test_residual(problem):
             f_list=[rhs],
             f_degree=f['degree'],
             convections=convections,
-            tol=1.0e-12,
+            tol=1.0e-15,
             bcs=None,
-            verbose=True
+            verbose=False
             )
     phi = phi_list[0]
 

@@ -106,7 +106,7 @@ def solve(
 
     :param bcs: Dirichlet boundary conditions
 
-    :param tol: solver tolerance
+    :param tol: relative solver tolerance
     :type tol: float
 
     :param verbose: solver verbosity
@@ -223,7 +223,7 @@ def solve(
     # the order 10^2. While this isn't too bad (after all the equations are
     # upscaled by a large factor), one can choose a very small relative
     # tolerance here to get a visually pleasing residual norm.
-    solver.parameters['relative_tolerance'] = 1.0e-15
+    solver.parameters['relative_tolerance'] = tol
     solver.parameters['absolute_tolerance'] = 0.0
     solver.parameters['maximum_iterations'] = 100
     solver.parameters['report'] = verbose
