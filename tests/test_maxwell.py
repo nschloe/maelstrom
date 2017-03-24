@@ -60,40 +60,22 @@ def problem_coscos():
 
     # Produce a matching right-hand side.
     phi = solution['value']
-    # mu = 1.0
-    # sigma = 1.0
-    # omega = 1.0
-    # rhs_sympy = (
-    #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[0]), x[0])
-    #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
-    #     - omega * sigma * phi[1],
-    #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
-    #     - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
-    #     + omega * sigma * phi[0]
-    #     )
+    mu = 1.0
+    sigma = 1.0
+    omega = 1.0
     rhs_sympy = (
-        - sympy.diff(1/(x[0]) * sympy.diff(x[0]*phi[0], x[0]), x[0])
-        - sympy.diff(1/(x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
-        - 1.0 * phi[1],
-        - 1.0 * phi[0]
+        - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[0]), x[0])
+        - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
+        - omega * sigma * phi[1],
+        - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
+        - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
+        + omega * sigma * phi[0]
         )
 
     rhs_sympy = (
         sympy.simplify(rhs_sympy[0]),
         sympy.simplify(rhs_sympy[1])
         )
-
-    # rhs_sympy = (
-    #     -sympy.diff(
-    #         1 / (mu * x[0]) * sympy.diff(x[0] * solution['value'][0], x[0]),
-    #         x[0]
-    #         ),
-    #     # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[0], x[1]), x[1])
-    #     # - omega*sigma*phi[1],
-    #     # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[0]), x[0])
-    #     # - sympy.diff(1/(mu*x[0]) * sympy.diff(x[0]*phi[1], x[1]), x[1])
-    #     + 0.0 * solution['value'][0]
-    #     )
 
     # The rhs expressions contain terms like 1/x[0]. If naively evaluated, this
     # will result in NaNs, even for points where not x[0]==0. This is because,
@@ -345,6 +327,7 @@ def _compute_errors(problem, mesh_sizes):
                 Sigma={0: 1.0},
                 omega=1.0,
                 f_list=[{0: f['value']}],
+                f_degree=f['degree'],
                 convections={},
                 tol=1.0e-12,
                 bcs=None,
