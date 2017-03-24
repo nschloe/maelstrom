@@ -20,7 +20,7 @@ Assuming that :math:`u` only has components in :math:`r`- and
 .. math::
      u = u_r e_r + u_z e_z,
 
-and :math:`B = curl(\phi e_{\\theta})`, we end up with
+and :math:`B = \curl(\phi e_{\\theta})`, we end up with
 
 .. math::
     u \\times B &= u \\times curl(\phi e_{\\theta}) \\\\
@@ -33,7 +33,7 @@ Following Chaboudez, this eventually leads to the equation system
 
 .. math::
     \\begin{cases}
-    - div\left(\\frac{1}{\mu r} \\nabla(r\phi)\\right) + \left\langle u,
+    - \div\left(\\frac{1}{\mu r} \\nabla(r\phi)\\right) + \left\langle u,
       \\frac{1}{r}\\nabla(r\phi)\\right\\rangle + i \sigma \omega \phi
     = \\frac{\sigma v_k}{2\pi r}    \quad\\text{in } \Omega,\\\\
     n\cdot\left(- \\frac{1}{\mu r} \\nabla(r\phi)\\right) = 0    \quad\\text{on
