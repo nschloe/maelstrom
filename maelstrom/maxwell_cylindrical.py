@@ -789,16 +789,19 @@ def compute_lorentz(Phi, omega, sigma):
     With
 
     .. math::
-       J &= \exp(i \omega t) j e_{\\theta},\\\\
-       B &= \exp(i \omega t) \left(-\\frac{d\phi}{dz} e_r + \\frac{1}{r}
-            \\frac{d(r\phi)}{dr} e_z\\right),
+       J &= \Re(\exp(i \omega t) j e_{\\theta}),\\\\
+       B &= \Re\left(
+           \exp(i \omega t) \left(
+           -\\frac{d\phi}{dz} e_r + \\frac{1}{r} \\frac{d(r\phi)}{dr} e_z
+           \\right)
+           \\right),
 
     we have
 
     .. math::
        \overline{F_L}
-           &= \\frac{1}{2} \Re\left(j \\frac{d\phi}{dz} e_z
-              + \\frac{j}{r} \\frac{d(r\phi)}{dr} e_r\\right)\\\\
+           &= \\frac{1}{2} \Re\left(j \\frac{d\phi^*}{dz} e_z
+              + \\frac{j}{r} \\frac{d(r\phi^*)}{dr} e_r\\right)\\\\
            &= \\frac{1}{2} \Re\\left(\\frac{j}{r} \\nabla(r\phi^*)\\right)\\\\
            &= \\frac{1}{2} \\left(\\frac{\Re(j)}{r} \\nabla(r \Re(\phi))
               +\\frac{\Im(j)}{r} \\nabla(r \Im(\phi))\\right)

@@ -799,11 +799,12 @@ class AB2R():
             solver_parameters={
               # 'nonlinear_solver': 'snes',
               'nonlinear_solver': 'newton',
-              'newton_solver': {'maximum_iterations': 5,
-                                'report': True,
-                                'absolute_tolerance': tol,
-                                'relative_tolerance': 0.0
-                                },
+              'newton_solver': {
+                  'maximum_iterations': 5,
+                  'report': True,
+                  'absolute_tolerance': tol,
+                  'relative_tolerance': 0.0
+                  },
               'linear_solver': 'direct',
               # 'linear_solver': 'iterative',
               # # The nonlinear term makes the problem
