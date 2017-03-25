@@ -87,7 +87,7 @@ def _compute_numerical_order_of_convergence(Dt, errors):
 
 def _check_time_order(problem, MethodClass, tol=1.0e-10):
     mesh_sizes = [20, 40, 80]
-    Dt = [0.5 ** k for k in range(15)]
+    Dt = [0.5**k for k in range(15)]
     errors, order = compute_time_errors(problem, MethodClass, mesh_sizes, Dt)
     # The test is considered passed if the numerical order of
     # convergence matches the expected order in at least the first

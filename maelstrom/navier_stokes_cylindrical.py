@@ -6,29 +6,33 @@ coordinates,
 TODO update
 
 .. math::
-        \\rho \left(\\frac{du}{dt} + (u\cdot\\nabla)u\\right) = -\\nabla p
-                                  + \mu \left(\\frac{1}{r} div(r \\nabla u) - e_r \\frac{u_r}{r^2}\\right)
-                                  + f,\\\\
+        \\rho \left(\\frac{du}{dt} + (u\cdot\\nabla)u\\right)
+          = -\\nabla p
+            + \mu \left(
+                \\frac{1}{r} div(r \\nabla u)
+                - e_r \\frac{u_r}{r^2}
+                \\right)
+            + f,\\\\
         \\frac{1}{r} div(r u) = 0,
 
 cf.
 https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Cylindrical_coordinates.
 In the weak formulation, we consider integrals in pseudo 3D, resulting in a
-weighting with :math:`2\pi r` of the equations. (The volume element is :math:`2\pi r
-dx`, cf.
-https://answers.launchpad.net/dolfin/+question/228170.)
+weighting with :math:`2\pi r` of the equations. (The volume element is
+:math:`2\pi r dx`, cf. https://answers.launchpad.net/dolfin/+question/228170.)
 
 The order of the variables is taken to be :math:`(r, z, \\theta)`. This makes
 sure that for planar domains, the :math:`x`- and :math:`y`-coordinates are
 interpreted as :math:`r`, :math:`z`.
 '''
 
-from dolfin import TestFunction, Function, Constant, Expression, \
-    triangle, dot, grad, inner, pi, dx, DOLFIN_EPS, div, solve, derivative, \
-    project, TrialFunction, PETScPreconditioner, PETScKrylovSolver, plot, \
-    interactive, as_backend_type, FunctionSpace, info, refine, assemble, \
-    norm, FacetNormal, sqrt, ds, DirichletBC, as_vector, \
-    NonlinearProblem, NewtonSolver, TestFunctions
+from dolfin import (
+    TestFunction, Function, Constant, Expression, dot, grad, inner,
+    pi, dx, DOLFIN_EPS, div, solve, derivative, project, TrialFunction,
+    PETScPreconditioner, PETScKrylovSolver, plot, interactive, as_backend_type,
+    FunctionSpace, info, refine, assemble, norm, FacetNormal, sqrt, ds,
+    DirichletBC, as_vector, NonlinearProblem, NewtonSolver, TestFunctions
+    )
 
 import stabilization as stab
 from message import Message
@@ -204,15 +208,15 @@ class TentativeVelocityProblem(NonlinearProblem):
 
         r = Expression('x[0]', degree=1, domain=ui.function_space().mesh())
 
-        #self.F0 = rho * dot(3*ui - 4*u[-1] + u[-2], v) / (2*Constant(dt)) \
-        #    * 2*pi*r*dx
-        #self.F0 += momentum_equation(ui, v,
-        #                             p0,
-        #                             f1,
-        #                             rho, mu,
-        #                             stabilization=stabilization,
-        #                             dx=dx
-        #                             )
+        # self.F0 = rho * dot(3*ui - 4*u[-1] + u[-2], v) / (2*Constant(dt)) \
+        #     * 2*pi*r*dx
+        # self.F0 += momentum_equation(ui, v,
+        #                              p0,
+        #                              f1,
+        #                              rho, mu,
+        #                              stabilization=stabilization,
+        #                              dx=dx
+        #                              )
 
         self.F0 = rho * dot(ui - u[-1], v) / Constant(dt) \
             * 2*pi*r*dx
@@ -345,9 +349,9 @@ class PressureProjection(object):
             # Take u[-1] as initial guess.
             ui.assign(u[-1])
             solver.solve(step_problem, ui.vector())
-            #div_u = 1/r * div(r*ui)
-            #plot(div_u)
-            #interactive()
+            # div_u = 1/r * div(r*ui)
+            # plot(div_u)
+            # interactive()
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         with Message('Computing pressure correction'):
             # The pressure correction is based on the update formula
@@ -383,22 +387,23 @@ class PressureProjection(object):
             # (the latter in the final step), the boundary integral vanishes.
             #
             alpha = 1.0
-            #alpha = 3.0 / 2.0
+            # alpha = 3.0 / 2.0
             rotational_form = False
-            self._pressure_poisson(p1, p0,
-                                   self.mu, ui,
-                                   self.rho * alpha * ui / k,
-                                   p_bcs=p_bcs,
-                                   rotational_form=rotational_form,
-                                   tol=tol,
-                                   verbose=verbose
-                                   )
-        #plot(ui, title='u intermediate')
-        ##plot(f, title='f')
-        ##plot(ui[1], title='u intermediate[1]')
-        #plot(div(ui), title='div(u intermediate)')
-        #plot(p1, title='p1')
-        #interactive()
+            self._pressure_poisson(
+                    p1, p0,
+                    self.mu, ui,
+                    self.rho * alpha * ui / k,
+                    p_bcs=p_bcs,
+                    rotational_form=rotational_form,
+                    tol=tol,
+                    verbose=verbose
+                    )
+        # plot(ui, title='u intermediate')
+        # #plot(f, title='f')
+        # #plot(ui[1], title='u intermediate[1]')
+        # plot(div(ui), title='div(u intermediate)')
+        # plot(p1, title='p1')
+        # interactive()
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Velocity correction.
         #   U = u[-1] - dt/rho \nabla (p1-p0).
@@ -430,16 +435,16 @@ class PressureProjection(object):
                                       'monitor_convergence': verbose}
                     }
                 )
-            #u = project(ui - k/rho * grad(phi), V)
+            # u = project(ui - k/rho * grad(phi), V)
             # div_u = 1/r * div(r*u)
             r = Expression('x[0]', degree=1, domain=self.W.mesh())
             div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
             info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
-            #plot(div_u)
-            #interactive()
+            # plot(div_u)
+            # interactive()
 
-            ## Ha! TODO remove
-            #u1.vector()[:] = ui.vector()
+            # # Ha! TODO remove
+            # u1.vector()[:] = ui.vector()
         return
 
     def _pressure_poisson(self, p1, p0,
@@ -495,12 +500,12 @@ class PressureProjection(object):
             div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
             grad_div_ui = as_vector((div_ui.dx(0), div_ui.dx(1)))
             L2 -= r * mu * dot(grad_div_ui, grad(q)) * 2*pi*dx
-            #div_grad_div_ui = 1/r * (r * grad_div_ui[0]).dx(0) \
-            #    + (grad_div_ui[1]).dx(1)
-            #L2 += mu * div_grad_div_ui * q * 2*pi*r*dx
-            #n = FacetNormal(Q.mesh())
-            #L2 -= mu * (n[0] * grad_div_ui[0] + n[1] * grad_div_ui[1]) \
-            #    * q * 2*pi*r*ds
+            # div_grad_div_ui = 1/r * (r * grad_div_ui[0]).dx(0) \
+            #     + (grad_div_ui[1]).dx(1)
+            # L2 += mu * div_grad_div_ui * q * 2*pi*r*dx
+            # n = FacetNormal(Q.mesh())
+            # L2 -= mu * (n[0] * grad_div_ui[0] + n[1] * grad_div_ui[1]) \
+            #     * q * 2*pi*r*ds
 
         if p_bcs:
             solve(
@@ -547,7 +552,7 @@ class PressureProjection(object):
             # round-off error.
             #
             # TODO think about condition here
-            #if abs(alpha) > normB * DOLFIN_EPS:
+            # if abs(alpha) > normB * DOLFIN_EPS:
             if abs(alpha) > normB * 1.0e-12:
                 divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
                 adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * dx)
@@ -556,27 +561,28 @@ class PressureProjection(object):
                 boundary_integral = assemble((n[0] * u[0] + n[1] * u[1])
                                              * 2 * pi * r * ds)
                 info('\int_Gamma n.u * 2*pi*r = %e' % boundary_integral)
-                message = ('System not consistent! '
-                           '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e.') \
-                           % (alpha, normB, alpha / normB)
+                message = (
+                    'System not consistent! '
+                    '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e.') \
+                    % (alpha, normB, alpha / normB)
                 info(message)
                 # Plot the stuff, and project it to a finer mesh with linear
                 # elements for the purpose.
                 plot(divu, title='div(u_tentative)')
-                #Vp = FunctionSpace(Q.mesh(), 'CG', 2)
-                #Wp = MixedFunctionSpace([Vp, Vp])
-                #up = project(u, Wp)
+                # Vp = FunctionSpace(Q.mesh(), 'CG', 2)
+                # Wp = MixedFunctionSpace([Vp, Vp])
+                # up = project(u, Wp)
                 fine_mesh = Q.mesh()
                 for k in range(1):
                     fine_mesh = refine(fine_mesh)
                 V = FunctionSpace(fine_mesh, 'CG', 1)
                 W = V * V
-                #uplot = Function(W)
-                #uplot.interpolate(u)
+                # uplot = Function(W)
+                # uplot.interpolate(u)
                 uplot = project(u, W)
                 plot(uplot[0], title='u_tentative[0]')
                 plot(uplot[1], title='u_tentative[1]')
-                #plot(u, title='u_tentative')
+                # plot(u, title='u_tentative')
                 interactive()
                 exit()
                 raise RuntimeError(message)
@@ -610,7 +616,7 @@ class PressureProjection(object):
             solver.set_operator(A_petsc)
             solver.solve(p1_petsc, b_petsc)
             # This would be the stump for Epetra:
-            #solve(A, p.vector(), b, 'cg', 'ml_amg')
+            # solve(A, p.vector(), b, 'cg', 'ml_amg')
         return
 
 
@@ -618,12 +624,14 @@ class IPCS(PressureProjection):
     '''
     Incremental pressure correction scheme.
     '''
-    def __init__(self, W, P, rho, mu, theta,
-                 stabilization=False,
-                 dx=dx
-                 ):
-        super(IPCS, self).__init__(W, P, rho, mu, theta,
-                                   stabilization=stabilization,
-                                   dx=dx
-                                   )
+    def __init__(
+            self, W, P, rho, mu, theta,
+            stabilization=False,
+            dx=dx
+            ):
+        super(IPCS, self).__init__(
+                W, P, rho, mu, theta,
+                stabilization=stabilization,
+                dx=dx
+                )
         return

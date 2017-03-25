@@ -92,7 +92,7 @@ def problem_flat():
 
 
 def problem_whirl():
-    '''Pistol Pete's example from Teodora I. Mitkova's text
+    '''Example from Teodora I. Mitkova's text
     "Finite-Elemente-Methoden fur die Stokes-Gleichungen".
     '''
     def mesh_generator(n):
