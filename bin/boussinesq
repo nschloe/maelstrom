@@ -13,9 +13,6 @@ import maelstrom.navier_stokes_cartesian as cart_ns
 import maelstrom.time_steppers as ts
 import maelstrom.stabilization as stab
 
-#parameters['linear_algebra_backend'] = 'uBLAS'
-#parameters['linear_algebra_backend'] = 'Epetra'
-
 GMSH_EPS = 1.0e-15
 
 
@@ -24,11 +21,11 @@ def _main():
     args = _parse_args()
     mkdir_p(args.directory)
 
-    #mesh, V, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = _domain_pot()
-    #mesh, V, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = \
-    #    _domain_cavity()
-    mesh, V, P, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = \
-        _domain_coil()
+    # mesh, V, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = _domain_pot()
+    mesh, V, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = \
+        _domain_cavity()
+    # mesh, V, P, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = \
+    #     _domain_coil()
     #mesh, V, Q, u_bcs, p_bcs, hot_boundaries, cool_boundaries = \
     #    _domain_peter()
 

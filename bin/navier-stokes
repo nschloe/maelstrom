@@ -5,41 +5,38 @@
 Navier-Stokes for 2D Cartesian coordinates.
 '''
 
-from dolfin import Constant, Function, XDMFFile, DOLFIN_EPS, parameters, \
-    plot, project, begin, end, div, sqrt, assemble, Expression, dx, \
-    triangle, info
+from dolfin import (
+    Constant, Function, XDMFFile, DOLFIN_EPS, parameters, plot, project, begin,
+    end, div, sqrt, info
+    )
 
 import maelstrom.problems as probs
-#from maelstrom.materials_database import MATERIAL_PARAMETERS as params
 import maelstrom.navier_stokes_cartesian as cart_ns
 import maelstrom.stokes_cartesian as cart_stokes
 
-#parameters['linear_algebra_backend'] = 'uBLAS'
-#parameters['linear_algebra_backend'] = 'Epetra'
 parameters['allow_extrapolation'] = True
 
 
-# -----------------------------------------------------------------------------
 def _main():
 
     mesh, W, P, u_bcs, p_bcs = probs.lid_driven_cavity()
-    #mesh, W, P, u_bcs, dudt_bcs, p_bcs = probs.karman()
+    # mesh, W, P, u_bcs, dudt_bcs, p_bcs = probs.karman()
 
     # Density depends on temperature.
     # TODO find out why there are problems with mu<<1
-    #material = 'water'
-    #background_temp = 293.0
-    #material = 'GaAs (liquid)'
-    #background_temp = 1550.0
-    #rho = params[material]['density'](background_temp)
-    #mu = params[material]['dynamic viscosity'](background_temp)
+    # material = 'water'
+    # background_temp = 293.0
+    # material = 'GaAs (liquid)'
+    # background_temp = 1550.0
+    # rho = params[material]['density'](background_temp)
+    # mu = params[material]['dynamic viscosity'](background_temp)
 
     # Good test case for Newton initial guesses.
     rho = 1.0e1
     mu = 1.0e-1
 
-    #grav = 9.80665
-    #g = Constant((0.0, -grav))
+    # grav = 9.80665
+    # g = Constant((0.0, -grav))
     g = Constant((0.0, 0.0))
 
     # Set characteristic length as max(max_x-min_x, max_y-min_y).
@@ -63,12 +60,12 @@ def _main():
         u0.vector().zero()
         p0 = Function(P, name='pressure')
         p0.vector().zero()
-        ## Compute initial pressure from the pressure Poisson equation.
-        #p0 = cart_ns.pressure_poisson(P, rho*g,
-        #                              phi_bcs=None,
-        #                              phi_n=rho*g,
-        #                              verbose=True
-        #                              )
+        # # Compute initial pressure from the pressure Poisson equation.
+        # p0 = cart_ns.pressure_poisson(P, rho*g,
+        #                               phi_bcs=None,
+        #                               phi_n=rho*g,
+        #                               verbose=True
+        #                               )
 
     # Start time, end time, time step.
     t = 0.0
@@ -78,11 +75,11 @@ def _main():
 
     # Get basic entities from first AB2/TR step.
     dudt0 = None
-    #dudt0, p0, dt0 = cart_ns.ab2tr_step0(u0, P, g,
-    #                                     rho, mu,
-    #                                     dudt_bcs = dudt_bcs,
-    #                                     p_bcs = p_bcs
-    #                                     )
+    # dudt0, p0, dt0 = cart_ns.ab2tr_step0(u0, P, g,
+    #                                      rho, mu,
+    #                                      dudt_bcs = dudt_bcs,
+    #                                      p_bcs = p_bcs
+    #                                      )
 
     # Write out initial states.
     u_file = XDMFFile('results/velocity.xdmf')
@@ -102,12 +99,12 @@ def _main():
     d = project(div(u0), P)
     divu0.assign(d)
     plot(divu0, title='div(u0)')
-    #interactive()
+    # interactive()
 
     u_1 = Function(W)
     p_1 = Function(P)
     dudt_1 = None
-    #dt_1 = None
+    # dt_1 = None
 
     # Time stepping
     while t < T + DOLFIN_EPS:
@@ -116,17 +113,18 @@ def _main():
         try:
             # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
             print('Navier-Stokes step...')
-            u1, p1 = cart_ns.ipcs_step(W, P, dt0,
-                                         mu, rho,
-                                         u0, u_bcs,
-                                         p0, p_bcs,
-                                         f0=rho * g,
-                                         f1=rho * g,
-                                         theta=1.0,  # implicit Euler
-                                         stabilization=False,
-                                         tol=1.0e-10,
-                                         verbose=True
-                                         )
+            u1, p1 = cart_ns.ipcs_step(
+                    W, P, dt0,
+                    mu, rho,
+                    u0, u_bcs,
+                    p0, p_bcs,
+                    f0=rho * g,
+                    f1=rho * g,
+                    theta=1.0,  # implicit Euler
+                    stabilization=False,
+                    tol=1.0e-10,
+                    verbose=True
+                    )
             begin('Step size adaptation...')
             u1split = u1.split(deepcopy=True)
             vec = u1split[0].vector() * u1split[0].vector() \
@@ -149,16 +147,16 @@ def _main():
             print('next dt:    %e' % dt1)
             end()
             # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            #u1, p1, dudt1, dt1 = cart_ns.ab2tr_step(W, P, dt0, dt_1,
-            #                                        mu, rho,
-            #                                        u0, u_1, u_bcs,
-            #                                        dudt0, dudt_1, dudt_bcs,
-            #                                        p_1, p_bcs,
-            #                                        f0 = rho * g,
-            #                                        f1 = rho * g,
-            #                                        tol = 1.0e-12,
-            #                                        verbose = True
-            #                                        )
+            # u1, p1, dudt1, dt1 = cart_ns.ab2tr_step(W, P, dt0, dt_1,
+            #                                         mu, rho,
+            #                                         u0, u_1, u_bcs,
+            #                                         dudt0, dudt_1, dudt_bcs,
+            #                                         p_1, p_bcs,
+            #                                         f0 = rho * g,
+            #                                         f1 = rho * g,
+            #                                         tol = 1.0e-12,
+            #                                         verbose = True
+            #                                         )
             # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         except RuntimeError as e:
             print(e.message)
@@ -179,12 +177,12 @@ def _main():
         p_1.assign(p0)
         p0.assign(p1)
 
-        #dt_1 = dt0
+        # dt_1 = dt0
         dt0 = dt1
 
         if dudt0:
             dudt_1.assign(dudt0)
-            #dudt0.assign(dudt1)
+            # dudt0.assign(dudt1)
         # ---------------------------------------------------------------------
         # Save to files.
         u_file << (u0, t+dt0)
@@ -195,7 +193,7 @@ def _main():
 
         divu0.assign(project(div(u0), P))
         plot(divu0, title='div(u)', rescale=True)
-        #interactive()
+        # interactive()
         # ---------------------------------------------------------------------
         t += dt0
         # ---------------------------------------------------------------------
@@ -210,7 +208,7 @@ def _main():
         end()
 
     return
-# -----------------------------------------------------------------------------
+
+
 if __name__ == '__main__':
     _main()
-# -----------------------------------------------------------------------------

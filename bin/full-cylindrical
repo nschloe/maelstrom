@@ -13,16 +13,18 @@ Full* simulation of the melt problem.
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
 
-from dolfin import parameters, Measure, Function, \
-    FunctionSpace, Constant, SubMesh, plot, interactive, ds, \
-    project, XDMFFile, DirichletBC, dot, grad, TimeSeriesHDF5, \
-    Expression, triangle, DOLFIN_EPS, as_vector, info, norm, assemble, \
-    TestFunction, TrialFunction, KrylovSolver, MPI, \
-    NewtonSolver, MixedFunctionSpace, split, NonlinearProblem, derivative, \
-    inner, TestFunctions, dx, mpi_comm_world, assign, errornorm, \
+from dolfin import (
+    parameters, Measure, Function,
+    FunctionSpace, Constant, SubMesh, plot, interactive, ds,
+    project, XDMFFile, DirichletBC, dot, grad, TimeSeriesHDF5,
+    Expression, triangle, DOLFIN_EPS, as_vector, info, norm, assemble,
+    TestFunction, TrialFunction, KrylovSolver, MPI,
+    MixedFunctionSpace, split, NonlinearProblem, derivative,
+    inner, TestFunctions, dx, mpi_comm_world, assign, errornorm,
     interpolate
+    )
 
-import numpy as np
+import numpy
 from numpy import pi
 import os
 
@@ -41,9 +43,6 @@ from maelstrom import problems as probs
 parameters['allow_extrapolation'] = True
 parameters['std_out_all_processes'] = False
 
-#parameters['linear_algebra_backend'] = 'uBLAS'
-#parameters['linear_algebra_backend'] = 'Epetra'
-
 
 class FixedPointSolver(object):
     '''
@@ -51,11 +50,12 @@ class FixedPointSolver(object):
         F(x) + x = x
     '''
     def __init__(self):
-        self.parameters = {'maximum_iterations': 0,
-                           'absolute_tolerance': 0.0,
-                           'relative_tolerance': 0.0,
-                           'report': True
-                           }
+        self.parameters = {
+                'maximum_iterations': 0,
+                'absolute_tolerance': 0.0,
+                'relative_tolerance': 0.0,
+                'report': True
+                }
         return
 
     def _report(self, k, nrm, nrm0):
@@ -76,7 +76,7 @@ class FixedPointSolver(object):
         k = 0
         self._report(k, nrm, nrm0)
         while nrm > self.parameters['absolute_tolerance'] \
-            or nrm / nrm0 > self.parameters['relative_tolerance']:
+                or nrm / nrm0 > self.parameters['relative_tolerance']:
             problem.F(res, vector)
             vector[:] += res
             nrm = norm(res)
@@ -268,8 +268,7 @@ def _construct_initial_state(
         ):
     '''Construct an initial state for the Navier-Stokes simulation.
     '''
-
-    #theta_average = _average(theta0)
+    # theta_average = _average(theta0)
     u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
     p0 = interpolate(Constant(0.0), P)
     theta0 = interpolate(Constant(1530.0), Q)
@@ -290,7 +289,7 @@ def _construct_initial_state(
         cp_wpi_const = cp_wpi(theta_average)
 
     mode = 'solve_stokes_heat'
-    #mode = 'block'
+    # mode = 'block'
 
     if mode == 'solve_stokes_heat':
         WPQ = MixedFunctionSpace([W, P, Q])
@@ -444,10 +443,11 @@ def _construct_initial_state(
     return u0, p0, theta0
 
 
-def _compute_lorentz_joule(mesh, coils, mu, sigma, omega,
-                           wpi, submesh_workpiece,
-                           output_folder, subdomain_indices, subdomains
-                           ):
+def _compute_lorentz_joule(
+        mesh, coils, mu, sigma, omega,
+        wpi, submesh_workpiece,
+        output_folder, subdomain_indices, subdomains
+        ):
     # Function space for magnetic scalar potential, Lorentz force etc.
     V = FunctionSpace(mesh, 'CG', 1)
     # Compute the magnetic field.
@@ -625,26 +625,30 @@ def _compute(u0, p0, theta0, problem, voltages, T,
     p_file.parameters['flush_output'] = True
     p_file.parameters['rewrite_function_mesh'] = False
 
-    theta_file = XDMFFile(submesh_workpiece.mpi_comm(),
-                          os.path.join(output_folder, 'temperature.xdmf')
-                          )
+    theta_file = XDMFFile(
+            submesh_workpiece.mpi_comm(),
+            os.path.join(output_folder, 'temperature.xdmf')
+            )
     theta_file.parameters['flush_output'] = True
     theta_file.parameters['rewrite_function_mesh'] = False
 
-    #f_file = XDMFFile(os.path.join(output_folder, 'force.xdmf'))
-    #f_file.parameters['flush_output'] = True
-    #f_file.parameters['rewrite_function_mesh'] = False
+    # f_file = XDMFFile(os.path.join(output_folder, 'force.xdmf'))
+    # f_file.parameters['flush_output'] = True
+    # f_file.parameters['rewrite_function_mesh'] = False
 
     # Write out the data in a lossless format, too.
-    tst = TimeSeriesHDF5(submesh_workpiece.mpi_comm(),
-                         os.path.join(output_folder, 'lossless_T')
-                         )
-    tsu = TimeSeriesHDF5(submesh_workpiece.mpi_comm(),
-                         os.path.join(output_folder, 'lossless_u')
-                         )
-    tsp = TimeSeriesHDF5(submesh_workpiece.mpi_comm(),
-                         os.path.join(output_folder, 'lossless_p')
-                         )
+    tst = TimeSeriesHDF5(
+            submesh_workpiece.mpi_comm(),
+            os.path.join(output_folder, 'lossless_T')
+            )
+    tsu = TimeSeriesHDF5(
+            submesh_workpiece.mpi_comm(),
+            os.path.join(output_folder, 'lossless_u')
+            )
+    tsp = TimeSeriesHDF5(
+            submesh_workpiece.mpi_comm(),
+            os.path.join(output_folder, 'lossless_p')
+            )
     # In the first step, store the mesh as well.
     tst.store(submesh_workpiece, t)
     tsu.store(submesh_workpiece, t)
@@ -660,7 +664,7 @@ def _compute(u0, p0, theta0, problem, voltages, T,
         plot(theta, title='temperature', rescale=True)
         plot(u, title='velocity', rescale=True)
         plot(p, title='pressure', rescale=True)
-        #interactive()
+        # interactive()
 
     store_and_plot(u0, p0, theta0, t)
 
@@ -675,14 +679,15 @@ def _compute(u0, p0, theta0, problem, voltages, T,
     # pressure, then for temperature.
     #
     heat_stepper = ts.ImplicitEuler(heat_problem)
-    ns_stepper = cyl_ns.IPCS(problem.W, problem.P,
-                             rho=rho_wpi(theta_average),
-                             mu=mu_wpi(theta_average),
-                             theta=1.0,
-                             stabilization=None,
-                             dx=dx(submesh_workpiece)
-                             #stabilization='SUPG'
-                             )
+    ns_stepper = cyl_ns.IPCS(
+            problem.W, problem.P,
+            rho=rho_wpi(theta_average),
+            mu=mu_wpi(theta_average),
+            theta=1.0,
+            stabilization=None,
+            dx=dx(submesh_workpiece)
+            # stabilization='SUPG'
+            )
 
     successful_steps = 0
     failed_steps = 0
@@ -715,14 +720,15 @@ def _compute(u0, p0, theta0, problem, voltages, T,
                         f = as_vector((lorentz_wpi[0], lorentz_wpi[1], 0.0))
                         f0 += f
                         f1 += f
-                    ns_stepper.step(dt,
-                                    u1, p1,
-                                    [u0], p0,
-                                    u_bcs=problem.u_bcs, p_bcs=problem.p_bcs,
-                                    f0=f0, f1=f1,
-                                    verbose=False,
-                                    tol=1.0e-10
-                                    )
+                    ns_stepper.step(
+                            dt,
+                            u1, p1,
+                            [u0], p0,
+                            u_bcs=problem.u_bcs, p_bcs=problem.p_bcs,
+                            f0=f0, f1=f1,
+                            verbose=False,
+                            tol=1.0e-10
+                            )
             except RuntimeError as e:
                 info(e.message)
                 info('Navier--Stokes solver failed to converge. '
@@ -784,19 +790,20 @@ def get_umax(u):
     vec = usplit[0].vector() * usplit[0].vector()
     for k in range(1, len(u)):
         vec += usplit[k].vector() * usplit[k].vector()
-    return np.sqrt(norm(vec, 'linf'))
+    return numpy.sqrt(norm(vec, 'linf'))
 
 
-def _print_diagnostics(theta0, umax,
-                       submesh_workpiece,
-                       wpi_area,
-                       subdomain_materials,
-                       wpi,
-                       rho,
-                       mu,
-                       char_length,
-                       grav
-                       ):
+def _print_diagnostics(
+        theta0, umax,
+        submesh_workpiece,
+        wpi_area,
+        subdomain_materials,
+        wpi,
+        rho,
+        mu,
+        char_length,
+        grav
+        ):
     av_temperature = assemble(theta0 * dx(submesh_workpiece)) / wpi_area
     vec = theta0.vector()
     temperature_difference = vec.max() - vec.min()
@@ -915,29 +922,29 @@ def _main():
     #voltages = None
     #
     num_steps = 51
-    Alpha = np.linspace(0.0, 2.0, num_steps)
+    Alpha = numpy.linspace(0.0, 2.0, num_steps)
     voltages = [
-        38.0 * np.exp(-1j * 2 * pi * 2 * 70.0 / 360.0),
-        38.0 * np.exp(-1j * 2 * pi * 1 * 70.0 / 360.0),
-        38.0 * np.exp(-1j * 2 * pi * 0 * 70.0 / 360.0),
-        25.0 * np.exp(-1j * 2 * pi * 0 * 70.0 / 360.0),
-        25.0 * np.exp(-1j * 2 * pi * 1 * 70.0 / 360.0)
+        38.0 * numpy.exp(-1j * 2 * pi * 2 * 70.0 / 360.0),
+        38.0 * numpy.exp(-1j * 2 * pi * 1 * 70.0 / 360.0),
+        38.0 * numpy.exp(-1j * 2 * pi * 0 * 70.0 / 360.0),
+        25.0 * numpy.exp(-1j * 2 * pi * 0 * 70.0 / 360.0),
+        25.0 * numpy.exp(-1j * 2 * pi * 1 * 70.0 / 360.0)
         ]
 
     #voltages = [0.0, 0.0, 0.0, 0.0, 0.0]
     #
-    #voltages = [25.0 * np.exp(-1j * 2*pi * 2 * 70.0/360.0),
-    #            25.0 * np.exp(-1j * 2*pi * 1 * 70.0/360.0),
-    #            25.0 * np.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #            38.0 * np.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #            38.0 * np.exp(-1j * 2*pi * 1 * 70.0/360.0)
+    #voltages = [25.0 * numpy.exp(-1j * 2*pi * 2 * 70.0/360.0),
+    #            25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0),
+    #            25.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
+    #            38.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
+    #            38.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
     #            ]
     #
-    #voltages = [38.0 * np.exp(+1j * 2*pi * 2 * 70.0/360.0),
-    #            38.0 * np.exp(+1j * 2*pi * 1 * 70.0/360.0),
-    #            38.0 * np.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #            25.0 * np.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #            25.0 * np.exp(+1j * 2*pi * 1 * 70.0/360.0)
+    #voltages = [38.0 * numpy.exp(+1j * 2*pi * 2 * 70.0/360.0),
+    #            38.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0),
+    #            38.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
+    #            25.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
+    #            25.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0)
     #            ]
 
     problem = probs.crucible.CrucibleProblem()
@@ -983,7 +990,7 @@ def _main():
     output_folder = args.directory
     for k, alpha in enumerate(Alpha):
         # Scale the voltages
-        v = alpha * np.array(voltages)
+        v = alpha * numpy.array(voltages)
         of = os.path.join(output_folder, 'step%02d' % k)
         if not os.path.exists(of):
             os.makedirs(of)

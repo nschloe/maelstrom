@@ -230,10 +230,11 @@ class TentativeVelocityProblem(NonlinearProblem):
         if abs(theta) > DOLFIN_EPS:
             # Implicit terms.
             if f1 is None:
-                raise RuntimeError('Implicit schemes need right-hand side '
-                                   'at target step (f1).')
-            self.F0 += theta \
-                * momentum_equation(
+                raise RuntimeError(
+                        'Implicit schemes need right-hand side '
+                        'at target step (f1).'
+                        )
+            self.F0 += theta * momentum_equation(
                         ui, v,
                         p0,
                         f1,
