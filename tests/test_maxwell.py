@@ -43,8 +43,12 @@ def problem_coscos():
     x = sympy.DeferredVector('x')
 
     # Choose the solution, the parameters specifically, such that the boundary
-    # conditions are fulfilled exactly
-    alpha = 1.0
+    # conditions are fulfilled exactly, namely:
+    #
+    #    sol(x) = 0   for x[0] == 0, and
+    #    dot(n, grad(sol)) = 0    everywhere else.
+    #
+    alpha = 2*pi
     r1 = 1.0
     beta = numpy.cos(alpha * r1) - r1 * alpha * numpy.sin(alpha * r1)
 
@@ -366,7 +370,7 @@ def _show_order_info(problem, mesh_sizes):
     # Compare with order curves.
     plt.autoscale(False)
     e0 = errors[0]
-    for order in range(2):
+    for order in range(4):
         plt.loglog(
             [hmax[0], hmax[-1]],
             [e0, e0 * (hmax[-1] / hmax[0]) ** order],
