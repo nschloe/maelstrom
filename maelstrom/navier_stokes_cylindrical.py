@@ -77,47 +77,46 @@ def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
             * 2 * pi * dx
         F += mu * u[2] / r * v[2] * 2 * pi * dx
 
-    if stabilization:
-        if stabilization == 'SUPG':
-            # TODO check this part of the code
-            #
-            # SUPG stabilization has the form
-            #
-            #     <R, tau*grad(v)*u[-1]>
-            #
-            # with R being the residual in strong form. The choice of the tau
-            # is subject to research.
-            tau = stab.supg2(u.function_space().W.mesh(),
-                             u,
-                             mu / rho,
-                             u.function_space().ufl_element().degree()
-                             )
-            # We need to deal with the term
-            #
-            #     \int mu * (u2[0]/r**2, 0) * dot(R, grad(v2)*b_tau) 2*pi*r*dx
-            #
-            # somehow. Unfortunately, it's not easy to construct (u2[0]/r**2,
-            # 0), cf.  <https://answers.launchpad.net/dolfin/+question/228353>.
-            # Strong residual:
-            R = rho * grad(u) * u * 2 * pi * r \
-                - mu * div(r * grad(u)) * 2 * pi \
-                - f * 2 * pi * r
-            if p:
-                R += (p.dx(0) * v[0] + p.dx(1) * v[1]) \
-                    * 2 * pi * r * dx
+    if stabilization == 'SUPG':
+        # TODO check this part of the code
+        #
+        # SUPG stabilization has the form
+        #
+        #     <R, tau*grad(v)*u[-1]>
+        #
+        # with R being the residual in strong form. The choice of the tau is
+        # subject to research.
+        tau = stab.supg2(
+                u.function_space().W.mesh(),
+                u,
+                mu / rho,
+                u.function_space().ufl_element().degree()
+                )
+        # We need to deal with the term
+        #
+        #     \int mu * (u2[0]/r**2, 0) * dot(R, grad(v2)*b_tau) 2*pi*r*dx
+        #
+        # somehow. Unfortunately, it's not easy to construct (u2[0]/r**2,
+        # 0), cf.  <https://answers.launchpad.net/dolfin/+question/228353>.
+        # Strong residual:
+        R = + rho * grad(u) * u * 2 * pi * r \
+            - mu * div(r * grad(u)) * 2 * pi \
+            - f * 2 * pi * r
+        if p:
+            R += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * dx
 
-            gv = tau * grad(v) * u
-            F += dot(R, gv) * dx
+        gv = tau * grad(v) * u
+        F += dot(R, gv) * dx
 
-            # Manually add the parts of the residual which couldn't be cleanly
-            # implemented above.
-            F += mu * u[0] / r * 2 * pi * gv[0] * dx
-            if u.function_space().num_sub_spaces() == 3:
-                F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) \
-                    * 2 * pi * dx
-                F += mu * u[2] / r * gv[2] * 2 * pi * dx
-        else:
-            raise ValueError('Illegal stabilization type.')
+        # Manually add the parts of the residual which couldn't be cleanly
+        # implemented above.
+        F += mu * u[0] / r * 2 * pi * gv[0] * dx
+        if u.function_space().num_sub_spaces() == 3:
+            F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) * 2*pi*dx
+            F += mu * u[2] / r * gv[2] * 2*pi * dx
+    else:
+        assert stabilization is None
+
     return F
 
 
@@ -134,13 +133,17 @@ class NavierStokesCylindrical(NonlinearProblem):
                 space = bc.function_space()
                 C = space.component()
                 if len(C) == 0:
-                    self.bcs.append(DirichletBC(self.WP.sub(k),
-                                                bc.value(),
-                                                bc.domain_args[0]))
+                    self.bcs.append(
+                        DirichletBC(
+                            self.WP.sub(k), bc.value(), bc.domain_args[0]
+                            ))
                 elif len(C) == 1:
-                    self.bcs.append(DirichletBC(self.WP.sub(k).sub(int(C[0])),
-                                                bc.value(),
-                                                bc.domain_args[0]))
+                    self.bcs.append(
+                        DirichletBC(
+                            self.WP.sub(k).sub(int(C[0])),
+                            bc.value(),
+                            bc.domain_args[0]
+                            ))
                 else:
                     raise RuntimeError('Illegal number of '
                                        'subspace components.'
@@ -150,17 +153,17 @@ class NavierStokesCylindrical(NonlinearProblem):
         u, p = self.up.split()
         v, q = TestFunctions(self.WP)
         # Momentum equation.
-        self.F0 = momentum_equation(u, v,
-                                    p,
-                                    f,
-                                    rho, mu,
-                                    stabilization=stabilization,
-                                    dx=dx
-                                    )
+        self.F0 = momentum_equation(
+                u, v,
+                p,
+                f,
+                rho, mu,
+                stabilization=stabilization,
+                dx=dx
+                )
         # div_u = 1/r * div(r*u)
         r = Expression('x[0]', degree=1, domain=WP.mesh())
-        self.F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q \
-            * 2 * pi * r * dx
+        self.F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q * 2*pi*r * dx
 
         self.jacobian = derivative(self.F0, self.up)
         self.reset_sparsity = True
@@ -168,21 +171,23 @@ class NavierStokesCylindrical(NonlinearProblem):
 
     def F(self, b, x):
         self.up.vector()[:] = x
-        assemble(self.F0,
-                 tensor=b,
-                 form_compiler_parameters={'optimize': True}
-                 )
+        assemble(
+            self.F0,
+            tensor=b,
+            form_compiler_parameters={'optimize': True}
+            )
         for bc in self.bcs:
             bc.apply(b, x)
         return
 
     def J(self, A, x):
         self.up.vector()[:] = x
-        assemble(self.jacobian,
-                 tensor=A,
-                 reset_sparsity=self.reset_sparsity,
-                 form_compiler_parameters={'optimize': True}
-                 )
+        assemble(
+            self.jacobian,
+            tensor=A,
+            reset_sparsity=self.reset_sparsity,
+            form_compiler_parameters={'optimize': True}
+            )
         for bc in self.bcs:
             bc.apply(A)
         self.reset_sparsity = False
@@ -208,44 +213,47 @@ class TentativeVelocityProblem(NonlinearProblem):
 
         r = Expression('x[0]', degree=1, domain=ui.function_space().mesh())
 
-        # self.F0 = rho * dot(3*ui - 4*u[-1] + u[-2], v) / (2*Constant(dt)) \
+        # self.F0 = (
+        #     rho * dot(3*ui - 4*u[-1] + u[-2], v) / (2*Constant(dt))
         #     * 2*pi*r*dx
-        # self.F0 += momentum_equation(ui, v,
-        #                              p0,
-        #                              f1,
-        #                              rho, mu,
-        #                              stabilization=stabilization,
-        #                              dx=dx
-        #                              )
+        #     )
+        # self.F0 += momentum_equation(
+        #         ui, v,
+        #         p0,
+        #         f1,
+        #         rho, mu,
+        #         stabilization=stabilization,
+        #         dx=dx
+        #         )
 
-        self.F0 = rho * dot(ui - u[-1], v) / Constant(dt) \
-            * 2*pi*r*dx
+        self.F0 = rho * dot(ui - u[-1], v) / Constant(dt) * 2*pi*r*dx
         if abs(theta) > DOLFIN_EPS:
             # Implicit terms.
             if f1 is None:
                 raise RuntimeError('Implicit schemes need right-hand side '
                                    'at target step (f1).')
             self.F0 += theta \
-                * momentum_equation(ui, v,
-                                    p0,
-                                    f1,
-                                    rho, mu,
-                                    stabilization=stabilization,
-                                    dx=dx
-                                    )
+                * momentum_equation(
+                        ui, v,
+                        p0,
+                        f1,
+                        rho, mu,
+                        stabilization=stabilization,
+                        dx=dx
+                        )
         if abs(1.0 - theta) > DOLFIN_EPS:
             # Explicit terms.
             if f0 is None:
                 raise RuntimeError('Explicit schemes need right-hand side '
                                    'at current step (f0).')
-            self.F0 += (1.0 - theta) \
-                * momentum_equation(u[-1], v,
-                                    p0,
-                                    f0,
-                                    rho, mu,
-                                    stabilization=stabilization,
-                                    dx=dx
-                                    )
+            self.F0 += (1.0 - theta) * momentum_equation(
+                        u[-1], v,
+                        p0,
+                        f0,
+                        rho, mu,
+                        stabilization=stabilization,
+                        dx=dx
+                        )
         self.jacobian = derivative(self.F0, ui)
         self.reset_sparsity = True
         return
@@ -258,10 +266,11 @@ class TentativeVelocityProblem(NonlinearProblem):
         #
         # here. One way around this copy is to instantiate this class with the
         # same Function ui that is then used for the solver.solve().
-        assemble(self.F0,
-                 tensor=b,
-                 form_compiler_parameters={'optimize': True}
-                 )
+        assemble(
+            self.F0,
+            tensor=b,
+            form_compiler_parameters={'optimize': True}
+            )
         for bc in self.bcs:
             bc.apply(b, x)
         return
@@ -280,13 +289,14 @@ class TentativeVelocityProblem(NonlinearProblem):
 
 class PressureProjection(object):
 
-    def __init__(self,
-                 W, P,
-                 rho, mu,
-                 theta,
-                 stabilization=None,
-                 dx=dx
-                 ):
+    def __init__(
+            self,
+            W, P,
+            rho, mu,
+            theta,
+            stabilization=None,
+            dx=dx
+            ):
         self.theta = theta
         self.W = W
         self.P = P
@@ -296,15 +306,16 @@ class PressureProjection(object):
         self.dx = dx
         return
 
-    def step(self,
-             dt,
-             u1, p1,
-             u, p0,
-             u_bcs, p_bcs,
-             f0=None, f1=None,
-             verbose=True,
-             tol=1.0e-10
-             ):
+    def step(
+            self,
+            dt,
+            u1, p1,
+            u, p0,
+            u_bcs, p_bcs,
+            f0=None, f1=None,
+            verbose=True,
+            tol=1.0e-10
+            ):
         '''General pressure projection scheme as described in section 3.4 of
         :cite:`GMS06`.
         '''
@@ -335,16 +346,16 @@ class PressureProjection(object):
             solver.parameters['krylov_solver']['monitor_convergence'] = verbose
 
             ui = Function(self.W)
-            step_problem = \
-                TentativeVelocityProblem(ui,
-                                         self.theta,
-                                         self.rho, self.mu,
-                                         u, p0, k,
-                                         u_bcs,
-                                         f0, f1,
-                                         stabilization=self.stabilization,
-                                         dx=self.dx
-                                         )
+            step_problem = TentativeVelocityProblem(
+                    ui,
+                    self.theta,
+                    self.rho, self.mu,
+                    u, p0, k,
+                    u_bcs,
+                    f0, f1,
+                    stabilization=self.stabilization,
+                    dx=self.dx
+                    )
 
             # Take u[-1] as initial guess.
             ui.assign(u[-1])
@@ -429,10 +440,12 @@ class PressureProjection(object):
                     'linear_solver': 'iterative',
                     'symmetric': True,
                     'preconditioner': 'jacobi',
-                    'krylov_solver': {'relative_tolerance': tol,
-                                      'absolute_tolerance': 0.0,
-                                      'maximum_iterations': 100,
-                                      'monitor_convergence': verbose}
+                    'krylov_solver': {
+                        'relative_tolerance': tol,
+                        'absolute_tolerance': 0.0,
+                        'maximum_iterations': 100,
+                        'monitor_convergence': verbose
+                        }
                     }
                 )
             # u = project(ui - k/rho * grad(phi), V)
@@ -447,14 +460,15 @@ class PressureProjection(object):
             # u1.vector()[:] = ui.vector()
         return
 
-    def _pressure_poisson(self, p1, p0,
-                          mu, ui,
-                          u,
-                          p_bcs=None,
-                          rotational_form=False,
-                          tol=1.0e-10,
-                          verbose=True
-                          ):
+    def _pressure_poisson(
+            self, p1, p0,
+            mu, ui,
+            u,
+            p_bcs=None,
+            rotational_form=False,
+            tol=1.0e-10,
+            verbose=True
+            ):
         '''Solve the pressure Poisson equation
             -1/r \div(r \nabla (p1-p0)) = -1/r div(r*u),
             boundary conditions,
@@ -515,10 +529,12 @@ class PressureProjection(object):
                     'linear_solver': 'iterative',
                     'symmetric': True,
                     'preconditioner': 'amg',
-                    'krylov_solver': {'relative_tolerance': tol,
-                                      'absolute_tolerance': 0.0,
-                                      'maximum_iterations': 100,
-                                      'monitor_convergence': verbose}
+                    'krylov_solver': {
+                        'relative_tolerance': tol,
+                        'absolute_tolerance': 0.0,
+                        'maximum_iterations': 100,
+                        'monitor_convergence': verbose
+                        }
                     }
                 )
         else:
