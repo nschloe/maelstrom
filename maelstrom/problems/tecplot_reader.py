@@ -41,7 +41,7 @@ def read(filename):
             value = out_value.group(1)
             try:
                 c[previous_key].append(value)
-            except:
+            except Exception:
                 # Convert previous key-value to key-listofvalues.
                 previous_value = c[previous_key]
                 c[previous_key] = [previous_value, value]

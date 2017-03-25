@@ -169,7 +169,9 @@ def rotating_lid():
              DirichletBC(W, Constant((0.0, 0.0, 0.0)), right),
              DirichletBC(W.sub(0), 0.0, upper),
              DirichletBC(W.sub(1), 0.0, upper),
-             DirichletBC(W.sub(2), Expression('x[0]', degree=1), restricted_upper),
+             DirichletBC(
+                 W.sub(2), Expression('x[0]', degree=1), restricted_upper
+                 ),
              DirichletBC(W, Constant((0.0, 0.0, 0.0)), lower),
              ]
 
@@ -231,16 +233,16 @@ def lid_driven_cavity():
     u_bcs = [
         DirichletBC(W, (0.0, 0.0), left),
         DirichletBC(W, (0.0, 0.0), right),
-        #DirichletBC(W.sub(0), Expression('x[0]'), restricted_upper),
+        # DirichletBC(W.sub(0), Expression('x[0]'), restricted_upper),
         DirichletBC(W, (0.0, 0.0), lower),
         DirichletBC(W.sub(0), Constant('1.0'), upper),
         DirichletBC(W.sub(1), 0.0, upper),
-        #DirichletBC(W.sub(0), Constant('-1.0'), lower),
-        #DirichletBC(W.sub(1), 0.0, lower),
-        #DirichletBC(W.sub(1), Constant('1.0'), left),
-        #DirichletBC(W.sub(0), 0.0, left),
-        #DirichletBC(W.sub(1), Constant('-1.0'), right),
-        #DirichletBC(W.sub(0), 0.0, right),
+        # DirichletBC(W.sub(0), Constant('-1.0'), lower),
+        # DirichletBC(W.sub(1), 0.0, lower),
+        # DirichletBC(W.sub(1), Constant('1.0'), left),
+        # DirichletBC(W.sub(0), 0.0, left),
+        # DirichletBC(W.sub(1), Constant('-1.0'), right),
+        # DirichletBC(W.sub(0), 0.0, right),
         ]
     P = FunctionSpace(mesh, 'CG', 1)
     p_bcs = []
@@ -249,15 +251,17 @@ def lid_driven_cavity():
 
 def peter():
     base = '../meshes/2d/peter'
-    #base = '../meshes/2d/peter-fine'
+    # base = '../meshes/2d/peter-fine'
     mesh = Mesh(base + '.xml')
 
     subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
 
     workpiece_index = 3
-    subdomain_materials = {1: 'SiC',
-                           2: 'carbon steel',
-                           3: 'GaAs (liquid)'}
+    subdomain_materials = {
+            1: 'SiC',
+            2: 'carbon steel',
+            3: 'GaAs (liquid)'
+            }
 
     submesh_workpiece = SubMesh(mesh, subdomains, workpiece_index)
     W = VectorFunctionSpace(submesh_workpiece, 'CG', 2)
@@ -350,8 +354,12 @@ def peter():
     theta_bcs_r = {
         wp_boundary_indices['stamp']: (100.0, 1500.0),
         wp_boundary_indices['surface']: (100.0, 1550.0),
-        wp_boundary_indices['right']: (300.0, Expression('200*x[0] + 1600', degree=1)),
-        wp_boundary_indices['lower']: (300.0, Expression('-1200*x[1] + 1614', degree=1)),
+        wp_boundary_indices['right']: (
+            300.0, Expression('200*x[0] + 1600', degree=1)
+            ),
+        wp_boundary_indices['lower']: (
+            300.0, Expression('-1200*x[1] + 1614', degree=1)
+            ),
         }
     return mesh, subdomains, subdomain_materials, workpiece_index, \
         wp_boundaries, W, u_bcs, p_bcs, \
@@ -471,19 +479,19 @@ def coil():
     # Boundary conditions for the velocity.
     u_bcs = DirichletBC(V, (0.0, 0.0), 'on_boundary')
     p_bcs = []
-    #u_bcs = [DirichletBC(V.sub(0), 0.0, right_boundary),
-    #         DirichletBC(V.sub(0), 0.0, left_boundary),
-    #         DirichletBC(V.sub(1), 0.0, lower_boundary),
-    #         DirichletBC(V.sub(1), 0.0, upper_boundary),
-    #         DirichletBC(V, (0.0, 0.0), coil_boundary)
-    #         ]
-    #p_bcs = []
-    #u_bcs = [DirichletBC(V, (0.0, 0.0), right_boundary),
-    #         DirichletBC(V, (0.0, 0.0), left_boundary),
-    #         DirichletBC(V, (0.0, 0.0), lower_boundary),
-    #         DirichletBC(V, (0.0, 0.0), coil_boundary)
-    #         ]
-    #p_bcs = DirichletBC(Q, 0.0, upper_boundary)
+    # u_bcs = [DirichletBC(V.sub(0), 0.0, right_boundary),
+    #          DirichletBC(V.sub(0), 0.0, left_boundary),
+    #          DirichletBC(V.sub(1), 0.0, lower_boundary),
+    #          DirichletBC(V.sub(1), 0.0, upper_boundary),
+    #          DirichletBC(V, (0.0, 0.0), coil_boundary)
+    #          ]
+    # p_bcs = []
+    # u_bcs = [DirichletBC(V, (0.0, 0.0), right_boundary),
+    #          DirichletBC(V, (0.0, 0.0), left_boundary),
+    #          DirichletBC(V, (0.0, 0.0), lower_boundary),
+    #          DirichletBC(V, (0.0, 0.0), coil_boundary)
+    #          ]
+    # p_bcs = DirichletBC(Q, 0.0, upper_boundary)
     return mesh, V, P, Q, u_bcs, p_bcs, [coil_boundary], \
         [left_boundary, right_boundary, lower_boundary, upper_boundary]
 
@@ -576,14 +584,14 @@ def coil_in_box():
                 and x[1] > GMSH_EPS and x[1] < 0.4-GMSH_EPS
     coil_boundary = CoilBoundary()
 
-    #heater_temp = 380.0
-    #room_temp = 293.0
-    #bcs = [(coil_boundary, heater_temp),
-    #       (left_boundary, room_temp),
-    #       (right_boundary, room_temp),
-    #       (upper_boundary, room_temp),
-    #       (lower_boundary, room_temp)
-    #       ]
+    # heater_temp = 380.0
+    # room_temp = 293.0
+    # bcs = [(coil_boundary, heater_temp),
+    #        (left_boundary, room_temp),
+    #        (right_boundary, room_temp),
+    #        (upper_boundary, room_temp),
+    #        (lower_boundary, room_temp)
+    #        ]
 
     boundaries = {}
     boundaries['left'] = left_boundary
@@ -610,7 +618,7 @@ def coil_in_box():
 
 
 def karman():
-    #mesh = Mesh('../meshes/2d/karman.xml')
+    # mesh = Mesh('../meshes/2d/karman.xml')
     mesh = Mesh('../meshes/2d/karman-coarse2.xml')
 
     V = VectorFunctionSpace(mesh, 'CG', 2)
@@ -673,25 +681,27 @@ def karman():
     # (again, this is achieved implicitly by the weak formulation).
     #
     inflow = Expression('100*x[1]*(0.4-x[1])', degree=2)
-    u_bcs = [DirichletBC(V, (0.0, 0.0), upper_boundary),
-             DirichletBC(V, (0.0, 0.0), lower_boundary),
-             DirichletBC(V, (0.0, 0.0), obstacle_boundary),
-             DirichletBC(V.sub(0), inflow, left_boundary),
-             #DirichletBC(V.sub(1), 0.0, right_boundary),
-             ]
-    dudt_bcs = [DirichletBC(V, (0.0, 0.0), upper_boundary),
-                DirichletBC(V, (0.0, 0.0), lower_boundary),
-                DirichletBC(V, (0.0, 0.0), obstacle_boundary),
-                DirichletBC(V.sub(0), 0.0, left_boundary),
-                #DirichletBC(V.sub(1), 0.0, right_boundary),
-                ]
+    u_bcs = [
+        DirichletBC(V, (0.0, 0.0), upper_boundary),
+        DirichletBC(V, (0.0, 0.0), lower_boundary),
+        DirichletBC(V, (0.0, 0.0), obstacle_boundary),
+        DirichletBC(V.sub(0), inflow, left_boundary),
+        # DirichletBC(V.sub(1), 0.0, right_boundary),
+        ]
+    dudt_bcs = [
+        DirichletBC(V, (0.0, 0.0), upper_boundary),
+        DirichletBC(V, (0.0, 0.0), lower_boundary),
+        DirichletBC(V, (0.0, 0.0), obstacle_boundary),
+        DirichletBC(V.sub(0), 0.0, left_boundary),
+        # DirichletBC(V.sub(1), 0.0, right_boundary),
+        ]
     # If there is a penetration boundary (i.e., n.u!=0), then the pressure must
     # be set at the boundary to make sure that the Navier-Stokes problem
     # remains consistent.
     # It is not quite clear now where exactly to set the pressure to 0. Inlet,
     # outlet, some other place? The PPE system is consistent in all cases.
     # TODO find out more about it
-    #p_bcs = [DirichletBC(Q, 0.0, right_boundary)]
+    # p_bcs = [DirichletBC(Q, 0.0, right_boundary)]
     p_bcs = []
     return mesh, V, Q, u_bcs, dudt_bcs, p_bcs
 
@@ -700,8 +710,10 @@ def currentloop():
     base = '../meshes/2d/circle-in-halfcircle'
     mesh = Mesh(base + '.xml')
     subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
-    subdomain_materials = {1: 'copper',
-                           2: 'air'}
+    subdomain_materials = {
+            1: 'copper',
+            2: 'air'
+            }
     coils = [{'rings': [1],
               'c_type': 'voltage',
               'c_value': 230.0*numpy.sqrt(2.0)},
@@ -735,12 +747,13 @@ def pons():
         subdomain_materials[k] = 'air'
     for k in range(2, 19, 2):
         subdomain_materials[k] = 'copper'
-    coils = [{'rings': range(2, 19, 2),
-              #'rings': range(10,19,2),
-              #'rings': [10],
-              'c_type': 'voltage',
-              'c_value': 230.0*numpy.sqrt(2.0)
-              }]
+    coils = [{
+        'rings': range(2, 19, 2),
+        # 'rings': range(10,19,2),
+        # 'rings': [10],
+        'c_type': 'voltage',
+        'c_value': 230.0*numpy.sqrt(2.0)
+        }]
     wpi = 20
     omega = 2 * pi * 10e3
     return mesh, subdomains, coils, wpi, subdomain_materials, omega
@@ -758,6 +771,6 @@ def generic():
               'c_value': 20.0  # 230.0*numpy.sqrt(2.0)
               }]
     wpi = 2
-    #omega = 2 * pi * 10.0e3
+    # omega = 2 * pi * 10.0e3
     omega = 2 * pi * 300.0
     return mesh, subdomains, coils, wpi, subdomain_materials, omega
