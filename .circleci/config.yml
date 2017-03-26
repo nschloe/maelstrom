@@ -1,0 +1,15 @@
+version: 2
+
+jobs:
+  build:
+    working_directory: ~/maelstrom
+    docker:
+      - image: ubuntu:16.04
+    steps:
+      - checkout
+      - run: add-apt-repository -s -y ppa:fenics-packages/fenics
+      - run: apt-get update
+      - run: apt-get install -y python-dolfin python-numpy python-pip
+      - run: pip install matplotlib pytest pytest-cov
+      - run: pwd
+      - run: ls
