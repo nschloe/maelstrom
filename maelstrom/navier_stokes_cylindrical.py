@@ -278,10 +278,11 @@ class TentativeVelocityProblem(NonlinearProblem):
 
     def J(self, A, x):
         # We can ignore x; see comment at F().
-        assemble(self.jacobian,
-                 tensor=A,
-                 form_compiler_parameters={'optimize': True}
-                 )
+        assemble(
+            self.jacobian,
+            tensor=A,
+            form_compiler_parameters={'optimize': True}
+            )
         for bc in self.bcs:
             bc.apply(A)
         self.reset_sparsity = False
@@ -433,14 +434,13 @@ class PressureProjection(object):
                 phi += self.mu * div_ui
             L3 = dot(ui, v) * dx \
                 - k / self.rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * dx
-            # Jacobi preconditioning for mass matrix is order-optimal.
             solve(
                 a3 == L3, u1,
                 bcs=u_bcs,
                 solver_parameters={
                     'linear_solver': 'iterative',
                     'symmetric': True,
-                    'preconditioner': 'jacobi',
+                    'preconditioner': 'amg',
                     'krylov_solver': {
                         'relative_tolerance': tol,
                         'absolute_tolerance': 0.0,

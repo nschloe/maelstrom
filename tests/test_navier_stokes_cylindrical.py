@@ -4,7 +4,8 @@ import maelstrom.navier_stokes_cylindrical as ns_cyl
 import helpers
 
 from dolfin import (
-    Expression, UnitSquareMesh, triangle, plot, interactive, RectangleMesh, pi
+    Expression, UnitSquareMesh, triangle, plot, interactive, RectangleMesh, pi,
+    Point
     )
 import numpy
 import pytest
@@ -48,9 +49,10 @@ def problem_whirl_cylindrical():
 
     def mesh_generator(n):
         # return UnitSquareMesh(n, n, 'left/right')
-        return RectangleMesh(alpha, 0.0,
-                             1.0 + alpha, 1.0,
-                             n, n, 'left/right')
+        return RectangleMesh(
+                Point(alpha, 0.0), Point(1.0 + alpha, 1.0),
+                n, n, 'left/right'
+                )
     cell_type = triangle
     x = sympy.DeferredVector('x')
     # Note that the exact solution is indeed div-free.
@@ -101,8 +103,10 @@ def problem_guermond1_cylindrical():
     # m = sympy.exp(t) - 0.0
     m = sympy.sin(t) + 1.0
     u = (
-        + pi*m*2 * sympy.sin(pi*x1) * sympy.cos(pi*x1) * sympy.sin(pi*x0)**2 / x[0],
-        - pi*m*2 * sympy.sin(pi*x0) * sympy.cos(pi*x0) * sympy.sin(pi*x1)**2 / x[0],
+        + pi*m*2 * sympy.sin(pi*x1) * sympy.cos(pi*x1) * sympy.sin(pi*x0)**2
+        / x[0],
+        - pi*m*2 * sympy.sin(pi*x0) * sympy.cos(pi*x0) * sympy.sin(pi*x1)**2
+        / x[0],
         0
         )
     p = m * sympy.cos(pi * x0) * sympy.sin(pi * x1)
@@ -144,7 +148,7 @@ def problem_taylor_cylindrical():
     problem_whirl_cylindrical
     ])
 @pytest.mark.parametrize('method', [
-    ns_cyl.chorin_step
+    ns_cyl.IPCS
     ])
 def test_order(problem, method):
     '''Test order of time discretization.
@@ -234,12 +238,12 @@ def _get_navier_stokes_rhs_cylindrical(u, p):
 
 
 if __name__ == '__main__':
-    mesh_sizes = [10, 20, 30]
+    mesh_sizes = [8, 16, 32]
     # mesh_sizes = [10, 20, 40, 80]
     Dt = [0.5**k for k in range(20)]
     errors = helpers.compute_time_errors(
-        # problem_flat_cylindrical,
-        problem_whirl_cylindrical,
+        problem_flat_cylindrical,
+        # problem_whirl_cylindrical,
         # problem_guermond1_cylindrical,
         # problem_taylor_cylindrical,
         ns_cyl.IPCS,
