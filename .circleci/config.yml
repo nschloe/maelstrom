@@ -1,11 +1,14 @@
 version: 2
 
+
 jobs:
   build:
     working_directory: ~/maelstrom
     docker:
       - image: ubuntu:16.04
     steps:
+      - setup_remote_docker:
+          reusable: true
       - checkout
       - run: apt-get update
       - run: apt-get install -y software-properties-common
