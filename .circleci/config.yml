@@ -17,7 +17,7 @@ jobs:
       - run: apt-get install -y python-dolfin python-numpy python-pip
       - run: pip install matplotlib pytest pytest-cov
       # The actual test
-      - run: PYTHONPATH=$PWD:$PYTHONPATH MPLBACKEND=Agg pytest --cov maelstrom
+      - run: MPLBACKEND=Agg pytest --cov maelstrom
       # submit to codecov
       - run: apt-get install -y curl
       - run: bash <(curl -s https://codecov.io/bash)
