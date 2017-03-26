@@ -14,7 +14,9 @@ jobs:
       - run: apt-get install -y software-properties-common
       - run: add-apt-repository -s -y ppa:fenics-packages/fenics
       - run: apt-get update
-      - run: apt-get install -y python-dolfin python-numpy python-pip
+      - run: apt-get install -y python-dolfin
+      - run: apt-get install -y python-numpy
+      - run: apt-get install -y python-pip
       - run: pip install matplotlib pytest pytest-cov
       # The actual test
       - run: MPLBACKEND=Agg pytest --cov maelstrom
