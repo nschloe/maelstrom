@@ -9,4 +9,4 @@ RUN pip install matplotlib pytest pytest-cov
 
 ADD . /root/
 RUN cd /root/ && PYTHONPATH=$PWD:$PYTHONPATH MPLBACKEND=Agg pytest --cov maelstrom
-RUN bash <(curl -s https://codecov.io/bash)
+RUN cd /root/ && bash <(curl -s https://codecov.io/bash)
