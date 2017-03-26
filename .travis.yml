@@ -22,7 +22,7 @@ install:
   - pip install pytest pytest-cov
 
 script:
-  - cd "$TRAVIS_BUILD_DIR"
+  - pwd
   - ls -ahl
   - MPLBACKEND=Agg pytest --cov maelstrom
 
