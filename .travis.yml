@@ -14,8 +14,9 @@ addons:
     sources:
     - sourceline: 'ppa:fenics-packages/fenics'
     packages:
-    - python-numpy
     - python-dolfin
+    - python-matplotlib
+    - python-numpy
 
 install:
   - pip install pytest pytest-cov
