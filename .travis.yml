@@ -1,29 +1,10 @@
-dist: trusty
+sudo: required
 
-language: python
+services:
+  - docker
 
-python:
-    - '2.7'
-    # - '3.6'
-
-virtualenv:
-  system_site_packages: true
-
-addons:
-  apt:
-    sources:
-    - sourceline: 'ppa:fenics-packages/fenics'
-    packages:
-    - python-dolfin
-    - python-numpy
-
-install:
-  - pip install matplotlib pytest pytest-cov
+before_install:
+  - docker pull ubuntu:16.04
 
 script:
-  - pwd
-  - ls -ahl
-  - PYTHONPATH=$PWD:$PYTHONPATH MPLBACKEND=Agg pytest --cov maelstrom
-
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - docker build .
