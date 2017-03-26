@@ -3,13 +3,13 @@
 '''
 Helper functions for PDE consistency tests.
 '''
-from dolfin import Expression, info, assemble, FunctionSpace, \
-    interpolate, plot, interactive, errornorm, dx, Function, \
-    VectorFunctionSpace, DirichletBC, project
+from dolfin import (
+    Expression, info, assemble, FunctionSpace, interpolate, plot, interactive,
+    errornorm, dx, Function, VectorFunctionSpace, DirichletBC, project
+    )
 import matplotlib.pyplot as plt
-import nose
 import numpy
-import sympy as smp
+import sympy
 import warnings
 
 from maelstrom.message import Message
@@ -57,7 +57,7 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
     # Create a figure
     for label, err in errors.items():
         plt.figure()
-        ax = plt.axes()
+        # ax = plt.axes()
         # Plot the actual data.
         for i, mesh_size in enumerate(mesh_sizes):
             plt.loglog(Dt, err[i], '-o', label=mesh_size)
@@ -96,9 +96,7 @@ def _check_time_order(problem, MethodClass, tol=1.0e-10):
     k = 0
     expected_order = MethodClass['order']
     for i in range(order.shape[0]):
-        nose.tools.assert_almost_equal(order[i][k], expected_order,
-                                       delta=0.1
-                                       )
+        assert abs(order[i][k] - expected_order) < 0.1
         while k + 1 < len(order[i]) and \
                 abs(order[i][k + 1] - expected_order) < tol:
             k += 1
@@ -109,27 +107,32 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
 
     mesh_generator, solution, f, mu, rho, cell_type = problem()
     # Translate data into FEniCS expressions.
-    sol_u = Expression((smp.printing.ccode(solution['u']['value'][0]),
-                        smp.printing.ccode(solution['u']['value'][1])
-                        ),
-                       degree=_truncate_degree(solution['u']['degree']),
-                       t=0.0,
-                       cell=cell_type
-                       )
-    sol_p = Expression(smp.printing.ccode(solution['p']['value']),
-                       degree=_truncate_degree(solution['p']['degree']),
-                       t=0.0,
-                       cell=cell_type
-                       )
+    sol_u = Expression(
+            (
+                sympy.printing.ccode(solution['u']['value'][0]),
+                sympy.printing.ccode(solution['u']['value'][1])
+            ),
+            degree=_truncate_degree(solution['u']['degree']),
+            t=0.0,
+            cell=cell_type
+            )
+    sol_p = Expression(
+            sympy.printing.ccode(solution['p']['value']),
+            degree=_truncate_degree(solution['p']['degree']),
+            t=0.0,
+            cell=cell_type
+            )
 
-    fenics_rhs0 = Expression((smp.printing.ccode(f['value'][0]),
-                              smp.printing.ccode(f['value'][1])
-                              ),
-                             degree=_truncate_degree(f['degree']),
-                             t=0.0,
-                             mu=mu, rho=rho,
-                             cell=cell_type
-                             )
+    fenics_rhs0 = Expression(
+            (
+                sympy.printing.ccode(f['value'][0]),
+                sympy.printing.ccode(f['value'][1])
+            ),
+            degree=_truncate_degree(f['degree']),
+            t=0.0,
+            mu=mu, rho=rho,
+            cell=cell_type
+            )
     # Deep-copy expression to be able to provide f0, f1 for the Dirichlet-
     # boundary conditions later on.
     fenics_rhs1 = Expression(fenics_rhs0.cppcode,
