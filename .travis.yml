@@ -1,0 +1,24 @@
+dist: trusty
+
+language: python
+
+python:
+    - '2.7'
+    # - '3.6'
+
+addons:
+  apt:
+    sources:
+    - sourceline: 'ppa:fenics-packages/fenics'
+    packages:
+    - python-numpy
+    - python-dolfin
+
+before_install:
+  - pip install pytest pytest-cov
+
+script:
+  - pytest --cov maelstrom
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
