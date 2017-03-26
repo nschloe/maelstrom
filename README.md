@@ -1,6 +1,7 @@
 # Maelstrom
 
 [![Build Status](https://travis-ci.org/nschloe/maelstrom.svg?branch=master)](https://travis-ci.org/nschloe/maelstrom)
+[![codecov](https://codecov.io/gh/nschloe/maelstrom/branch/master/graph/badge.svg)](https://codecov.io/gh/nschloe/maelstrom)
 [![Code Health](https://landscape.io/github/nschloe/maelstrom/master/landscape.png)](https://landscape.io/github/nschloe/maelstrom/master)
 [![Documentation Status](https://readthedocs.org/projects/maelstrom/badge/?version=latest)](https://readthedocs.org/projects/maelstrom/?badge=latest)
 
