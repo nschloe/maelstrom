@@ -18,12 +18,14 @@ or
     <http://mumerik.iwr.uni-heidelberg.de/Oberwolfach-Seminar/CFD-Course.pdf>.
 '''
 
-from dolfin import dot, inner, grad, dx, div, Function, TestFunction, solve, \
-    Constant, DOLFIN_EPS, derivative, TrialFunction, FacetNormal, \
-    assemble, ds, TestFunctions, split, PETScPreconditioner, \
-    PETScKrylovSolver, as_backend_type, TrialFunctions, DirichletBC, \
-    assemble_system, KrylovSolver, norm, info, plot, interactive, \
+from dolfin import (
+    dot, inner, grad, dx, div, Function, TestFunction, solve,
+    Constant, DOLFIN_EPS, derivative, TrialFunction, FacetNormal,
+    assemble, ds, TestFunctions, split, PETScPreconditioner,
+    PETScKrylovSolver, as_backend_type, TrialFunctions, DirichletBC,
+    assemble_system, KrylovSolver, norm, info, plot, interactive,
     PETScOptions
+    )
 
 from warnings import warn
 import numpy
@@ -149,12 +151,13 @@ class PressureProjection(object):
         Guermond, Miev, Shen;
         Comput. Methods Appl. Mech. Engrg. 195 (2006).
     '''
-    def __init__(self,
-                 W, P,
-                 rho, mu,
-                 theta,
-                 stabilization=None
-                 ):
+    def __init__(
+            self,
+            W, P,
+            rho, mu,
+            theta,
+            stabilization=None
+            ):
         assert mu > 0.0
         # Only works for linear elements.
         if isinstance(rho, float):
@@ -366,11 +369,13 @@ class PressureProjection(object):
                   solver_parameters={
                       'linear_solver': 'iterative',
                       'symmetric': True,
-                      'preconditioner': 'jacobi',
-                      'krylov_solver': {'relative_tolerance': tol,
-                                        'absolute_tolerance': 0.0,
-                                        'maximum_iterations': 100,
-                                        'monitor_convergence': verbose}
+                      'preconditioner': 'amg',
+                      'krylov_solver': {
+                          'relative_tolerance': tol,
+                          'absolute_tolerance': 0.0,
+                          'maximum_iterations': 100,
+                          'monitor_convergence': verbose
+                          }
                       })
         # u = project(ui - k/rho * grad(phi), V)
         # print '||u||_div = %e' % norm(u, 'Hdiv0')
@@ -567,9 +572,9 @@ class IPCS(PressureProjection):
     def __init__(self, W, P, rho, mu, theta,
                  stabilization=False
                  ):
-        super(IPCS, self).__init__(W, P, rho, mu, theta,
-                                   stabilization=stabilization
-                                   )
+        super(IPCS, self).__init__(
+                W, P, rho, mu, theta, stabilization=stabilization
+                )
         return
 
 
@@ -705,15 +710,16 @@ class AB2R():
         # out.
         return dudt0, p0, dt0
 
-    def ab2tr_step(W, P, dt0, dt_1,
-                   mu, rho,
-                   u0, u_1, u_bcs,
-                   dudt0, dudt_1, dudt_bcs,
-                   p_1, p_bcs,
-                   f0, f1,
-                   tol=1.0e-12,
-                   verbose=True
-                   ):
+    def ab2tr_step(
+            W, P, dt0, dt_1,
+            mu, rho,
+            u0, u_1, u_bcs,
+            dudt0, dudt_1, dudt_bcs,
+            p_1, p_bcs,
+            f0, f1,
+            tol=1.0e-12,
+            verbose=True
+            ):
         # General AB2/TR step.
         #
         # Steps are labeled in the following way:

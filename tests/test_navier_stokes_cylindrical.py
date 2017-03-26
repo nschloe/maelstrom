@@ -93,7 +93,10 @@ def problem_guermond1_cylindrical():
     alpha = 1.5
 
     def mesh_generator(n):
-        return RectangleMesh(-1+alpha, -1, 1+alpha, 1, n, n, 'crossed')
+        return RectangleMesh(
+            Point(-1+alpha, -1), Point(1+alpha, 1),
+            n, n, 'crossed'
+            )
 
     cell_type = triangle
     x = sympy.DeferredVector('x')
@@ -110,8 +113,14 @@ def problem_guermond1_cylindrical():
         0
         )
     p = m * sympy.cos(pi * x0) * sympy.sin(pi * x1)
-    solution = {'u': u, 'p': p}
-    f = _get_navier_stokes_rhs_cylindrical(u, p)
+    solution = {
+        'u': {'value': u, 'degree': numpy.infty},
+        'p': {'value': p, 'degree': numpy.infty}
+        }
+    f = {
+        'value': _get_navier_stokes_rhs_cylindrical(u, p),
+        'degree': numpy.infty
+        }
     mu = 1.0
     rho = 1.0
     return mesh_generator, solution, f, mu, rho, cell_type
@@ -124,7 +133,10 @@ def problem_taylor_cylindrical():
     alpha = 1.0
 
     def mesh_generator(n):
-        return RectangleMesh(0.0+alpha, 0.0, 2*pi+alpha, 2*pi, n, n, 'crossed')
+        return RectangleMesh(
+            Point(0.0+alpha, 0.0), Point(2*pi+alpha, 2*pi),
+            n, n, 'crossed'
+            )
     mu = 1.0
     rho = 1.0
     cell_type = triangle
@@ -139,13 +151,22 @@ def problem_taylor_cylindrical():
         0
         )
     p = rho/4 * (sympy.cos(2*x0) + sympy.cos(2*x1)) * F**2
-    solution = {'u': u, 'p': p}
-    f = _get_navier_stokes_rhs_cylindrical(u, p)
+    solution = {
+        'u': {'value': u, 'degree': numpy.infty},
+        'p': {'value': p, 'degree': numpy.infty}
+        }
+    f = {
+        'value': _get_navier_stokes_rhs_cylindrical(u, p),
+        'degree': numpy.infty
+        }
     return mesh_generator, solution, f, mu, rho, cell_type
 
 
 @pytest.mark.parametrize('problem', [
-    problem_whirl_cylindrical
+    # problem_flat_cylindrical,
+    problem_whirl_cylindrical,
+    # problem_guermond1_cylindrical,
+    # problem_taylor_cylindrical,
     ])
 @pytest.mark.parametrize('method', [
     ns_cyl.IPCS
@@ -155,7 +176,7 @@ def test_order(problem, method):
     '''
     # TODO add test for spatial order
     # Methods together with the expected order of convergence.
-    helpers._check_time_order(problem, method)
+    helpers._assert_time_order(problem, method)
     return
 
 
@@ -242,8 +263,8 @@ if __name__ == '__main__':
     # mesh_sizes = [10, 20, 40, 80]
     Dt = [0.5**k for k in range(20)]
     errors = helpers.compute_time_errors(
-        problem_flat_cylindrical,
-        # problem_whirl_cylindrical,
+        # problem_flat_cylindrical,
+        problem_whirl_cylindrical,
         # problem_guermond1_cylindrical,
         # problem_taylor_cylindrical,
         ns_cyl.IPCS,

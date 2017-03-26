@@ -34,8 +34,8 @@ from dolfin import (
     DirichletBC, as_vector, NonlinearProblem, NewtonSolver, TestFunctions
     )
 
-import stabilization as stab
-from message import Message
+from . import stabilization as stab
+from .message import Message
 
 
 def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
@@ -46,7 +46,7 @@ def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
     # Skew-symmetric formulation.
     # Don't include the boundary term
     #
-    #   - mu *inner(r*grad(u2)*n  , v2    ) * 2*pi*ds.
+    #   - mu *inner(r*grad(u2)*n  , v2) * 2*pi*ds.
     #
     # This effectively means that at all boundaries where no sufficient
     # Dirichlet-conditions are posed, we assume grad(u)*n to vanish.
@@ -641,6 +641,12 @@ class IPCS(PressureProjection):
     '''
     Incremental pressure correction scheme.
     '''
+    order = {
+        'velocity': 1,
+        # TODO fix
+        'pressure': 0,
+        }
+
     def __init__(
             self, W, P, rho, mu, theta,
             stabilization=False,

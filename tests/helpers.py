@@ -17,13 +17,12 @@ from maelstrom.message import Message
 
 def _truncate_degree(degree, max_degree=10):
     if degree > max_degree:
-        warnings.warn(('Expression degree (%r) > maximum degree (%d). '
-                       'Truncating.')
-                      % (degree, max_degree)
-                      )
+        warnings.warn(
+            'Expression degree (%r) > maximum degree (%d). Truncating.'
+            % (degree, max_degree)
+            )
         return max_degree
-    else:
-        return degree
+    return degree
 
 
 def show_timeorder_info(Dt, mesh_sizes, errors):
@@ -31,10 +30,10 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
     show some information about it. Useful for debugging.
     '''
     # Compute the numerical order of convergence.
-    orders = {}
-    for key in errors:
-        orders[key] = \
-            _compute_numerical_order_of_convergence(Dt, errors[key].T).T
+    orders = {
+        key: _compute_numerical_order_of_convergence(Dt, errors[key].T).T
+        for key in errors
+        }
 
     # Print the data to the screen
     for i, mesh_size in enumerate(mesh_sizes):
@@ -85,22 +84,21 @@ def _compute_numerical_order_of_convergence(Dt, errors):
         ])
 
 
-def _check_time_order(problem, MethodClass, tol=1.0e-10):
-    mesh_sizes = [20, 40, 80]
-    Dt = [0.5**k for k in range(15)]
-    errors, order = compute_time_errors(problem, MethodClass, mesh_sizes, Dt)
-    # The test is considered passed if the numerical order of
-    # convergence matches the expected order in at least the first
-    # step in the coarsest spatial discretization, and is not
-    # getting worse as the spatial discretizations are refining.
-    k = 0
-    expected_order = MethodClass['order']
-    for i in range(order.shape[0]):
-        assert abs(order[i][k] - expected_order) < 0.1
-        while k + 1 < len(order[i]) and \
-                abs(order[i][k + 1] - expected_order) < tol:
-            k += 1
-    return errors
+def _assert_time_order(problem, MethodClass, tol=1.0e-10):
+    mesh_sizes = [8, 16, 32]
+    Dt = [0.5**k for k in range(2)]
+    errors = compute_time_errors(problem, MethodClass, mesh_sizes, Dt)
+    orders = {
+        key: _compute_numerical_order_of_convergence(Dt, errors[key].T).T
+        for key in errors
+        }
+    # The test is considered passed if the numerical order of convergence
+    # matches the expected order in at least the first step in the coarsest
+    # spatial discretization, and is not getting worse as the spatial
+    # discretizations are refining.
+    assert (abs(orders['u'][:, 0] - MethodClass.order['velocity']) < 0.1).all()
+    assert (abs(orders['p'][:, 0] - MethodClass.order['pressure']) < 0.1).all()
+    return
 
 
 def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
@@ -150,9 +148,10 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
         )
 
     # Compute the problem
-    errors = {'u': numpy.empty((len(mesh_sizes), len(Dt))),
-              'p': numpy.empty((len(mesh_sizes), len(Dt)))
-              }
+    errors = {
+        'u': numpy.empty((len(mesh_sizes), len(Dt))),
+        'p': numpy.empty((len(mesh_sizes), len(Dt)))
+        }
     for k, mesh_size in enumerate(mesh_sizes):
         info('')
         info('')
@@ -219,8 +218,10 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                 #            = 1/|Omega| \int Re(e),
                 #
                 # i.e., the mean error in \Omega.
-                alpha = assemble(sol_p * dx(mesh)) \
+                alpha = (
+                    + assemble(sol_p * dx(mesh))
                     - assemble(p1 * dx(mesh))
+                    )
                 alpha /= mesh_area
                 # We would like to perform
                 #     p1 += alpha.
