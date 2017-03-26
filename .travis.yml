@@ -15,11 +15,10 @@ addons:
     - sourceline: 'ppa:fenics-packages/fenics'
     packages:
     - python-dolfin
-    - python-matplotlib
     - python-numpy
 
 install:
-  - pip install pytest pytest-cov
+  - pip install matplotlib pytest pytest-cov
 
 script:
   - pwd
