@@ -24,7 +24,7 @@ install:
 script:
   - cd "$TRAVIS_BUILD_DIR"
   - ls -ahl
-  - pytest --cov maelstrom
+  - MPLBACKEND=Agg pytest --cov maelstrom
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
