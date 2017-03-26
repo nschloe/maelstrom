@@ -24,7 +24,7 @@ install:
 script:
   - pwd
   - ls -ahl
-  - MPLBACKEND=Agg pytest --cov maelstrom
+  - PYTHONPATH=$PWD:$PYTHONPATH MPLBACKEND=Agg pytest --cov maelstrom
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
