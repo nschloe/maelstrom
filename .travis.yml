@@ -14,10 +14,12 @@ addons:
     - python-numpy
     - python-dolfin
 
-before_install:
+install:
   - pip install pytest pytest-cov
 
 script:
+  - cd "$TRAVIS_BUILD_DIR"
+  - ls -ahl
   - pytest --cov maelstrom
 
 after_success:
