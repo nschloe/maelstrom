@@ -223,9 +223,10 @@ class CrucibleProblem():
             'data/crucible-boundary.dat'
             )
         data = tecplot_reader.read(filename)
-        RZ = numpy.c_[data['ZONE T']['node data']['r'],
-                      data['ZONE T']['node data']['z']
-                      ]
+        RZ = numpy.c_[
+                data['ZONE T']['node data']['r'],
+                data['ZONE T']['node data']['z']
+                ]
         T_vals = data['ZONE T']['node data']['temp. [K]']
 
         class TecplotDirichletBC(Expression):
