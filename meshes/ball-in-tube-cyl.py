@@ -36,8 +36,8 @@ def generate():
         geom.add_line(points[1], points[2]),
         geom.add_line(points[2], points[3]),
         geom.add_line(points[3], points[4]),
-        geom.add_circle_arc([points[4], points[5], points[6]]),
-        geom.add_circle_arc([points[6], points[5], points[7]]),
+        geom.add_circle_arc(points[4], points[5], points[6]),
+        geom.add_circle_arc(points[6], points[5], points[7]),
         geom.add_line(points[7], points[0]),
         ]
 
