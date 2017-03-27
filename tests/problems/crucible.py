@@ -1,22 +1,23 @@
 # -*- coding: utf-8 -*-
 #
+import os
+from dolfin import (
+    Mesh, MeshFunction, SubMesh, SubDomain, FacetFunction, DirichletBC, dot,
+    grad, FunctionSpace, MixedFunctionSpace, Expression, FacetNormal, pi,
+    Function, Constant, TestFunction, MPI, mpi_comm_world, File
+    )
+import numpy
+import warnings
+
+from maelstrom import heat_cylindrical as cyl_heat
+from maelstrom import materials_database as md
+
 DEBUG = False
 
 
 class CrucibleProblem():
 
     def __init__(self):
-        import os
-        from dolfin import Mesh, MeshFunction, SubMesh, SubDomain, \
-            FacetFunction, DirichletBC, dot, grad, FunctionSpace, \
-            MixedFunctionSpace, Expression, FacetNormal, pi, Function, \
-            Constant, TestFunction, MPI, mpi_comm_world, File
-        import numpy
-        import warnings
-
-        from maelstrom import heat_cylindrical as cyl_heat
-        from maelstrom import materials_database as md
-
         GMSH_EPS = 1.0e-15
 
         current_path = os.path.dirname(os.path.realpath(__file__))

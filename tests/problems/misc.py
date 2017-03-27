@@ -3,10 +3,12 @@
 '''
 Collection of (test) problems.
 '''
-from dolfin import Mesh, MeshFunction, pi, SubMesh, SubDomain, FunctionSpace, \
-    MixedFunctionSpace, DirichletBC, Expression, \
-    VectorFunctionSpace, FacetFunction, UnitSquareMesh, DOLFIN_EPS, Constant, \
-    RectangleMesh, near, between, CellFunction
+from dolfin import (
+    Mesh, MeshFunction, pi, SubMesh, SubDomain, FunctionSpace,
+    MixedFunctionSpace, DirichletBC, Expression, VectorFunctionSpace,
+    FacetFunction, UnitSquareMesh, DOLFIN_EPS, Constant, RectangleMesh, near,
+    between, CellFunction
+    )
 
 import numpy
 
@@ -18,10 +20,12 @@ def crucible_without_coils():
     mesh = Mesh(base + '.xml')
     subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
     workpiece_index = 4
-    subdomain_materials = {1: 'SiC',
-                           2: 'boron trioxide',
-                           3: 'GaAs (solid)',
-                           4: 'GaAs (liquid)'}
+    subdomain_materials = {
+            1: 'SiC',
+            2: 'boron trioxide',
+            3: 'GaAs (solid)',
+            4: 'GaAs (liquid)'
+            }
 
     submesh_workpiece = SubMesh(mesh, subdomains, workpiece_index)
     V = VectorFunctionSpace(submesh_workpiece, 'CG', 2)
@@ -120,11 +124,12 @@ def ball_in_tube():
                 and x[0] < 1.0-GMSH_EPS
     coil_boundary = CoilBoundary()
 
-    u_bcs = [DirichletBC(W, (0.0, 0.0), right_boundary),
-             DirichletBC(W.sub(0), 0.0, left_boundary),
-             DirichletBC(W, (0.0, 0.0), lower_boundary),
-             DirichletBC(W, (0.0, 0.0), coil_boundary)
-             ]
+    u_bcs = [
+        DirichletBC(W, (0.0, 0.0), right_boundary),
+        DirichletBC(W.sub(0), 0.0, left_boundary),
+        DirichletBC(W, (0.0, 0.0), lower_boundary),
+        DirichletBC(W, (0.0, 0.0), coil_boundary)
+        ]
     p_bcs = []
     # p_bcs = [DirichletBC(Q, 0.0, upper_boundary)]
     return mesh, W, P, u_bcs, p_bcs
@@ -164,16 +169,17 @@ def rotating_lid():
     V = FunctionSpace(mesh, 'CG', 2)
 
     W = MixedFunctionSpace([V, V, V])
-    u_bcs = [DirichletBC(W.sub(0), 0.0, left),
-             DirichletBC(W.sub(2), 0.0, left),
-             DirichletBC(W, Constant((0.0, 0.0, 0.0)), right),
-             DirichletBC(W.sub(0), 0.0, upper),
-             DirichletBC(W.sub(1), 0.0, upper),
-             DirichletBC(
-                 W.sub(2), Expression('x[0]', degree=1), restricted_upper
-                 ),
-             DirichletBC(W, Constant((0.0, 0.0, 0.0)), lower),
-             ]
+    u_bcs = [
+        DirichletBC(W.sub(0), 0.0, left),
+        DirichletBC(W.sub(2), 0.0, left),
+        DirichletBC(W, Constant((0.0, 0.0, 0.0)), right),
+        DirichletBC(W.sub(0), 0.0, upper),
+        DirichletBC(W.sub(1), 0.0, upper),
+        DirichletBC(
+            W.sub(2), Expression('x[0]', degree=1), restricted_upper
+            ),
+        DirichletBC(W, Constant((0.0, 0.0, 0.0)), lower),
+        ]
 
     P = FunctionSpace(mesh, 'CG', 1)
     p_bcs = []
@@ -740,9 +746,11 @@ def pons():
     base = '../meshes/2d/pons'
     mesh = Mesh(base + '.xml')
     subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
-    subdomain_materials = {19: 'graphite',
-                           20: 'SiC',
-                           21: 'air'}
+    subdomain_materials = {
+            19: 'graphite',
+            20: 'SiC',
+            21: 'air'
+            }
     for k in range(1, 19, 2):
         subdomain_materials[k] = 'air'
     for k in range(2, 19, 2):
@@ -763,13 +771,16 @@ def generic():
     base = '../meshes/2d/circles2d-boundary'
     mesh = Mesh(base + '.xml')
     subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
-    subdomain_materials = {1: 'graphite',
-                           2: 'GaAs (liquid)',
-                           3: 'air'}
-    coils = [{'rings': [1],
-              'c_type': 'voltage',
-              'c_value': 20.0  # 230.0*numpy.sqrt(2.0)
-              }]
+    subdomain_materials = {
+            1: 'graphite',
+            2: 'GaAs (liquid)',
+            3: 'air'
+            }
+    coils = [{
+        'rings': [1],
+        'c_type': 'voltage',
+        'c_value': 20.0  # 230.0*numpy.sqrt(2.0)
+        }]
     wpi = 2
     # omega = 2 * pi * 10.0e3
     omega = 2 * pi * 300.0
