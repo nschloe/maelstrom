@@ -1,23 +1,17 @@
 version: 2
 
-
 jobs:
   build:
     working_directory: ~/maelstrom
     docker:
-      - image: ubuntu:16.04
+      # https://fenicsproject.org/download/
+      - image: quay.io/fenicsproject/stable:current
     steps:
-      - setup_remote_docker:
-          reusable: true
       - run: apt-get update
-      - run: apt-get install -y software-properties-common
-      - run: add-apt-repository -s -y ppa:fenics-packages/fenics
-      - run: apt-get update
-      - run: apt-get install -y python-dolfin
       - run: apt-get install -y python-numpy
       - run: apt-get install -y python-pip
       - run: apt-get install -y git
-      - run: pip install matplotlib pytest pytest-cov
+      - run: sudo -H pip2 install matplotlib pytest pytest-cov
       - checkout
       # The actual test
       - run: PYTHONPATH=$PWD:$PYTHONPATH MPLBACKEND=Agg pytest --cov maelstrom
