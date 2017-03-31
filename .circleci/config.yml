@@ -9,7 +9,8 @@ jobs:
     steps:
       - run: apt-get update
       - run: apt-get install -y python-pip
-      - run: sudo -H pip2 install matplotlib pytest pytest-cov
+      - run: sudo -H pip2 install matplotlib
+      - run: sudo -H pip2 -U pytest pytest-cov
       #
       - run: apt-get install -y git
       - checkout
