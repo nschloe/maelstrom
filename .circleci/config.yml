@@ -1,14 +1,13 @@
 version: 2
 
-
 jobs:
   build:
     working_directory: ~/maelstrom
     docker:
+      # Can't use FEniCS's own containers yet; see
+      # <https://bitbucket.org/fenics-project/docker/issues/61/petsc-vectorfunctionspace-amg-malloc>.
       - image: ubuntu:16.04
     steps:
-      - setup_remote_docker:
-          reusable: true
       - run: apt-get update
       - run: apt-get install -y software-properties-common
       - run: add-apt-repository -s -y ppa:fenics-packages/fenics
