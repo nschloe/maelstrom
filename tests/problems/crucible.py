@@ -1,47 +1,51 @@
 # -*- coding: utf-8 -*-
 #
-import os
 from dolfin import (
     Mesh, MeshFunction, SubMesh, SubDomain, FacetFunction, DirichletBC, dot,
-    grad, FunctionSpace, MixedFunctionSpace, Expression, FacetNormal, pi,
-    Function, Constant, TestFunction, MPI, mpi_comm_world, File
+    grad, FunctionSpace, Expression, FacetNormal, pi, Function, Constant,
+    TestFunction, MPI, mpi_comm_world, File
     )
+import materials
+import meshio
 import numpy
+import os
 import warnings
 
-from maelstrom import heat_cylindrical as cyl_heat
-from maelstrom import materials_database as md
+from maelstrom import heat as cyl_heat
+
+from . import meshes
 
 DEBUG = False
 
 
-class CrucibleProblem():
+class Crucible():
 
     def __init__(self):
         GMSH_EPS = 1.0e-15
 
-        current_path = os.path.dirname(os.path.realpath(__file__))
-        base = os.path.join(
-            current_path,
-            '../../meshes/2d/crucible-with-coils'
-            )
-        self.mesh = Mesh(base + '.xml')
-        self.subdomains = MeshFunction('size_t',
-                                       self.mesh,
-                                       base + '_physical_region.xml'
-                                       )
+        # https://fenicsproject.org/qa/12891/initialize-mesh-from-vertices-connectivities-at-once
+        points, cells, point_data, cell_data, _ = \
+            meshes.crucible_with_coils.generate()
+        meshio.write('test.xml', points, cells)
+        self.mesh = Mesh('test.xml')
+
+        # self.subdomains = MeshFunction(
+        #         'size_t',
+        #         self.mesh,
+        #         base + '_physical_region.xml'
+        #         )
 
         self.subdomain_materials = {
-            1: md.get_material('porcelain'),
-            2: md.get_material('argon'),
-            3: md.get_material('GaAs (solid)'),
-            4: md.get_material('GaAs (liquid)'),
-            27: md.get_material('air')
+            1: materials.porcelain,
+            2: materials.argon,
+            3: materials.gaas_solid,
+            4: materials.gaas_liquid,
+            27: materials.air,
             }
 
         # coils
         for k in range(5, 27):
-            self.subdomain_materials[k] = md.get_material('graphite EK90')
+            self.subdomain_materials[k] = materials.ek90
 
         # Define the subdomains which together form a single coil.
         self.coil_domains = [
@@ -372,10 +376,11 @@ class CrucibleProblem():
         # makes sure that the potentially expensive Expression evaluation in
         # theta_bcs_* is replaced by something reasonably cheap.
         for k, bc in enumerate(self.theta_bcs_d):
-            self.theta_bcs_d[k] = DirichletBC(bc.function_space(),
-                                              theta_reference,
-                                              bc.domain_args[0]
-                                              )
+            self.theta_bcs_d[k] = DirichletBC(
+                    bc.function_space(),
+                    theta_reference,
+                    bc.domain_args[0]
+                    )
         # Adapt Neumann conditions.
         n = FacetNormal(self.Q.mesh())
         for k in self.theta_bcs_n:

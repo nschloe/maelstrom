@@ -1,24 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-import numpy as np
+from dolfin import (
+    parameters, XDMFFile, plot, interactive, Measure, FunctionSpace,
+    Expression, triangle, begin, end, SubMesh, project, Function, assemble,
+    grad, as_vector, File, DOLFIN_EPS, info
+    )
+import numpy
 from numpy import pi, sin, cos
 
-from dolfin import parameters, XDMFFile, plot, interactive, Measure, \
-    FunctionSpace, Expression, triangle, begin, end, SubMesh, project, \
-    Function, assemble, grad, as_vector, File, DOLFIN_EPS, info
+import maelstrom.maxwell as cmx
 
-import maelstrom.maxwell_cylindrical as cmx
-import maelstrom.problems as probs
+import meshes
+import problems
 
 # We need to allow extrapolation here since otherwise, the equation systems
 # for Maxwell cannot be constructed: They contain the velocity `u` (from
 # Navier-Stokes) which is only defined on the workpiece subdomain.
 # Cf. <https://answers.launchpad.net/dolfin/+question/210508>.
 parameters['allow_extrapolation'] = True
-
-# parameters['linear_algebra_backend'] = 'uBLAS'
-# parameters['linear_algebra_backend'] = 'Epetra'
 
 
 def _show_currentloop_field():
@@ -27,9 +27,9 @@ def _show_currentloop_field():
     from matplotlib import pyplot as pp
     from numpy import sqrt
 
-    r = np.linspace(0.0, 3.0, 51)
-    z = np.linspace(-1.0, 1.0, 51)
-    R, Z = np.meshgrid(r, z)
+    r = numpy.linspace(0.0, 3.0, 51)
+    z = numpy.linspace(-1.0, 1.0, 51)
+    R, Z = numpy.meshgrid(r, z)
 
     a = 1.0
     V = 230 * sqrt(2.0)
@@ -81,18 +81,18 @@ def _convert_to_complex(A):
     assert(m == n)
 
     # Prepare index sets.
-    I0 = np.array(range(0, n, 2))
-    I1 = np.array(range(1, n, 2))
+    I0 = numpy.array(range(0, n, 2))
+    I1 = numpy.array(range(1, n, 2))
 
     # <http://stackoverflow.com/questions/7609108/slicing-sparse-scipy-matrix>
-    ReA0 = A[I0[:, np.newaxis], I0]
-    ReA1 = A[I1[:, np.newaxis], I1]
+    ReA0 = A[I0[:, numpy.newaxis], I0]
+    ReA1 = A[I1[:, numpy.newaxis], I1]
 
     # Make sure those are equal
     diffA = ReA0 - ReA1
-    alpha = np.sqrt(np.vdot(diffA.data, diffA.data))
+    alpha = numpy.sqrt(numpy.vdot(diffA.data, diffA.data))
     diffB = ReA0 + ReA1
-    beta = np.sqrt(np.vdot(diffB.data, diffB.data))
+    beta = numpy.sqrt(numpy.vdot(diffB.data, diffB.data))
     if alpha < 1.0e-10:
         ReA = ReA0
     elif beta < 1.0e-10:
@@ -100,13 +100,13 @@ def _convert_to_complex(A):
     else:
         raise ValueError('||ReA0 - ReA1||_fro = %e' % alpha)
 
-    ImA0 = A[I0[:, np.newaxis], I1]
-    ImA1 = A[I1[:, np.newaxis], I0]
+    ImA0 = A[I0[:, numpy.newaxis], I1]
+    ImA1 = A[I1[:, numpy.newaxis], I0]
 
     diffA = ImA0 + ImA1
     diffB = ImA0 - ImA1
-    alpha = np.sqrt(np.vdot(diffA.data, diffA.data))
-    beta = np.sqrt(np.vdot(diffB.data, diffB.data))
+    alpha = numpy.sqrt(numpy.vdot(diffA.data, diffA.data))
+    beta = numpy.sqrt(numpy.vdot(diffB.data, diffB.data))
     if alpha < 1.0e-10:
         ImA = -ImA0
     elif beta < 1.0e-10:
@@ -153,11 +153,12 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     parameter_sweep = False
     if parameter_sweep:
         # Find good AMG parameters for P.
-        solver_diagnostics(Pc,
-                           fname='results/my_maxwell_solver_diagnostic',
-                           # definiteness='positive',
-                           # symmetry='hermitian'
-                           )
+        solver_diagnostics(
+                Pc,
+                fname='results/my_maxwell_solver_diagnostic',
+                # definiteness='positive',
+                # symmetry='hermitian'
+                )
 
     # Do a MINRES iteration for P^{-1}A.
     # Create solver
@@ -180,7 +181,7 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
         )
 
     def _apply_inverse_prec_exact(rhs):
-        x_init = np.zeros((n, 1), dtype=complex)
+        x_init = numpy.zeros((n, 1), dtype=complex)
         out = krypy.linsys.cg(Pc, rhs, x_init,
                               tol=1.0e-13,
                               M=ml.aspreconditioner(cycle='V')
@@ -199,11 +200,11 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     ch = pp.cm.get_cmap('cubehelix')
     # Construct right-hand side.
     m, n = Ac.shape
-    b = np.random.rand(n) + 1j * np.random.rand(n)
+    b = numpy.random.rand(n) + 1j * numpy.random.rand(n)
     for k, cycles in enumerate(Cycles):
         def _apply_inverse_prec_cycles(rhs):
-            x_init = np.zeros((n, 1), dtype=complex)
-            x = np.empty((n, 1), dtype=complex)
+            x_init = numpy.zeros((n, 1), dtype=complex)
+            x = numpy.empty((n, 1), dtype=complex)
             residuals = []
             x[:, 0] = ml.solve(rhs,
                                x0=x_init,
@@ -212,40 +213,43 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
                                accel=None,
                                residuals=residuals
                                )
-            ## Alternative for one cycle:
-            #amg_prec = ml.aspreconditioner( cycle='V' )
-            #x = amg_prec * rhs
+            # # Alternative for one cycle:
+            # amg_prec = ml.aspreconditioner( cycle='V' )
+            # x = amg_prec * rhs
             return x
 
-        prec = scipy.sparse.linalg.LinearOperator((n, n),
-                                                  _apply_inverse_prec_cycles,
-                                                  #_apply_inverse_prec_exact,
-                                                  dtype=complex
-                                                  )
-        out = krypy.linsys.gmres(Ac, b,
-                                 M=prec,
-                                 maxiter=100,
-                                 tol=1.0e-13,
-                                 explicit_residual=True
-                                 )
+        prec = scipy.sparse.linalg.LinearOperator(
+                (n, n),
+                _apply_inverse_prec_cycles,
+                # _apply_inverse_prec_exact,
+                dtype=complex
+                )
+        out = krypy.linsys.gmres(
+                Ac, b,
+                M=prec,
+                maxiter=100,
+                tol=1.0e-13,
+                explicit_residual=True
+                )
         info(cycles)
-        #alpha = float(cycles-1) / max(Cycles)
+        # a lpha = float(cycles-1) / max(Cycles)
         alpha = float(k) / len(Cycles)
-        pp.semilogy(out['relresvec'], '.-',
-                    label=cycles,
-                    color=ch(alpha)
-                    #color = '%e' % alpha
-                    )
+        pp.semilogy(
+                out['relresvec'], '.-',
+                label=cycles,
+                color=ch(alpha)
+                # color = '%e' % alpha
+                )
     pp.legend(title='Number of AMG cycles for P^{~1}')
     pp.title('GMRES convergence history for P^{~1}A (%d x %d)' % Ac.shape)
     pp.show()
     return
 
 
-def _main():
-    # _show_currentloop_field()
+def test():
+    points, cells, point_data, cell_data, _ = \
+            meshes.crucible_with_coils.generate()
 
-    problem = probs.crucible.CrucibleProblem()
     submesh_workpiece = problem.mesh()
 
     # The voltage is defined as
@@ -255,28 +259,31 @@ def _main():
     #          = sin(omega t + arg(v)) |v|.
     #
     # Hence, for a lagging voltage, arg(v) needs to be negative.
-    voltages = [38.0 * np.exp(-1j * 2*pi * 2 * 70.0/360.0),
-                38.0 * np.exp(-1j * 2*pi * 1 * 70.0/360.0),
-                38.0 * np.exp(-1j * 2*pi * 0 * 70.0/360.0),
-                25.0 * np.exp(-1j * 2*pi * 0 * 70.0/360.0),
-                25.0 * np.exp(-1j * 2*pi * 1 * 70.0/360.0)
-                ]
+    voltages = [
+        38.0 * numpy.exp(-1j * 2*pi * 2 * 70.0/360.0),
+        38.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0),
+        38.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
+        25.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
+        25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
+        ]
     #
-    #voltages = [0.0, 0.0, 0.0, 0.0, 0.0]
+    # voltages = [0.0, 0.0, 0.0, 0.0, 0.0]
     #
-    #voltages = [25.0 * np.exp(-1j * 2*pi * 2 * 70.0/360.0),
-    #            25.0 * np.exp(-1j * 2*pi * 1 * 70.0/360.0),
-    #            25.0 * np.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #            38.0 * np.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #            38.0 * np.exp(-1j * 2*pi * 1 * 70.0/360.0)
-    #            ]
+    # voltages = [
+    #     25.0 * numpy.exp(-1j * 2*pi * 2 * 70.0/360.0),
+    #     25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0),
+    #     25.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
+    #     38.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
+    #     38.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
+    #     ]
     #
-    #voltages = [38.0 * np.exp(+1j * 2*pi * 2 * 70.0/360.0),
-    #            38.0 * np.exp(+1j * 2*pi * 1 * 70.0/360.0),
-    #            38.0 * np.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #            25.0 * np.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #            25.0 * np.exp(+1j * 2*pi * 1 * 70.0/360.0)
-    #            ]
+    # voltages = [
+    #     38.0 * numpy.exp(+1j * 2*pi * 2 * 70.0/360.0),
+    #     38.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0),
+    #     38.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
+    #     25.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
+    #     25.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0)
+    #     ]
 
     info('Input voltages:')
     info('%r' % voltages)
@@ -284,16 +291,11 @@ def _main():
     # Merge coil rings with voltages.
     coils = []
     for coil_domain, voltage in zip(problem.coil_domains, voltages):
-        coils.append({'rings': coil_domain,
-                      'c_type': 'voltage',
-                      'c_value': voltage
-                      })
-
-    show_subdomains = False
-    if show_subdomains:
-        filename = './results/subdomains.xdmf'
-        subdomains_file = XDMFFile(filename)
-        subdomains_file << problem.subdomains
+        coils.append({
+            'rings': coil_domain,
+            'c_type': 'voltage',
+            'c_value': voltage
+            })
 
     subdomain_indices = problem.subdomain_materials.keys()
 
@@ -309,7 +311,7 @@ def _main():
         sigma[i] = params[material]['electrical conductivity'](background_temp)
 
     dx = Measure('dx')[subdomains]
-    #boundaries = mesh.domains().facet_domains()
+    # boundaries = mesh.domains().facet_domains()
     ds = Measure('ds')[subdomains]
 
     # Function space for Maxwell.
@@ -329,24 +331,25 @@ def _main():
         conv = {wpi: u_1}
     else:
         conv = {}
-    Phi, voltages = cmx.compute_potential(coils,
-                                          V,
-                                          dx, ds,
-                                          mu, sigma, omega,
-                                          convections=conv
-                                          )
+    Phi, voltages = cmx.compute_potential(
+            coils,
+            V,
+            dx, ds,
+            mu, sigma, omega,
+            convections=conv
+            )
 
-    ## show current in the first ring of hte first coil
-    #ii = coils[0]['rings'][0]
-    #submesh_coil = SubMesh(mesh, subdomains, ii)
-    #V1 = FunctionSpace(submesh_coil, 'CG', ii)
+    # # show current in the first ring of hte first coil
+    # ii = coils[0]['rings'][0]
+    # submesh_coil = SubMesh(mesh, subdomains, ii)
+    # V1 = FunctionSpace(submesh_coil, 'CG', ii)
 
-    ##File('results/phi.xdmf') << project(as_vector((Phi_r, Phi_i)), V*V)
+    # #File('results/phi.xdmf') << project(as_vector((Phi_r, Phi_i)), V*V)
     plot(Phi[0], title='Re(Phi)')
     plot(Phi[1], title='Im(Phi)')
-    #plot(project(Phi_r, V1), title='Re(Phi)')
-    #plot(project(Phi_i, V1), title='Im(Phi)')
-    #interactive()
+    # plot(project(Phi_r, V1), title='Re(Phi)')
+    # plot(project(Phi_i, V1), title='Im(Phi)')
+    # interactive()
 
     check_currents = False
     if check_currents:
@@ -360,19 +363,20 @@ def _main():
                 alpha = assemble(J_r * dx(ii))
                 beta = assemble(J_i * dx(ii))
                 info('J = %e + i %e' % (alpha, beta))
-                info('|J|/sqrt(2) = %e' % np.sqrt(0.5 * (alpha**2 + beta**2)))
+                info(
+                    '|J|/sqrt(2) = %e' % numpy.sqrt(0.5 * (alpha**2 + beta**2))
+                    )
                 submesh = SubMesh(mesh, subdomains, ii)
                 V1 = FunctionSpace(submesh, 'CG', 1)
                 # Those projections may take *very* long.
                 # TODO find out why
                 j_v1 = [project(J_r, V1),
                         project(J_i, V1)]
-                #plot(j_v1[0], title='j_r')
-                #plot(j_v1[1], title='j_i')
-                #interactive()
+                # plot(j_v1[0], title='j_r')
+                # plot(j_v1[1], title='j_i')
+                # interactive()
                 File('results/j%d.xdmf' % ii) << \
                     project(as_vector(j_v1), V1*V1)
-                #exit()
                 k += 1
         end()
 
@@ -386,7 +390,7 @@ def _main():
         phi = Function(V, name='phi')
         Phi0 = project(Phi[0], V)
         Phi1 = project(Phi[1], V)
-        for t in np.linspace(0.0, 2*np.pi/omega, num=100, endpoint=False):
+        for t in numpy.linspace(0.0, 2*numpy.pi/omega, num=100, endpoint=False):
             # Im(Phi * exp(i*omega*t))
             phi.vector().zero()
             phi.vector().axpy(sin(omega*t), Phi0.vector())
@@ -419,7 +423,7 @@ def _main():
             interactive()
         else:
             # Write those out to a file.
-            for t in np.linspace(0.0, 2*np.pi/omega, num=100, endpoint=False):
+            for t in numpy.linspace(0.0, 2*numpy.pi/omega, num=100, endpoint=False):
                 # Im(B * exp(i*omega*t))
                 B.vector().zero()
                 B.vector().axpy(sin(omega*t), B_r.vector())
@@ -469,25 +473,25 @@ def _main():
     #    plot(jp, title='heat source')
     #    interactive()
 
-    ## For the lulz: solve heat equation with the Joule source.
-    #u = TrialFunction(V)
-    #v = TestFunction(V)
-    #a = zero() * dx(0)
-    #r = Expression('x[0]', degree=1, cell=triangle)
-    ## v/r doesn't hurt: hom. dirichlet boundary for r=0.
-    #for i in subdomain_indices:
-    #    a += dot(kappa[i] * r * grad(u), grad(v/r)) * dx(i)
-    #sol = Function(V)
-    #class OuterBoundary(SubDomain):
-    #    def inside(self, x, on_boundary):
-    #        return on_boundary and abs(x[0]) > DOLFIN_EPS
-    #outer_boundary = OuterBoundary()
-    #bcs = DirichletBC(V, background_temp, outer_boundary)
-    #solve(a == joule, sol, bcs=bcs)
-    #plot(sol)
-    #interactive()
+    # # For the lulz: solve heat equation with the Joule source.
+    # u = TrialFunction(V)
+    # v = TestFunction(V)
+    # a = zero() * dx(0)
+    # r = Expression('x[0]', degree=1, cell=triangle)
+    # # v/r doesn't hurt: hom. dirichlet boundary for r=0.
+    # for i in subdomain_indices:
+    #     a += dot(kappa[i] * r * grad(u), grad(v/r)) * dx(i)
+    # sol = Function(V)
+    # class OuterBoundary(SubDomain):
+    #     def inside(self, x, on_boundary):
+    #         return on_boundary and abs(x[0]) > DOLFIN_EPS
+    # outer_boundary = OuterBoundary()
+    # bcs = DirichletBC(V, background_temp, outer_boundary)
+    # solve(a == joule, sol, bcs=bcs)
+    # plot(sol)
+    # interactive()
     return
 
 
 if __name__ == '__main__':
-    _main()
+    test()

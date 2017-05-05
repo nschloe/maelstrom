@@ -87,7 +87,7 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     return line_loops, fields
 
 
-def generate():
+def _define():
     geom = pygmsh.Geometry()
 
     line_loops = []
@@ -354,9 +354,13 @@ def generate():
     return geom
 
 
+def generate():
+    return pygmsh.generate_mesh(_define())
+
+
 if __name__ == '__main__':
     import meshio
-    points, cells, point_data, cell_data, _ = pygmsh.generate_mesh(generate())
+    points, cells, point_data, cell_data, _ = generate()
     meshio.write(
             'out.vtu',
             points,

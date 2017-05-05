@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-from dolfin import FunctionSpace, Constant, Measure, TrialFunction, \
-    TestFunction, dot, grad, div, assemble, lhs, rhs, Function, \
+from dolfin import (
+    FunctionSpace, Constant, Measure, TrialFunction,
+    TestFunction, dot, grad, div, assemble, lhs, rhs, Function,
     XDMFFile, dx, KrylovSolver, DirichletBC
+    )
 
-from maelstrom.materials_database import MATERIAL_PARAMETERS as params
+import materials
 import maelstrom.time_steppers as ts
 # import maelstrom.stabilization as stab
 import maelstrom.problems as probs
@@ -20,11 +22,10 @@ def _main():
     Q = FunctionSpace(mesh, 'CG', 1)
 
     # material = 'graphite'
-    material = 'water'
     background_temp = 293.0
-    rho = params[material]['density'](background_temp)
-    cp = params[material]['specific heat capacity'](background_temp)
-    kappa = params[material]['thermal conductivity'](background_temp)
+    rho = materials.water['density'](background_temp)
+    cp = materials.water['specific heat capacity'](background_temp)
+    kappa = materials.water['thermal conductivity'](background_temp)
 
     dt = 1.0e1
     T = 1000.0
@@ -142,16 +143,17 @@ def _main():
     stepper = ts.ImplicitEuler(problem)
     # stepper = ts.Trapezoidal(problem)
     while t < T:
-        theta = stepper.step(theta_1,
-                             t, dt,
-                             # TODO combine the following set to "solver
-                             # parameters"
-                             tol=1.0e-12,
-                             maxiter=1000,
-                             # verbose=True,
-                             krylov='gmres',
-                             preconditioner='amg'
-                             )
+        theta = stepper.step(
+                theta_1,
+                t, dt,
+                # TODO combine the following set to "solver
+                # parameters"
+                tol=1.0e-12,
+                maxiter=1000,
+                # verbose=True,
+                krylov='gmres',
+                preconditioner='amg'
+                )
         theta_1.assign(theta)
         theta_file << (theta_1, t)
         plot(theta_1, title='temperature')
