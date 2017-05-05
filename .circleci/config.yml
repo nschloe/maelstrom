@@ -14,7 +14,7 @@ jobs:
     steps:
       - run: sudo apt update
       - run: sudo apt install -y git
-      - run: sudo -H pip install matplotlib pytest pytest-cov
+      - run: sudo -H pip3 install matplotlib pytest pytest-cov
       - checkout
       # The actual test
       - run: PYTHONPATH=$PWD:$PYTHONPATH pytest tests/ --cov maelstrom
