@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 import helpers
-import maelstrom.maxwell_cylindrical as mcyl
+import maelstrom.maxwell as maxwell
 
 from dolfin import (
     FunctionSpace, errornorm, UnitSquareMesh, Measure, CellFunction,
@@ -245,7 +245,7 @@ def test_residual(problem):
     rhs = {0: f['value']}
 
     # solve equation system
-    phi_list = mcyl.solve(
+    phi_list = maxwell.solve(
             V, dx,
             Mu=Mu,
             Sigma=Sigma,
@@ -325,7 +325,7 @@ def _compute_errors(problem, mesh_sizes):
         hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
         V = FunctionSpace(mesh, 'CG', 1)
         # TODO don't hardcode Mu, Sigma, ...
-        phi_approx = mcyl.solve(
+        phi_approx = maxwell.solve(
                 V, dx,
                 Mu={0: 1.0},
                 Sigma={0: 1.0},
