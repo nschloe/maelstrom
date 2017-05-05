@@ -9,8 +9,8 @@ jobs:
       - image: quay.io/fenicsproject/dev
         user: fenics
         environment:
-          LD_LIBRARY_PATH: ~/local/lib
-          CMAKE_PREFIX_PATH: ~/local
+          LD_LIBRARY_PATH: /home/fenics/local/lib
+          CMAKE_PREFIX_PATH: /home/fenics/local
     steps:
       - run: sudo apt update
       - run: sudo apt install -y git
