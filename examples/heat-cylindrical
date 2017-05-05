@@ -193,9 +193,8 @@ def _solve(stationary):
               solver_parameters={
                   'linear_solver': 'iterative',
                   'symmetric': False,
-                  # AMG won't work well if the convection is
-                  # too strong.
-                  'preconditioner': 'amg',
+                  # AMG won't work well if the convection is too strong.
+                  'preconditioner': 'hypre_amg',
                   'krylov_solver': {'relative_tolerance': 1.0e-12,
                                     'absolute_tolerance': 0.0,
                                     'maximum_iterations': 100,
@@ -220,7 +219,7 @@ def _solve(stationary):
               solver_parameters={
                   'linear_solver': 'iterative',
                   'symmetric': False,
-                  'preconditioner': 'amg',
+                  'preconditioner': 'hypre_amg',
                   'krylov_solver': {'relative_tolerance': 1.0e-12,
                                     'absolute_tolerance': 0.0,
                                     'maximum_iterations': 100,
@@ -235,18 +234,19 @@ def _solve(stationary):
         theta_1.interpolate(theta0)
         t = 0.0
         while t < end_time:
-            theta = ts.implicit_euler_step(Q,
-                                           weak_F,
-                                           theta_1,
-                                           t, dt,
-                                           dx=2*pi*r*dx,
-                                           sympy_dirichlet_bcs=theta_bcs_d,
-                                           tol=1.0e-10,
-                                           verbose=False,
-                                           # problem is symmetric =>
-                                           krylov='cg',
-                                           preconditioner='amg'
-                                           )
+            theta = ts.implicit_euler_step(
+                    Q,
+                    weak_F,
+                    theta_1,
+                    t, dt,
+                    dx=2*pi*r*dx,
+                    sympy_dirichlet_bcs=theta_bcs_d,
+                    tol=1.0e-10,
+                    verbose=False,
+                    # problem is symmetric =>
+                    krylov='cg',
+                    preconditioner='hypre_amg'
+                    )
             theta_1.assign(theta)
             theta_file << (theta_1, t)
             plot(theta_1, title='temperature')

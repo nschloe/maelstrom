@@ -104,48 +104,6 @@ def _assert_time_order(problem, MethodClass, tol=1.0e-10):
 def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
 
     mesh_generator, solution, f, mu, rho, cell_type = problem()
-    # Translate data into FEniCS expressions.
-    sol_u = Expression(
-            (
-                sympy.printing.ccode(solution['u']['value'][0]),
-                sympy.printing.ccode(solution['u']['value'][1])
-            ),
-            degree=_truncate_degree(solution['u']['degree']),
-            t=0.0,
-            cell=cell_type
-            )
-    sol_p = Expression(
-            sympy.printing.ccode(solution['p']['value']),
-            degree=_truncate_degree(solution['p']['degree']),
-            t=0.0,
-            cell=cell_type
-            )
-
-    fenics_rhs0 = Expression(
-            (
-                sympy.printing.ccode(f['value'][0]),
-                sympy.printing.ccode(f['value'][1])
-            ),
-            degree=_truncate_degree(f['degree']),
-            t=0.0,
-            mu=mu, rho=rho,
-            cell=cell_type
-            )
-    # Deep-copy expression to be able to provide f0, f1 for the Dirichlet-
-    # boundary conditions later on.
-    fenics_rhs1 = Expression(fenics_rhs0.cppcode,
-                             degree=_truncate_degree(f['degree']),
-                             t=0.0,
-                             mu=mu, rho=rho,
-                             cell=cell_type
-                             )
-    # Create initial states.
-    p0 = Expression(
-        sol_p.cppcode,
-        degree=_truncate_degree(solution['p']['degree']),
-        t=0.0,
-        cell=cell_type
-        )
 
     # Compute the problem
     errors = {
@@ -157,6 +115,54 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
         info('')
         with Message('Computing for mesh size %r...' % mesh_size):
             mesh = mesh_generator(mesh_size)
+
+            # Define all expression with `domain`, see
+            # <https://bitbucket.org/fenics-project/ufl/issues/96>.
+            #
+            # Translate data into FEniCS expressions.
+            sol_u = Expression(
+                    (
+                        sympy.printing.ccode(solution['u']['value'][0]),
+                        sympy.printing.ccode(solution['u']['value'][1])
+                    ),
+                    degree=_truncate_degree(solution['u']['degree']),
+                    t=0.0,
+                    domain=mesh
+                    )
+            sol_p = Expression(
+                    sympy.printing.ccode(solution['p']['value']),
+                    degree=_truncate_degree(solution['p']['degree']),
+                    t=0.0,
+                    domain=mesh
+                    )
+
+            fenics_rhs0 = Expression(
+                    (
+                        sympy.printing.ccode(f['value'][0]),
+                        sympy.printing.ccode(f['value'][1])
+                    ),
+                    degree=_truncate_degree(f['degree']),
+                    t=0.0,
+                    mu=mu, rho=rho,
+                    domain=mesh
+                    )
+            # Deep-copy expression to be able to provide f0, f1 for the
+            # Dirichlet boundary conditions later on.
+            fenics_rhs1 = Expression(
+                    fenics_rhs0.cppcode,
+                    degree=_truncate_degree(f['degree']),
+                    t=0.0,
+                    mu=mu, rho=rho,
+                    domain=mesh
+                    )
+            # Create initial states.
+            p0 = Expression(
+                    sol_p.cppcode,
+                    degree=_truncate_degree(solution['p']['degree']),
+                    t=0.0,
+                    domain=mesh
+                    )
+
             mesh_area = assemble(1.0 * dx(mesh))
             W = VectorFunctionSpace(mesh, 'CG', 2)
             P = FunctionSpace(mesh, 'CG', 1)

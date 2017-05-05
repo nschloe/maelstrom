@@ -31,7 +31,8 @@ from dolfin import (
     pi, dx, DOLFIN_EPS, div, solve, derivative, project, TrialFunction,
     PETScPreconditioner, PETScKrylovSolver, plot, interactive, as_backend_type,
     FunctionSpace, info, refine, assemble, norm, FacetNormal, sqrt, ds,
-    DirichletBC, as_vector, NonlinearProblem, NewtonSolver, TestFunctions
+    DirichletBC, as_vector, NonlinearProblem, NewtonSolver, TestFunctions,
+    SpatialCoordinate, diff
     )
 
 from . import stabilization as stab
@@ -65,16 +66,16 @@ def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
     # follow from the dynamics of the system.
     #
     # TODO some more explanation for the following lines of code
-    r = Expression('x[0]', degree=1, domain=v.function_space().mesh())
+    mesh = v.function_space().mesh()
+    r = SpatialCoordinate(mesh)[0]
     F = rho * 0.5 * (dot(grad(u) * u, v) - dot(grad(v) * u, u)) * 2*pi*r*dx \
         + mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
         + mu * u[0] / r * v[0] * 2 * pi * dx \
         - dot(f, v) * 2 * pi * r * dx
     if p:
-        F += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2 * pi * r * dx
+        F += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * dx
     if len(u) == 3:
-        F += rho * (-u[2] * u[2] * v[0] + u[0] * u[2] * v[2]) \
-            * 2 * pi * dx
+        F += rho * (-u[2] * u[2] * v[0] + u[0] * u[2] * v[2]) * 2*pi * dx
         F += mu * u[2] / r * v[2] * 2 * pi * dx
 
     if stabilization == 'SUPG':
@@ -440,7 +441,7 @@ class PressureProjection(object):
                 solver_parameters={
                     'linear_solver': 'iterative',
                     'symmetric': True,
-                    'preconditioner': 'amg',
+                    'preconditioner': 'hypre_amg',
                     'krylov_solver': {
                         'relative_tolerance': tol,
                         'absolute_tolerance': 0.0,
@@ -529,7 +530,7 @@ class PressureProjection(object):
                 solver_parameters={
                     'linear_solver': 'iterative',
                     'symmetric': True,
-                    'preconditioner': 'amg',
+                    'preconditioner': 'hypre_amg',
                     'krylov_solver': {
                         'relative_tolerance': tol,
                         'absolute_tolerance': 0.0,
@@ -632,8 +633,6 @@ class PressureProjection(object):
             p1_petsc = as_backend_type(p1.vector())
             solver.set_operator(A_petsc)
             solver.solve(p1_petsc, b_petsc)
-            # This would be the stump for Epetra:
-            # solve(A, p.vector(), b, 'cg', 'ml_amg')
         return
 
 

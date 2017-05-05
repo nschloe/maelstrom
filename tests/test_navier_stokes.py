@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-import maelstrom.navier_stokes_cylindrical as ns_cyl
+import maelstrom.navier_stokes as ns_cyl
 import helpers
 
 from dolfin import (

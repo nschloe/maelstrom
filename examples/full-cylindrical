@@ -876,7 +876,7 @@ def _solve_stationary(problem, theta, t=0.0, verbose=True, mode='lu'):
 
     elif mode == 'krylov':
         # AMG won't work well if the convection is too strong.
-        solver = KrylovSolver('gmres', 'amg')
+        solver = KrylovSolver('gmres', 'hypre_amg')
         solver.parameters['relative_tolerance'] = 1.0e-12
         solver.parameters['absolute_tolerance'] = 0.0
         solver.parameters['maximum_iterations'] = 142
