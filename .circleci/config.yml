@@ -4,22 +4,20 @@ jobs:
   build:
     working_directory: ~/maelstrom
     docker:
-      # Can't use FEniCS's own containers yet; see
-      # <https://bitbucket.org/fenics-project/docker/issues/61/petsc-vectorfunctionspace-amg-malloc>.
-      - image: ubuntu:16.04
+      # Use dev image for XDMF interface support
+      # - image: quay.io/fenicsproject/stable:current
+      - image: quay.io/fenicsproject/dev
+        user: fenics
+        environment:
+          LD_LIBRARY_PATH: ~/local/lib
+          CMAKE_PREFIX_PATH: ~/local
     steps:
-      - run: apt-get update
-      - run: apt-get install -y software-properties-common
-      - run: add-apt-repository -s -y ppa:fenics-packages/fenics
-      - run: apt-get update
-      - run: apt-get install -y python-dolfin
-      - run: apt-get install -y python-numpy
-      - run: apt-get install -y python-pip
-      - run: apt-get install -y git
-      - run: pip install matplotlib pytest pytest-cov
+      - run: sudo apt update
+      - run: sudo apt install -y git
+      - run: sudo -H pip install matplotlib pytest pytest-cov
       - checkout
       # The actual test
-      - run: PYTHONPATH=$PWD:$PYTHONPATH MPLBACKEND=Agg pytest --cov maelstrom
+      - run: PYTHONPATH=$PWD:$PYTHONPATH pytest --cov maelstrom
       # submit to codecov
-      - run: apt-get install -y curl
+      - run: sudo apt install -y curl
       - run: bash <(curl -s https://codecov.io/bash)
