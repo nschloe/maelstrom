@@ -75,8 +75,8 @@ def stokes_solve(
         prec = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
             - p * q * 2 * pi * r * dx
         P, btmp = assemble_system(prec, L, new_bcs)
-        solver = KrylovSolver('tfqmr', 'petsc_amg')
-        # solver = KrylovSolver('gmres', 'petsc_amg')
+        solver = KrylovSolver('tfqmr', 'hypre_amg')
+        # solver = KrylovSolver('gmres', 'hypre_amg')
         solver.set_operators(A, P)
 
         solver.parameters['monitor_convergence'] = verbose

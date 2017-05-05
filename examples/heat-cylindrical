@@ -194,7 +194,7 @@ def _solve(stationary):
                   'linear_solver': 'iterative',
                   'symmetric': False,
                   # AMG won't work well if the convection is too strong.
-                  'preconditioner': 'petsc_amg',
+                  'preconditioner': 'hypre_amg',
                   'krylov_solver': {'relative_tolerance': 1.0e-12,
                                     'absolute_tolerance': 0.0,
                                     'maximum_iterations': 100,
@@ -219,7 +219,7 @@ def _solve(stationary):
               solver_parameters={
                   'linear_solver': 'iterative',
                   'symmetric': False,
-                  'preconditioner': 'petsc_amg',
+                  'preconditioner': 'hypre_amg',
                   'krylov_solver': {'relative_tolerance': 1.0e-12,
                                     'absolute_tolerance': 0.0,
                                     'maximum_iterations': 100,
@@ -245,7 +245,7 @@ def _solve(stationary):
                     verbose=False,
                     # problem is symmetric =>
                     krylov='cg',
-                    preconditioner='petsc_amg'
+                    preconditioner='hypre_amg'
                     )
             theta_1.assign(theta)
             theta_file << (theta_1, t)

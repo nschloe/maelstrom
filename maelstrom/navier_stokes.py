@@ -441,7 +441,7 @@ class PressureProjection(object):
                 solver_parameters={
                     'linear_solver': 'iterative',
                     'symmetric': True,
-                    'preconditioner': 'petsc_amg',
+                    'preconditioner': 'hypre_amg',
                     'krylov_solver': {
                         'relative_tolerance': tol,
                         'absolute_tolerance': 0.0,
@@ -530,7 +530,7 @@ class PressureProjection(object):
                 solver_parameters={
                     'linear_solver': 'iterative',
                     'symmetric': True,
-                    'preconditioner': 'petsc_amg',
+                    'preconditioner': 'hypre_amg',
                     'krylov_solver': {
                         'relative_tolerance': tol,
                         'absolute_tolerance': 0.0,
@@ -619,7 +619,7 @@ class PressureProjection(object):
             # then, so try Jacobi here.
             # <http://lists.mcs.anl.gov/pipermail/petsc-users/2012-February/012139.html>
             #
-            prec = PETScPreconditioner('petsc_amg')
+            prec = PETScPreconditioner('hypre_amg')
             from dolfin import PETScOptions
             PETScOptions.set('pc_hypre_boomeramg_relax_type_coarse', 'jacobi')
             solver = PETScKrylovSolver('cg', prec)

@@ -217,7 +217,7 @@ def solve(
     # prepare solver
     # Don't use 'amg', since that defaults to `ml_amg` if available which
     # crashes <https://bitbucket.org/fenics-project/docker/issues/61/petsc-vectorfunctionspace-amg-malloc>.
-    solver = KrylovSolver('gmres', 'petsc_amg')
+    solver = KrylovSolver('gmres', 'hypre_amg')
     solver.set_operators(A, P)
 
     # The PDE for A has huge coefficients (order 10^8) all over. Hence, if
