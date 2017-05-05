@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 #
+from . import meshes
+from . import my_materials
+
+from maelstrom import heat as cyl_heat
+
 from dolfin import (
-    Mesh, MeshFunction, SubMesh, SubDomain, FacetFunction, DirichletBC, dot,
-    grad, FunctionSpace, Expression, FacetNormal, pi, Function, Constant,
+    Mesh, SubMesh, SubDomain, FacetFunction, DirichletBC, dot, grad,
+    FunctionSpace, Expression, FacetNormal, pi, Function, Constant,
     TestFunction, MPI, mpi_comm_world, File
     )
 import materials
@@ -10,11 +15,6 @@ import meshio
 import numpy
 import os
 import warnings
-
-from maelstrom import heat as cyl_heat
-
-from . import meshes
-from . import materials as my_materials
 
 DEBUG = False
 
@@ -47,7 +47,7 @@ class Crucible():
 
         # coils
         for k in range(5, 27):
-            self.subdomain_materials[k] = materials.ek90
+            self.subdomain_materials[k] = my_materials.ek90
 
         # Define the subdomains which together form a single coil.
         self.coil_domains = [
