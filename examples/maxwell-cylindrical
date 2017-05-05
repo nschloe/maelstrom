@@ -8,7 +8,6 @@ from dolfin import parameters, XDMFFile, plot, interactive, Measure, \
     FunctionSpace, Expression, triangle, begin, end, SubMesh, project, \
     Function, assemble, grad, as_vector, File, DOLFIN_EPS, info
 
-import maelstrom.materials_database as md
 import maelstrom.maxwell_cylindrical as cmx
 import maelstrom.problems as probs
 
@@ -190,8 +189,8 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
             info('Preconditioner did not converge; last residual: %g'
                  % out['relresvec'][-1]
                  )
-        ## Forget about the cycle used to gauge the residual norm.
-        #self.tot_amg_cycles += [len(out['relresvec']) - 1]
+        # # Forget about the cycle used to gauge the residual norm.
+        # self.tot_amg_cycles += [len(out['relresvec']) - 1]
         return out['xk']
 
     # Test preconditioning with approximations of P^{-1}, i.e., systems with
@@ -244,7 +243,7 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
 
 
 def _main():
-    #_show_currentloop_field()
+    # _show_currentloop_field()
 
     problem = probs.crucible.CrucibleProblem()
     submesh_workpiece = problem.mesh()

@@ -441,7 +441,7 @@ class PressureProjection(object):
                 solver_parameters={
                     'linear_solver': 'iterative',
                     'symmetric': True,
-                    'preconditioner': 'amg',
+                    'preconditioner': 'petsc_amg',
                     'krylov_solver': {
                         'relative_tolerance': tol,
                         'absolute_tolerance': 0.0,
@@ -530,7 +530,7 @@ class PressureProjection(object):
                 solver_parameters={
                     'linear_solver': 'iterative',
                     'symmetric': True,
-                    'preconditioner': 'amg',
+                    'preconditioner': 'petsc_amg',
                     'krylov_solver': {
                         'relative_tolerance': tol,
                         'absolute_tolerance': 0.0,
@@ -619,7 +619,7 @@ class PressureProjection(object):
             # then, so try Jacobi here.
             # <http://lists.mcs.anl.gov/pipermail/petsc-users/2012-February/012139.html>
             #
-            prec = PETScPreconditioner('hypre_amg')
+            prec = PETScPreconditioner('petsc_amg')
             from dolfin import PETScOptions
             PETScOptions.set('pc_hypre_boomeramg_relax_type_coarse', 'jacobi')
             solver = PETScKrylovSolver('cg', prec)
@@ -633,8 +633,6 @@ class PressureProjection(object):
             p1_petsc = as_backend_type(p1.vector())
             solver.set_operator(A_petsc)
             solver.solve(p1_petsc, b_petsc)
-            # This would be the stump for Epetra:
-            # solve(A, p.vector(), b, 'cg', 'ml_amg')
         return
 
 
