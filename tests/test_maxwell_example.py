@@ -6,12 +6,12 @@ from dolfin import (
     Expression, triangle, begin, end, SubMesh, project, Function, assemble,
     grad, as_vector, File, DOLFIN_EPS, info
     )
+import matplotlib.pyplot as plt
 import numpy
 from numpy import pi, sin, cos
 
 import maelstrom.maxwell as cmx
 
-import meshes
 import problems
 
 # We need to allow extrapolation here since otherwise, the equation systems
@@ -24,7 +24,6 @@ parameters['allow_extrapolation'] = True
 def _show_currentloop_field():
     '''http://www.netdenizen.com/emagnettest/offaxis/?offaxisloop
     '''
-    from matplotlib import pyplot as pp
     from numpy import sqrt
 
     r = numpy.linspace(0.0, 3.0, 51)
@@ -55,12 +54,14 @@ def _show_currentloop_field():
     U = B0 * gamma / (pi*sqrt(Q)) \
         * (Ek * (1.0 + alpha**2 + beta**2)/(Q - 4*alpha) - Kk)
 
-    Q = pp.quiver(R, Z, U, V)
-    pp.quiverkey(Q, 0.7, 0.92, 1e4, '$1e4$',
-                 labelpos='W',
-                 fontproperties={'weight': 'bold'},
-                 color='r')
-    pp.show()
+    Q = plt.quiver(R, Z, U, V)
+    plt.quiverkey(
+            Q, 0.7, 0.92, 1e4, '$1e4$',
+            labelpos='W',
+            fontproperties={'weight': 'bold'},
+            color='r'
+            )
+    plt.show()
     return
 
 
@@ -118,12 +119,10 @@ def _convert_to_complex(A):
 
 
 def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
-
     import pyamg
     import krypy
     import scipy.sparse
     from maelstrom.solver_diagnostics import solver_diagnostics
-    from matplotlib import pyplot as pp
 
     # Only calculate in one coil.
     v_ref = 1.0
@@ -197,7 +196,7 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     # Test preconditioning with approximations of P^{-1}, i.e., systems with
     # P are solved with k number of AMG cycles.
     Cycles = [1, 2, 5, 10]
-    ch = pp.cm.get_cmap('cubehelix')
+    ch = plt.cm.get_cmap('cubehelix')
     # Construct right-hand side.
     m, n = Ac.shape
     b = numpy.random.rand(n) + 1j * numpy.random.rand(n)
@@ -234,21 +233,20 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
         info(cycles)
         # a lpha = float(cycles-1) / max(Cycles)
         alpha = float(k) / len(Cycles)
-        pp.semilogy(
+        plt.semilogy(
                 out['relresvec'], '.-',
                 label=cycles,
                 color=ch(alpha)
                 # color = '%e' % alpha
                 )
-    pp.legend(title='Number of AMG cycles for P^{~1}')
-    pp.title('GMRES convergence history for P^{~1}A (%d x %d)' % Ac.shape)
-    pp.show()
+    plt.legend(title='Number of AMG cycles for P^{~1}')
+    plt.title('GMRES convergence history for P^{~1}A (%d x %d)' % Ac.shape)
+    plt.show()
     return
 
 
 def test():
-    points, cells, point_data, cell_data, _ = \
-            meshes.crucible_with_coils.generate()
+    problem = problems.Crucible()
 
     submesh_workpiece = problem.mesh()
 
@@ -428,10 +426,7 @@ def test():
                 B.vector().zero()
                 B.vector().axpy(sin(omega*t), B_r.vector())
                 B.vector().axpy(cos(omega*t), B_i.vector())
-                #plot(B)
-                #interactive()
                 b_file << (B, t)
-            #interactive()
 
     if wpi:
         # Get resulting Lorentz force.
@@ -452,26 +447,26 @@ def test():
         plot(l, title='Lorentz force')
         interactive()
 
-    ## Get resulting Joule heat source.
-    ##ii = None
-    #ii = 4
-    #if ii in subdomain_indices:
-    #    joule = cmx.compute_joule(V, dx,
-    #                              Phi, voltages,
-    #                              omega, sigma, mu,
-    #                              wpi,
-    #                              subdomain_indices
-    #                              )
-    #    submesh = SubMesh(mesh, subdomains, ii)
-    #    V_submesh = FunctionSpace(submesh, 'CG', 1)
-    #    # TODO find out why the projection here segfaults
-    #    jp = project(joule[ii], V_submesh)
-    #    jp.name = 'Joule heat source'
-    #    filename = './results/joule.xdmf'
-    #    joule_file = XDMFFile(filename)
-    #    joule_file << jp
-    #    plot(jp, title='heat source')
-    #    interactive()
+    # # Get resulting Joule heat source.
+    # #ii = None
+    # ii = 4
+    # if ii in subdomain_indices:
+    #     joule = cmx.compute_joule(V, dx,
+    #                               Phi, voltages,
+    #                               omega, sigma, mu,
+    #                               wpi,
+    #                               subdomain_indices
+    #                               )
+    #     submesh = SubMesh(mesh, subdomains, ii)
+    #     V_submesh = FunctionSpace(submesh, 'CG', 1)
+    #     # TODO find out why the projection here segfaults
+    #     jp = project(joule[ii], V_submesh)
+    #     jp.name = 'Joule heat source'
+    #     filename = './results/joule.xdmf'
+    #     joule_file = XDMFFile(filename)
+    #     joule_file << jp
+    #     plot(jp, title='heat source')
+    #     interactive()
 
     # # For the lulz: solve heat equation with the Joule source.
     # u = TrialFunction(V)

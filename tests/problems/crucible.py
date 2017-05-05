@@ -14,6 +14,7 @@ import warnings
 from maelstrom import heat as cyl_heat
 
 from . import meshes
+from . import materials as my_materials
 
 DEBUG = False
 
@@ -21,6 +22,7 @@ DEBUG = False
 class Crucible():
 
     def __init__(self):
+
         GMSH_EPS = 1.0e-15
 
         # https://fenicsproject.org/qa/12891/initialize-mesh-from-vertices-connectivities-at-once
@@ -36,10 +38,10 @@ class Crucible():
         #         )
 
         self.subdomain_materials = {
-            1: materials.porcelain,
-            2: materials.argon,
-            3: materials.gaas_solid,
-            4: materials.gaas_liquid,
+            1: my_materials.porcelain,
+            2: my_materials.argon,
+            3: my_materials.gaas_solid,
+            4: my_materials.gaas_liquid,
             27: materials.air,
             }
 
