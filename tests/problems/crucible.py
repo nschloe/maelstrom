@@ -2,13 +2,14 @@
 #
 from . import meshes
 from . import my_materials
+from . import tecplot_reader
 
 from maelstrom import heat as cyl_heat
 
 from dolfin import (
     Mesh, SubMesh, SubDomain, FacetFunction, DirichletBC, dot, grad,
     FunctionSpace, Expression, FacetNormal, pi, Function, Constant,
-    TestFunction, MPI, mpi_comm_world, File
+    TestFunction, MeshFunction, FiniteElement, MixedElement
     )
 import materials
 import meshio
@@ -28,14 +29,24 @@ class Crucible():
         # https://fenicsproject.org/qa/12891/initialize-mesh-from-vertices-connectivities-at-once
         points, cells, point_data, cell_data, _ = \
             meshes.crucible_with_coils.generate()
-        meshio.write('test.xml', points, cells)
-        self.mesh = Mesh('test.xml')
 
-        # self.subdomains = MeshFunction(
-        #         'size_t',
-        #         self.mesh,
-        #         base + '_physical_region.xml'
-        #         )
+        # Convert the cell data to 'uint' so we can pick a size_t MeshFunction
+        # below as usual.
+        for k0 in cell_data:
+            for k1 in cell_data[k0]:
+                cell_data[k0][k1] = \
+                    numpy.array(cell_data[k0][k1], dtype=numpy.dtype('uint'))
+
+        tmp_filename = 'test.xml'
+        meshio.write(
+                tmp_filename, points, cells, cell_data=cell_data,
+                file_format='dolfin-xml'
+                )
+
+        self.mesh = Mesh('test.xml')
+        self.subdomains = MeshFunction(
+                'size_t', self.mesh, 'test_physical.xml'
+                )
 
         self.subdomain_materials = {
             1: my_materials.porcelain,
@@ -59,32 +70,35 @@ class Crucible():
             ]
 
         self.wpi = 4
+
+        submesh_workpiece = SubMesh(self.mesh, self.subdomains, self.wpi)
+
         # http://fenicsproject.org/qa/2026/submesh-workaround-for-parallel-computation
-        submesh_parallel_bug_fixed = False
-        if submesh_parallel_bug_fixed:
-            submesh_workpiece = SubMesh(self.mesh, self.subdomains, self.wpi)
-        else:
-            # To get the mesh in parallel, we need to read it in from a file.
-            # Writing out can only happen in serial mode, though. :/
-            base = os.path.join(current_path,
-                                '../../meshes/2d/crucible-with-coils-submesh'
-                                )
-            filename = base + '.xml'
-            if not os.path.isfile(filename):
-                warnings.warn(
-                    'Submesh file \'%s\' does not exist. Creating... '
-                    % filename
-                    )
-                if MPI.size(mpi_comm_world()) > 1:
-                    raise RuntimeError(
-                        'Can only write submesh in serial mode.'
-                        )
-                submesh_workpiece = \
-                    SubMesh(self.mesh, self.subdomains, self.wpi)
-                output_stream = File(filename)
-                output_stream << submesh_workpiece
-            # Read the mesh
-            submesh_workpiece = Mesh(base + '.xml')
+        # submesh_parallel_bug_fixed = False
+        # if submesh_parallel_bug_fixed:
+        #     submesh_workpiece = SubMesh(self.mesh, self.subdomains, self.wpi)
+        # else:
+        #     # To get the mesh in parallel, we need to read it in from a file.
+        #     # Writing out can only happen in serial mode, though. :/
+        #     base = os.path.join(current_path,
+        #                         '../../meshes/2d/crucible-with-coils-submesh'
+        #                         )
+        #     filename = base + '.xml'
+        #     if not os.path.isfile(filename):
+        #         warnings.warn(
+        #             'Submesh file \'%s\' does not exist. Creating... '
+        #             % filename
+        #             )
+        #         if MPI.size(mpi_comm_world()) > 1:
+        #             raise RuntimeError(
+        #                 'Can only write submesh in serial mode.'
+        #                 )
+        #         submesh_workpiece = \
+        #             SubMesh(self.mesh, self.subdomains, self.wpi)
+        #         output_stream = File(filename)
+        #         output_stream << submesh_workpiece
+        #     # Read the mesh
+        #     submesh_workpiece = Mesh(filename)
 
         coords = submesh_workpiece.coordinates()
         ymin = min(coords[:, 1])
@@ -190,29 +204,24 @@ class Crucible():
         # convergence of the Stokes solver and also considerably increases the
         # time it takes to construct the Jacobian matrix of the Navier--Stokes
         # problem if no optimization is applied.
-        V = FunctionSpace(submesh_workpiece, 'CG', 2)
+        V_element = FiniteElement('CG', submesh_workpiece.ufl_cell(), 2)
         with_bubbles = False
         if with_bubbles:
-            V += FunctionSpace(submesh_workpiece, 'B', 3)
-        self.W = MixedFunctionSpace([V, V, V])
+            V_element += FiniteElement('B', submesh_workpiece.ufl_cell(), 2)
+        self.W = FunctionSpace(
+                submesh_workpiece,
+                MixedElement(3 * [V_element])
+                )
 
+        rot0 = Expression(('0.0', '0.0', '-2*pi*x[0] * 5.0/60.0'), degree=1)
+        # rot0 = (0.0, 0.0, 0.0)
+        rot1 = Expression(('0.0', '0.0', '2*pi*x[0] * 5.0/60.0'), degree=1)
         self.u_bcs = [
-            DirichletBC(self.W,
-                        Expression(
-                            ('0.0', '0.0', '-2*pi*x[0] * 5.0/60.0'),
-                            degree=1
-                            ),
-                        # (0.0, 0.0, 0.0),
-                        crucible),
+            DirichletBC(self.W, rot0, crucible),
             DirichletBC(self.W.sub(0), 0.0, left),
             DirichletBC(self.W.sub(2), 0.0, left),
             # Make sure that u[2] is 0 at r=0.
-            DirichletBC(self.W,
-                        Expression(
-                            ('0.0', '0.0', '2*pi*x[0] * 5.0/60.0'),
-                            degree=1
-                            ),
-                        upper_left),
+            DirichletBC(self.W, rot1, upper_left),
             DirichletBC(self.W.sub(1), 0.0, upper_right),
             ]
         self.p_bcs = []
@@ -224,7 +233,6 @@ class Crucible():
         # Dirichlet.
         # This is a bit of a tough call since the boundary conditions need to
         # be read from a Tecplot file here.
-        import tecplot_reader
         filename = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             'data/crucible-boundary.dat'

@@ -3,7 +3,7 @@
 from dolfin import dx, ds, Expression, dot, grad, pi, assemble, \
     lhs, rhs
 
-import time_steppers as ts
+from . import time_steppers as ts
 
 
 class HeatCylindrical(ts.ParabolicProblem):

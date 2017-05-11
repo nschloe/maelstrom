@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 
-import argon
-import ek90
-import gaas_solid
-import gaas_liquid
-import porcelain
+from . import argon
+from . import ek90
+from . import gaas_solid
+from . import gaas_liquid
+from . import porcelain
