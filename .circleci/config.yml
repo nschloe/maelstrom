@@ -18,7 +18,7 @@ jobs:
       - run: sudo -H pip3 install matplotlib pytest pytest-cov
       - checkout
       # The actual test
-      - run: PYTHONPATH=$PWD:$PYTHONPATH pytest tests/ --cov maelstrom
+      - run: PYTHONPATH=$PWD:$PYTHONPATH pytest --cov maelstrom
       # submit to codecov
       - run: sudo apt install -y curl
       - run: bash <(curl -s https://codecov.io/bash)
