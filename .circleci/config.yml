@@ -13,9 +13,9 @@ jobs:
           CMAKE_PREFIX_PATH: /home/fenics/local
     steps:
       - run: sudo apt update
-      - run: sudo apt install -y git
+      - run: sudo apt install -y git gmsh
       - run: sudo apt remove -y python3-pytest
-      - run: sudo -H pip3 install matplotlib pytest pytest-cov
+      - run: sudo -H pip3 install matplotlib pytest pytest-cov pygmsh
       - checkout
       # The actual test
       - run: PYTHONPATH=$PWD:$PYTHONPATH pytest --cov maelstrom
