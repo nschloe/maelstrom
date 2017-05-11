@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-from dolfin import dx, ds, Expression, dot, grad, pi, assemble, \
-    lhs, rhs
+from dolfin import (
+    dx, ds, dot, grad, pi, assemble, lhs, rhs, SpatialCoordinate
+    )
 
-import time_steppers as ts
+from . import time_steppers as ts
 
 
 class HeatCylindrical(ts.ParabolicProblem):
@@ -19,8 +20,9 @@ class HeatCylindrical(ts.ParabolicProblem):
                  ):
         super(HeatCylindrical, self).__init__()
         self.dirichlet_bcs = dirichlet_bcs
-        r = Expression('x[0]', degree=1, domain=V.mesh())
         self.V = V
+
+        r = SpatialCoordinate(V.mesh())[0]
         self.dx_multiplier = 2*pi*r
 
         self.F0 = kappa * r * dot(grad(u), grad(v / (rho * cp))) \
@@ -31,11 +33,11 @@ class HeatCylindrical(ts.ParabolicProblem):
         # Joule heat
         self.F0 -= 1.0 / (rho * cp) * source * v * 2*pi*r * dx
         # Neumann boundary conditions
-        for k, nGradT in neumann_bcs.iteritems():
+        for k, nGradT in neumann_bcs.items():
             self.F0 -= r * kappa * nGradT * v / (rho * cp) \
                 * 2 * pi * ds(k)
         # Robin boundary conditions
-        for k, value in robin_bcs.iteritems():
+        for k, value in robin_bcs.items():
             alpha, u0 = value
             self.F0 -= r * kappa * alpha * (u - u0) * v / (rho * cp) \
                 * 2 * pi * ds(k)

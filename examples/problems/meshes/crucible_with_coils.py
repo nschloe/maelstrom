@@ -79,7 +79,6 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
            anisomax=100.0,
            hfar=lcar_far,
            hwall_n=lcar_b,
-           hwall_t=lcar_b,
            ratio=1.1,
            thickness=w_b0
            )
@@ -88,7 +87,7 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     return line_loops, fields
 
 
-def generate():
+def _define():
     geom = pygmsh.Geometry()
 
     line_loops = []
@@ -299,7 +298,6 @@ def generate():
        anisomax=100.0,
        hfar=lcar_far,
        hwall_n=lcar_b,
-       hwall_t=lcar_b,
        ratio=1.1,
        thickness=w_b0
        )
@@ -318,8 +316,8 @@ def generate():
     tp23 = geom.add_point([x0, y0+r, z], lcar_far)
 
     # Build circle from arcs.
-    cc1 = geom.add_circle_arc([tp21, tp20, tp22])
-    cc2 = geom.add_circle_arc([tp22, tp20, tp23])
+    cc1 = geom.add_circle_arc(tp21, tp20, tp22)
+    cc2 = geom.add_circle_arc(tp22, tp20, tp23)
 
     # Connecting lines.
     cl20 = geom.add_line(tp1, tp21)
@@ -356,9 +354,13 @@ def generate():
     return geom
 
 
+def generate():
+    return pygmsh.generate_mesh(_define())
+
+
 if __name__ == '__main__':
     import meshio
-    points, cells, point_data, cell_data, _ = pygmsh.generate_mesh(generate())
+    points, cells, point_data, cell_data, _ = generate()
     meshio.write(
             'out.vtu',
             points,

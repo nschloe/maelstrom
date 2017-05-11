@@ -261,7 +261,7 @@ def problem_coscos_cylindrical():
             n = FacetNormal(self.V.mesh())
             u = TrialFunction(self.V)
             v = TestFunction(self.V)
-            r = Expression('x[0]', degree=1, cell=triangle)
+            r = SpatialCoordinate(self.V.mesh())[0]
             # All time-dependent components be set to t.
             f.t = t
             b.t = t
