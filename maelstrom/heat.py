@@ -31,11 +31,11 @@ class HeatCylindrical(ts.ParabolicProblem):
         # Joule heat
         self.F0 -= 1.0 / (rho * cp) * source * v * 2*pi*r * dx
         # Neumann boundary conditions
-        for k, nGradT in neumann_bcs.iteritems():
+        for k, nGradT in neumann_bcs.items():
             self.F0 -= r * kappa * nGradT * v / (rho * cp) \
                 * 2 * pi * ds(k)
         # Robin boundary conditions
-        for k, value in robin_bcs.iteritems():
+        for k, value in robin_bcs.items():
             alpha, u0 = value
             self.F0 -= r * kappa * alpha * (u - u0) * v / (rho * cp) \
                 * 2 * pi * ds(k)

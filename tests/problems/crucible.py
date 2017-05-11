@@ -71,7 +71,7 @@ class Crucible():
 
         self.wpi = 4
 
-        submesh_workpiece = SubMesh(self.mesh, self.subdomains, self.wpi)
+        self.submesh_workpiece = SubMesh(self.mesh, self.subdomains, self.wpi)
 
         # http://fenicsproject.org/qa/2026/submesh-workaround-for-parallel-computation
         # submesh_parallel_bug_fixed = False
@@ -100,7 +100,7 @@ class Crucible():
         #     # Read the mesh
         #     submesh_workpiece = Mesh(filename)
 
-        coords = submesh_workpiece.coordinates()
+        coords = self.submesh_workpiece.coordinates()
         ymin = min(coords[:, 1])
         ymax = max(coords[:, 1])
 
@@ -169,7 +169,7 @@ class Crucible():
         upper_left = UpperLeft()
         upper_right = UpperRight()
 
-        self.wp_boundaries = FacetFunction('size_t', submesh_workpiece)
+        self.wp_boundaries = FacetFunction('size_t', self.submesh_workpiece)
         self.wp_boundaries.set_all(0)
         left.mark(self.wp_boundaries, 1)
         crucible.mark(self.wp_boundaries, 2)
@@ -204,12 +204,12 @@ class Crucible():
         # convergence of the Stokes solver and also considerably increases the
         # time it takes to construct the Jacobian matrix of the Navier--Stokes
         # problem if no optimization is applied.
-        V_element = FiniteElement('CG', submesh_workpiece.ufl_cell(), 2)
+        V_element = FiniteElement('CG', self.submesh_workpiece.ufl_cell(), 2)
         with_bubbles = False
         if with_bubbles:
-            V_element += FiniteElement('B', submesh_workpiece.ufl_cell(), 2)
+            V_element += FiniteElement('B', self.submesh_workpiece.ufl_cell(), 2)
         self.W = FunctionSpace(
-                submesh_workpiece,
+                self.submesh_workpiece,
                 MixedElement(3 * [V_element])
                 )
 
@@ -226,10 +226,10 @@ class Crucible():
             ]
         self.p_bcs = []
 
-        self.P = FunctionSpace(submesh_workpiece, 'CG', 1)
+        self.P = FunctionSpace(self.submesh_workpiece, 'CG', 1)
 
         # Boundary conditions for heat equation.
-        self.Q = FunctionSpace(submesh_workpiece, 'CG', 2)
+        self.Q = FunctionSpace(self.submesh_workpiece, 'CG', 2)
         # Dirichlet.
         # This is a bit of a tough call since the boundary conditions need to
         # be read from a Tecplot file here.
@@ -245,7 +245,6 @@ class Crucible():
         T_vals = data['ZONE T']['node data']['temp. [K]']
 
         class TecplotDirichletBC(Expression):
-            # TODO specify degree
             def eval(self, value, x):
                 # Find on which edge x sits, and raise exception if it doesn't.
                 edge_found = False
@@ -294,7 +293,7 @@ class Crucible():
                     #                    '%r is not on boundary.' % x)
                 return
 
-        tecplot_dbc = TecplotDirichletBC()
+        tecplot_dbc = TecplotDirichletBC(degree=5)
         self.theta_bcs_d = [
             DirichletBC(self.Q, tecplot_dbc, upper_left)
             ]
@@ -309,7 +308,6 @@ class Crucible():
         dTdz_vals = data['ZONE T']['node data']['dTempdz [K/m]']
 
         class TecplotNeumannBC(Expression):
-            # TODO specify degree
             def eval(self, value, x):
                 # Same problem as above: This expression is not only evaluated
                 # at boundaries.
@@ -329,7 +327,7 @@ class Crucible():
             def value_shape(self):
                 return (2,)
 
-        tecplot_nbc = TecplotNeumannBC()
+        tecplot_nbc = TecplotNeumannBC(degree=5)
         n = FacetNormal(self.Q.mesh())
         self.theta_bcs_n = {
             submesh_boundary_indices['upper right']: dot(n, tecplot_nbc),

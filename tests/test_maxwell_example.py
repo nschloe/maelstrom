@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 #
 from dolfin import (
-    parameters, XDMFFile, plot, interactive, Measure, FunctionSpace,
-    Expression, triangle, begin, end, SubMesh, project, Function, assemble,
-    grad, as_vector, File, DOLFIN_EPS, info
+    parameters, XDMFFile, Measure, FunctionSpace, Expression, triangle, begin,
+    end, SubMesh, project, Function, assemble, grad, as_vector, File,
+    DOLFIN_EPS, info
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -33,7 +33,7 @@ def _show_currentloop_field():
     a = 1.0
     V = 230 * sqrt(2.0)
     rho = 1.535356e-08
-    I = V/rho
+    II = V/rho
     mu0 = pi * 4e-7
 
     alpha = R / a
@@ -47,7 +47,7 @@ def _show_currentloop_field():
     Kk = ellipk(k**2)
     Ek = ellipe(k**2)
 
-    B0 = mu0*I / (2*a)
+    B0 = mu0*II / (2*a)
 
     V = B0 / (pi*sqrt(Q)) \
         * (Ek * (1.0 - alpha**2 - beta**2)/(Q - 4*alpha) + Kk)
@@ -164,16 +164,25 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     ml = pyamg.smoothed_aggregation_solver(
         Pc,
         strength=('symmetric', {'theta': 0.0}),
-        smooth=('energy', {'weighting': 'local',
-                           'krylov': 'cg',
-                           'degree': 2,
-                           'maxiter': 3}),
+        smooth=(
+            'energy',
+            {
+                'weighting': 'local',
+                'krylov': 'cg',
+                'degree': 2,
+                'maxiter': 3
+            }
+            ),
         Bimprove='default',
         aggregate='standard',
-        presmoother=('block_gauss_seidel', {'sweep': 'symmetric',
-                                            'iterations': 1}),
-        postsmoother=('block_gauss_seidel', {'sweep': 'symmetric',
-                                             'iterations': 1}),
+        presmoother=(
+            'block_gauss_seidel',
+            {'sweep': 'symmetric', 'iterations': 1}
+            ),
+        postsmoother=(
+            'block_gauss_seidel',
+            {'sweep': 'symmetric', 'iterations': 1}
+            ),
         max_levels=25,
         max_coarse=300,
         coarse_solver='pinv'
@@ -248,7 +257,10 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
 def test():
     problem = problems.Crucible()
 
-    submesh_workpiece = problem.mesh()
+    from dolfin import plot, interactive
+    plot(problem.submesh_workpiece)
+    interactive()
+    exit(1)
 
     # The voltage is defined as
     #
@@ -304,16 +316,18 @@ def test():
     sigma = {}
     for i in subdomain_indices:
         # Take all parameters at background_temp.
-        material = subdomain_materials[i]
-        mu[i] = params[material]['magnetic permeability'](background_temp)
-        sigma[i] = params[material]['electrical conductivity'](background_temp)
+        material = problem.subdomain_materials[i]
+        mu[i] = material['magnetic permeability'](background_temp)
+        sigma[i] = material['electrical conductivity'](background_temp)
 
-    dx = Measure('dx')[subdomains]
+    dx = Measure('dx')[problem.subdomains]
     # boundaries = mesh.domains().facet_domains()
-    ds = Measure('ds')[subdomains]
+    ds = Measure('ds')[problem.subdomains]
 
     # Function space for Maxwell.
-    V = FunctionSpace(mesh, 'CG', 1)
+    V = FunctionSpace(problem.mesh, 'CG', 1)
+
+    omega = 240
 
     # AMG playground.
     pyamg_test = False
@@ -322,13 +336,13 @@ def test():
         exit()
 
     # TODO when projected onto submesh, the time harmonic solver bails out
-    if wpi:
-        V_submesh = FunctionSpace(submesh_workpiece, 'CG', 2)
-        u_1 = Function(V_submesh * V_submesh)
-        u_1.vector().zero()
-        conv = {wpi: u_1}
-    else:
-        conv = {}
+    # V_submesh = FunctionSpace(problem.submesh_workpiece, 'CG', 2)
+    # u_1 = Function(V_submesh * V_submesh)
+    # u_1.vector().zero()
+    # conv = {problem.wpi: u_1}
+
+    conv = {}
+
     Phi, voltages = cmx.compute_potential(
             coils,
             V,
@@ -337,12 +351,13 @@ def test():
             convections=conv
             )
 
-    # # show current in the first ring of hte first coil
+    # # show current in the first ring of the first coil
     # ii = coils[0]['rings'][0]
     # submesh_coil = SubMesh(mesh, subdomains, ii)
     # V1 = FunctionSpace(submesh_coil, 'CG', ii)
 
     # #File('results/phi.xdmf') << project(as_vector((Phi_r, Phi_i)), V*V)
+    from dolfin import plot
     plot(Phi[0], title='Re(Phi)')
     plot(Phi[1], title='Im(Phi)')
     # plot(project(Phi_r, V1), title='Re(Phi)')
@@ -364,12 +379,14 @@ def test():
                 info(
                     '|J|/sqrt(2) = %e' % numpy.sqrt(0.5 * (alpha**2 + beta**2))
                     )
-                submesh = SubMesh(mesh, subdomains, ii)
+                submesh = SubMesh(problem.mesh, problem.subdomains, ii)
                 V1 = FunctionSpace(submesh, 'CG', 1)
                 # Those projections may take *very* long.
                 # TODO find out why
-                j_v1 = [project(J_r, V1),
-                        project(J_i, V1)]
+                j_v1 = [
+                    project(J_r, V1),
+                    project(J_i, V1)
+                    ]
                 # plot(j_v1[0], title='j_r')
                 # plot(j_v1[1], title='j_i')
                 # interactive()
@@ -388,7 +405,7 @@ def test():
         phi = Function(V, name='phi')
         Phi0 = project(Phi[0], V)
         Phi1 = project(Phi[1], V)
-        for t in numpy.linspace(0.0, 2*numpy.pi/omega, num=100, endpoint=False):
+        for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
             # Im(Phi * exp(i*omega*t))
             phi.vector().zero()
             phi.vector().axpy(sin(omega*t), Phi0.vector())
@@ -421,30 +438,32 @@ def test():
             interactive()
         else:
             # Write those out to a file.
-            for t in numpy.linspace(0.0, 2*numpy.pi/omega, num=100, endpoint=False):
+            for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
                 # Im(B * exp(i*omega*t))
                 B.vector().zero()
                 B.vector().axpy(sin(omega*t), B_r.vector())
                 B.vector().axpy(cos(omega*t), B_i.vector())
                 b_file << (B, t)
 
-    if wpi:
+    if problem.wpi:
         # Get resulting Lorentz force.
-        lorentz = {wpi: cmx.compute_lorentz(Phi, omega, sigma[wpi])}
+        lorentz = {
+            problem.wpi: cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
+            }
         # Show the Lorentz force.
-        L = FunctionSpace(submesh_workpiece, 'CG', 1)
+        L = FunctionSpace(problem.submesh_workpiece, 'CG', 1)
         # TODO find out why the projection here segfaults
-        l = Function(L*L, name='Lorentz force')
-        l.assign(project(lorentz[wpi], L*L))
+        lfun = Function(L*L, name='Lorentz force')
+        lfun.assign(project(lorentz[problem.wpi], L*L))
         filename = './results/lorentz.xdmf'
         info('Writing out Lorentz force to %s...' % filename)
         lorentz_file = File(filename)
-        lorentz_file << l
+        lorentz_file << lfun
         filename = './results/lorentz.pvd'
         info('Writing out Lorentz force to %s...' % filename)
         lorentz_file = File(filename)
-        lorentz_file << l
-        plot(l, title='Lorentz force')
+        lorentz_file << lfun
+        plot(lfun, title='Lorentz force')
         interactive()
 
     # # Get resulting Joule heat source.

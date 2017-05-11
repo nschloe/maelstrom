@@ -102,10 +102,10 @@ def _get_weak_F(mesh, f, kappa, rho_cp, b,
             - dot(b, grad(u)) * v * 2*pi*r*dx \
             + f * v/rho_cp * 2*pi*r*dx
         # Neumann boundary conditions
-        for k, gradT in theta_bcs_n.iteritems():
+        for k, gradT in theta_bcs_n.items():
             F += r * kappa * dot(n, gradT) * v/rho_cp * 2*pi*ds(k)
         # Robin boundary conditions
-        for k, value in theta_bcs_r.iteritems():
+        for k, value in theta_bcs_r.items():
             alpha, u0 = value
             F -= r * kappa * alpha * (u - u0) * v/rho_cp * 2*pi*ds(k)
         return F
@@ -164,10 +164,10 @@ def _solve(stationary):
             - dot(b, grad(u)) * v * 2*pi*r*dx \
             + f * v/rho_cp * 2*pi*r*dx
         # Neumann boundary conditions
-        for k, gradT in theta_bcs_n.iteritems():
+        for k, gradT in theta_bcs_n.items():
             F += r * kappa * dot(n, gradT) * v/rho_cp * 2*pi*ds(k)
         # Robin boundary conditions
-        for k, value in theta_bcs_r.iteritems():
+        for k, value in theta_bcs_r.items():
             alpha, u0 = value
             F -= r * kappa * alpha * (u - u0) * v/rho_cp * 2*pi*ds(k)
         return F
