@@ -15,7 +15,7 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y git gmsh
       - run: sudo apt remove -y python3-pytest
-      - run: sudo -H pip3 install matplotlib pytest pytest-cov pygmsh materials
+      - run: sudo -H pip3 install matplotlib pytest pytest-cov pygmsh materials lxml
       - checkout
       # The actual test
       - run: PYTHONPATH=$PWD:$PYTHONPATH pytest --cov maelstrom
