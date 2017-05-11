@@ -47,7 +47,7 @@ def stokes_solve(
     (u, p) = TrialFunctions(WP)
     (v, q) = TestFunctions(WP)
 
-    r = Expression('x[0]', degree=1, domain=WP.mesh())
+    r = SpatialCoordinate(WP.mesh())[0]
 
     print("mu = %e" % mu)
 

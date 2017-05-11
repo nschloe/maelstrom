@@ -1,26 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-from dolfin import plot, interactive, Expression, FacetNormal, triangle, dot, \
-    grad, pi, dx, ds, Constant, Measure, XDMFFile, solve, Function, \
-    DirichletBC, TrialFunction, TestFunction, lhs, rhs
+from dolfin import (
+    plot, interactive, Expression, FacetNormal, triangle, dot, grad, pi, dx,
+    ds, Constant, Measure, XDMFFile, solve, Function, DirichletBC,
+    TrialFunction, TestFunction, lhs, rhs, SpatialCoordinate
+    )
 
 from maelstrom.materials_database import MATERIAL_PARAMETERS as params
 import maelstrom.time_steppers as ts
-#import maelstrom.stabilization as stab
+# import maelstrom.stabilization as stab
 import maelstrom.problems as probs
 
 
 def _main():
-    ## for boundary conditions
-    #heat_transfer_coefficient = {'upper': 50.0,
-    #                             'upper left': 300.0,
-    #                             'crucible': 15.0}
-    #T = {'upper': 1480.0,
-    #     'upper left': 1500.0,
-    #     'crucible': 1660.0}
+    # # for boundary conditions
+    # heat_transfer_coefficient = {'upper': 50.0,
+    #                              'upper left': 300.0,
+    #                              'crucible': 15.0}
+    # T = {'upper': 1480.0,
+    #      'upper left': 1500.0,
+    #      'crucible': 1660.0}
     _solve(
-        #heat_transfer_coefficient, T,
+        # heat_transfer_coefficient, T,
         stationary=True
         )
     return
@@ -93,7 +95,7 @@ def _get_weak_F(mesh, f, kappa, rho_cp, b,
                 theta_bcs_r):
     '''Get right-hand side of heat equation in weak form.
     '''
-    r = Expression('x[0]', degree=1, cell=triangle)
+    r = SpatialCoordinate(mesh)[0]
     n = FacetNormal(mesh)
 
     def weak_F(t, u_t, u, v):
@@ -114,14 +116,15 @@ def _get_weak_F(mesh, f, kappa, rho_cp, b,
 
 def _solve(stationary):
 
-    #mesh,f,boundaries, boundary_indices, theta0 = probs.coil_in_box()
+    # mesh,f,boundaries, boundary_indices, theta0 = probs.coil_in_box()
     #
-    #mesh,f,boundaries, boundary_indices, theta0 = probs.square_with_obstacle()
+    # mesh,f,boundaries, boundary_indices, theta0 = \
+    #     probs.square_with_obstacle()
     #
-    #mesh, subdomains, coils, wpi, subdomain_materials, omega, \
-    #(wp_boundaries, W, u_bcs, p_bcs, \
-    #Q, theta_bcs_d, theta_bcs_d_strict, theta_bcs_n \
-    #  = probs.crucible()
+    # mesh, subdomains, coils, wpi, subdomain_materials, omega, \
+    # (wp_boundaries, W, u_bcs, p_bcs, \
+    # Q, theta_bcs_d, theta_bcs_d_strict, theta_bcs_n \
+    #   = probs.crucible()
     #
     mesh, subdomains, subdomain_materials, workpiece_index, \
         wp_boundaries, W, u_bcs, p_bcs, \
@@ -148,14 +151,14 @@ def _solve(stationary):
 
     b = Constant((0.0, 0.0))
 
-    #b_tau = stab.supg2(Q.mesh(),
-    #                   b,
-    #                   kappa/rho_cp,
-    #                   Q.ufl_element().degree()
-    #                   )
+    # b_tau = stab.supg2(Q.mesh(),
+    #                    b,
+    #                    kappa/rho_cp,
+    #                    Q.ufl_element().degree()
+    #                    )
     # The corresponding operator in weak form.
     rho_cp = rho*cp
-    r = Expression('x[0]', degree=1, cell=triangle)
+    r = SpatialCoordinate(mesh)[0]
     n = FacetNormal(mesh)
 
     def weak_F(t, u_t, u, v):
@@ -177,7 +180,7 @@ def _solve(stationary):
     theta_file.parameters['rewrite_function_mesh'] = False
     if stationary:
         t = 0.0
-        #u_t = Constant(0.0)
+        # u_t = Constant(0.0)
         u = TrialFunction(Q)
         v = TestFunction(Q)
         steady_F = weak_F(None, None, u, v)
@@ -189,7 +192,7 @@ def _solve(stationary):
         solve(a == L,
               theta_reference,
               bcs=theta_bcs_d,
-              #bcs=theta_bcs_d_strict,
+              # bcs=theta_bcs_d_strict,
               solver_parameters={
                   'linear_solver': 'iterative',
                   'symmetric': False,
@@ -250,11 +253,11 @@ def _solve(stationary):
             theta_1.assign(theta)
             theta_file << (theta_1, t)
             plot(theta_1, title='temperature')
-            #interactive()
+            # interactive()
             t += dt
     return
 
 
 if __name__ == '__main__':
     _main()
-    #_parameter_quest()
+    # _parameter_quest()

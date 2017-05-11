@@ -513,7 +513,6 @@ def compute_potential(
             f_list,
             convections,
             tol=1.0e-12,
-            compute_residuals=False,
             verbose=True
             )
 

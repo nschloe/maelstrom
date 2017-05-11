@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 #
 from dolfin import (
-    parameters, XDMFFile, Measure, FunctionSpace, Expression, triangle, begin,
-    end, SubMesh, project, Function, assemble, grad, as_vector, File,
-    DOLFIN_EPS, info
+    parameters, XDMFFile, Measure, FunctionSpace, begin, end, SubMesh, project,
+    Function, assemble, grad, as_vector, File, DOLFIN_EPS, info, interactive,
+    mpi_comm_world, FiniteElement, SpatialCoordinate
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -257,11 +257,6 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
 def test():
     problem = problems.Crucible()
 
-    from dolfin import plot, interactive
-    plot(problem.submesh_workpiece)
-    interactive()
-    exit(1)
-
     # The voltage is defined as
     #
     #     v(t) = Im(exp(i omega t) v)
@@ -309,20 +304,19 @@ def test():
 
     subdomain_indices = problem.subdomain_materials.keys()
 
-    background_temp = 1500.0
-
     # Build subdomain parameter dictionaries.
     mu = {}
     sigma = {}
     for i in subdomain_indices:
         # Take all parameters at background_temp.
+        # background_temp = 1500.0
         material = problem.subdomain_materials[i]
-        mu[i] = material['magnetic permeability'](background_temp)
-        sigma[i] = material['electrical conductivity'](background_temp)
+        mu[i] = material.magnetic_permeability
+        sigma[i] = material.electrical_conductivity
 
-    dx = Measure('dx')[problem.subdomains]
+    dx = Measure('dx')(subdomain_data=problem.subdomains)
     # boundaries = mesh.domains().facet_domains()
-    ds = Measure('ds')[problem.subdomains]
+    ds = Measure('ds')(subdomain_data=problem.subdomains)
 
     # Function space for Maxwell.
     V = FunctionSpace(problem.mesh, 'CG', 1)
@@ -346,7 +340,7 @@ def test():
     Phi, voltages = cmx.compute_potential(
             coils,
             V,
-            dx, ds,
+            dx,
             mu, sigma, omega,
             convections=conv
             )
@@ -366,7 +360,7 @@ def test():
 
     check_currents = False
     if check_currents:
-        r = Expression('x[0]', degree=1, cell=triangle)
+        r = SpatialCoordinate(problem.mesh)[0]
         begin('Currents computed after the fact:')
         k = 0
         for coil in coils:
@@ -399,18 +393,19 @@ def test():
     if show_phi:
         filename = './results/phi.xdmf'
         info('Writing out Phi to %s...' % filename)
-        phi_file = XDMFFile(filename)
-        phi_file.parameters['rewrite_function_mesh'] = False
-        phi_file.parameters['flush_output'] = True
-        phi = Function(V, name='phi')
-        Phi0 = project(Phi[0], V)
-        Phi1 = project(Phi[1], V)
-        for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
-            # Im(Phi * exp(i*omega*t))
-            phi.vector().zero()
-            phi.vector().axpy(sin(omega*t), Phi0.vector())
-            phi.vector().axpy(cos(omega*t), Phi1.vector())
-            phi_file << (phi, t)
+        with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+            xdmf_file.parameters['flush_output'] = True
+            xdmf_file.parameters['rewrite_function_mesh'] = False
+
+            phi = Function(V, name='phi')
+            Phi0 = project(Phi[0], V)
+            Phi1 = project(Phi[1], V)
+            for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
+                # Im(Phi * exp(i*omega*t))
+                phi.vector().zero()
+                phi.vector().axpy(sin(omega*t), Phi0.vector())
+                phi.vector().axpy(cos(omega*t), Phi1.vector())
+                xdmf_file.write(phi, t)
 
     show_magnetic_field = True
     if show_magnetic_field:
@@ -419,52 +414,64 @@ def test():
         #   B_r = -dphi/dz,
         #   B_z = 1/r d(rphi)/dr.
         #
-        r = Expression('x[0]', degree=1, cell=triangle)
-        g = 1/r * grad(r*Phi[0])
-        B_r = project(as_vector((-g[1], g[0])), V*V)
+        r = SpatialCoordinate(problem.mesh)[0]
+        g = 1.0/r * grad(r*Phi[0])
+
+        V_element = FiniteElement('CG', V.mesh().ufl_cell(), 1)
+        VV = FunctionSpace(V.mesh(), V_element * V_element)
+
+        B_r = project(as_vector((-g[1], g[0])), VV)
         g = 1/r * grad(r*Phi[1])
-        B_i = project(as_vector((-g[1], g[0])), V*V)
+        B_i = project(as_vector((-g[1], g[0])), VV)
         filename = './results/magnetic-field.xdmf'
         info('Writing out B to %s...' % filename)
-        b_file = XDMFFile(filename)
-        b_file.parameters['rewrite_function_mesh'] = False
-        b_file.parameters['flush_output'] = True
-        B = Function(V*V, name='magnetic field B')
+        B = Function(VV, name='magnetic field B')
         if abs(omega) < DOLFIN_EPS:
+            B.assign(B_r)
+            with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+                xdmf_file.write(B)
             plot(B_r, title='Re(B)')
             plot(B_i, title='Im(B)')
-            B.assign(B_r)
-            b_file << B
             interactive()
         else:
             # Write those out to a file.
-            for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
-                # Im(B * exp(i*omega*t))
-                B.vector().zero()
-                B.vector().axpy(sin(omega*t), B_r.vector())
-                B.vector().axpy(cos(omega*t), B_i.vector())
-                b_file << (B, t)
+            with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+                xdmf_file.parameters['flush_output'] = True
+                xdmf_file.parameters['rewrite_function_mesh'] = False
+                lspace = \
+                    numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False)
+                for t in lspace:
+                    # Im(B * exp(i*omega*t))
+                    B.vector().zero()
+                    B.vector().axpy(sin(omega*t), B_r.vector())
+                    B.vector().axpy(cos(omega*t), B_i.vector())
+                    xdmf_file.write(B, t)
 
     if problem.wpi:
+        print('a')
         # Get resulting Lorentz force.
-        lorentz = {
-            problem.wpi: cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
-            }
+        lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
+        print('b')
         # Show the Lorentz force.
-        L = FunctionSpace(problem.submesh_workpiece, 'CG', 1)
+        L_element = \
+            FiniteElement('CG', problem.submesh_workpiece.ufl_cell(), 1)
+        print('c')
+        LL = FunctionSpace(problem.submesh_workpiece, L_element * L_element)
         # TODO find out why the projection here segfaults
-        lfun = Function(L*L, name='Lorentz force')
-        lfun.assign(project(lorentz[problem.wpi], L*L))
-        filename = './results/lorentz.xdmf'
-        info('Writing out Lorentz force to %s...' % filename)
-        lorentz_file = File(filename)
-        lorentz_file << lfun
-        filename = './results/lorentz.pvd'
-        info('Writing out Lorentz force to %s...' % filename)
-        lorentz_file = File(filename)
-        lorentz_file << lfun
-        plot(lfun, title='Lorentz force')
-        interactive()
+        print('d')
+        # # lfun = Function(LL, name='Lorentz force')
+        lfun = project(lorentz_wpi, LL)
+
+        # print('e')
+        # filename = './results/lorentz.xdmf'
+        # info('Writing out Lorentz force to %s...' % filename)
+        # with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+        #     xdmf_file.write(lfun)
+
+        # print('f')
+        # plot(lfun, title='Lorentz force')
+        # interactive()
+        print('z')
 
     # # Get resulting Joule heat source.
     # #ii = None
@@ -491,7 +498,7 @@ def test():
     # u = TrialFunction(V)
     # v = TestFunction(V)
     # a = zero() * dx(0)
-    # r = Expression('x[0]', degree=1, cell=triangle)
+    # r = SpatialCoordinate(problem.mesh)[0]
     # # v/r doesn't hurt: hom. dirichlet boundary for r=0.
     # for i in subdomain_indices:
     #     a += dot(kappa[i] * r * grad(u), grad(v/r)) * dx(i)

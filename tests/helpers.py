@@ -248,7 +248,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     err_p.vector()[:] -= sol_interp.vector()
                     # plot(sol_p - p1, title='p1 - sol_p', mesh=mesh)
                     plot(err_p, title='p1 - sol_p', mesh=mesh)
-                    # r = Expression('x[0]', degree=1, cell=triangle)
+                    # r = SpatialCoordinate(mesh)[0]
                     # divu1 = 1 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
                     divu1.assign(project(u1[0].dx(0) + u1[1].dx(1), P))
                     plot(divu1, title='div(u1)')

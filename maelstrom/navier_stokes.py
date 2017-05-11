@@ -163,7 +163,7 @@ class NavierStokesCylindrical(NonlinearProblem):
                 dx=dx
                 )
         # div_u = 1/r * div(r*u)
-        r = Expression('x[0]', degree=1, domain=WP.mesh())
+        r = SpatialCoordinate(WP.mesh())[0]
         self.F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q * 2*pi*r * dx
 
         self.jacobian = derivative(self.F0, self.up)
@@ -212,7 +212,7 @@ class TentativeVelocityProblem(NonlinearProblem):
 
         self.bcs = bcs
 
-        r = Expression('x[0]', degree=1, domain=ui.function_space().mesh())
+        r = SpatialCoordinate(ui.function_space().mesh())[0]
 
         # self.F0 = (
         #     rho * dot(3*ui - 4*u[-1] + u[-2], v) / (2*Constant(dt))
@@ -430,7 +430,7 @@ class PressureProjection(object):
             if p0:
                 phi -= p0
             if rotational_form:
-                r = Expression('x[0]', degree=1, domain=self.W.mesh())
+                r = SpatialCoordinate(self.W.mesh())[0]
                 div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
                 phi += self.mu * div_ui
             L3 = dot(ui, v) * dx \
@@ -452,7 +452,7 @@ class PressureProjection(object):
                 )
             # u = project(ui - k/rho * grad(phi), V)
             # div_u = 1/r * div(r*u)
-            r = Expression('x[0]', degree=1, domain=self.W.mesh())
+            r = SpatialCoordinate(self.W.mesh())[0]
             div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
             info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
             # plot(div_u)
@@ -477,7 +477,7 @@ class PressureProjection(object):
         for
             \nabla p = u.
         '''
-        r = Expression('x[0]', degree=1, domain=self.W.mesh())
+        r = SpatialCoordinate(self.W.mesh())[0]
 
         Q = p1.function_space()
 
