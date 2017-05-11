@@ -2,7 +2,7 @@
 #
 import numpy
 
-from maelstrom import dft
+import dft
 
 
 def test_dft():

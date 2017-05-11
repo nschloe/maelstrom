@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-from dolfin import dx, ds, Expression, dot, grad, pi, assemble, \
-    lhs, rhs
+from dolfin import (
+    dx, ds, dot, grad, pi, assemble, lhs, rhs, SpatialCoordinate
+    )
 
 from . import time_steppers as ts
 
@@ -19,8 +20,9 @@ class HeatCylindrical(ts.ParabolicProblem):
                  ):
         super(HeatCylindrical, self).__init__()
         self.dirichlet_bcs = dirichlet_bcs
-        r = SpatialCoordinate(self.V.mesh())[0]
         self.V = V
+
+        r = SpatialCoordinate(V.mesh())[0]
         self.dx_multiplier = 2*pi*r
 
         self.F0 = kappa * r * dot(grad(u), grad(v / (rho * cp))) \

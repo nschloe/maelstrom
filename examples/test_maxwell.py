@@ -447,28 +447,53 @@ def test():
                     B.vector().axpy(cos(omega*t), B_i.vector())
                     xdmf_file.write(B, t)
 
-    if problem.wpi:
-        print('a')
+    # TODO reenable; there's still a bug in FEniCS concerning the submesh
+    # projection of vector quanities. MWE:
+    # ```
+    # from dolfin import *
+    #
+    # # Generate meshes
+    # # Structure sub domain
+    # class Structure(SubDomain):
+    #     def inside(self, x, on_boundary):
+    #         return x[0] > 1.4 - DOLFIN_EPS and x[0] < 1.6 \
+    #             + DOLFIN_EPS and x[1] < 0.6 + DOLFIN_EPS
+    # # Create mesh
+    # mesh = RectangleMesh(Point(0.0, 0.0), Point(3.0, 1.0), 60, 20)
+    # # Create sub domain markers and mark everaything as 0
+    # sub_domains = MeshFunction("size_t", mesh, mesh.topology().dim())
+    # sub_domains.set_all(0)
+    # # Mark structure domain as 1
+    # structure = Structure()
+    # structure.mark(sub_domains, 1)
+    # # Extract sub meshes
+    # fluid_mesh = SubMesh(mesh, sub_domains, 0)
+    # structure_mesh = SubMesh(mesh, sub_domains, 1)
+    #
+    # # Project grad(exp) onto submesh
+    # V = FunctionSpace(mesh, 'CG', 1)
+    # exp = Expression('exp(x[0] + x[1])', domain=mesh, degree=10)
+    # V_element = FiniteElement('CG', fluid_mesh.ufl_cell(), 1)
+    # V_submesh = FunctionSpace(fluid_mesh, V_element*V_element)
+    # project(grad(exp), V_submesh)
+    # ```
+    if problem.wpi and False:
         # Get resulting Lorentz force.
         lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
-        print('b')
+
         # Show the Lorentz force.
         L_element = \
             FiniteElement('CG', problem.submesh_workpiece.ufl_cell(), 1)
-        print('c')
         LL = FunctionSpace(problem.submesh_workpiece, L_element * L_element)
         # TODO find out why the projection here segfaults
-        print('d')
-        # # lfun = Function(LL, name='Lorentz force')
-        lfun = project(lorentz_wpi, LL)
+        lorentz_fun = project(lorentz_wpi, LL)
+        lorentz_fun.rename('F_L', 'Lorentz force')
 
-        # print('e')
         # filename = './results/lorentz.xdmf'
         # info('Writing out Lorentz force to %s...' % filename)
         # with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
-        #     xdmf_file.write(lfun)
+        #     xdmf_file.write(lorentz_fun)
 
-        # print('f')
         # plot(lfun, title='Lorentz force')
         # interactive()
         print('z')
