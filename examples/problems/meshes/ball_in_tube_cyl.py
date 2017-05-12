@@ -6,7 +6,7 @@ tube.
 import pygmsh
 
 
-def generate():
+def _define():
     geom = pygmsh.Geometry()
 
     z = 0
@@ -47,9 +47,13 @@ def generate():
     return geom
 
 
+def generate():
+    return pygmsh.generate_mesh(_define())
+
+
 if __name__ == '__main__':
     import meshio
-    points, cells, point_data, cell_data, _ = pygmsh.generate_mesh(generate())
+    points, cells, point_data, cell_data, _ = generate()
     meshio.write(
             'ball-in-tube.vtu',
             points,
