@@ -584,25 +584,25 @@ class PressureProjection(object):
                     '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e.') \
                     % (alpha, normB, alpha / normB)
                 info(message)
-                # Plot the stuff, and project it to a finer mesh with linear
-                # elements for the purpose.
-                plot(divu, title='div(u_tentative)')
-                # Vp = FunctionSpace(Q.mesh(), 'CG', 2)
-                # Wp = MixedFunctionSpace([Vp, Vp])
-                # up = project(u, Wp)
-                fine_mesh = Q.mesh()
-                for k in range(1):
-                    fine_mesh = refine(fine_mesh)
-                V = FunctionSpace(fine_mesh, 'CG', 1)
-                W = V * V
-                # uplot = Function(W)
-                # uplot.interpolate(u)
-                uplot = project(u, W)
-                plot(uplot[0], title='u_tentative[0]')
-                plot(uplot[1], title='u_tentative[1]')
-                # plot(u, title='u_tentative')
-                interactive()
-                exit()
+                # # Plot the stuff, and project it to a finer mesh with linear
+                # # elements for the purpose.
+                # plot(divu, title='div(u_tentative)')
+                # # Vp = FunctionSpace(Q.mesh(), 'CG', 2)
+                # # Wp = MixedFunctionSpace([Vp, Vp])
+                # # up = project(u, Wp)
+                # fine_mesh = Q.mesh()
+                # for k in range(1):
+                #     fine_mesh = refine(fine_mesh)
+                # V = FunctionSpace(fine_mesh, 'CG', 1)
+                # W = V * V
+                # # uplot = Function(W)
+                # # uplot.interpolate(u)
+                # uplot = project(u, W)
+                # plot(uplot[0], title='u_tentative[0]')
+                # plot(uplot[1], title='u_tentative[1]')
+                # # plot(u, title='u_tentative')
+                # interactive()
+                # exit()
                 raise RuntimeError(message)
             # Project out the roundoff error.
             b -= alpha * evec

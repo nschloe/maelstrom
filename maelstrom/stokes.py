@@ -3,10 +3,11 @@
 '''
 Numerical solution schemes for the Stokes equation in cylindrical coordinates.
 '''
-from dolfin import DirichletBC, TrialFunctions, \
-    TestFunctions, Expression, grad, pi, dx, assemble_system, \
-    KrylovSolver, SubSpace, PETScPreconditioner, PETScOptions, \
-    PETScKrylovSolver, inner, solve
+from dolfin import (
+    DirichletBC, TrialFunctions, TestFunctions, grad, pi, dx, assemble_system,
+    KrylovSolver, PETScPreconditioner, PETScOptions, PETScKrylovSolver, inner,
+    solve, SpatialCoordinate
+    )
 
 
 def stokes_solve(
@@ -98,20 +99,20 @@ def stokes_solve(
         #     <http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.145.3554>.
         #
         # Set up field split.
-        W = SubSpace(WP, 0)
-        P = SubSpace(WP, 1)
-        u_dofs = W.dofmap().dofs()
-        p_dofs = P.dofmap().dofs()
-        prec = PETScPreconditioner()
-        prec.set_fieldsplit([u_dofs, p_dofs], ['u', 'p'])
+        # W = SubSpace(WP, 0)
+        # P = SubSpace(WP, 1)
+        # u_dofs = W.dofmap().dofs()
+        # p_dofs = P.dofmap().dofs()
+        # prec = PETScPreconditioner()
+        # prec.set_fieldsplit([u_dofs, p_dofs], ['u', 'p'])
 
-        PETScOptions.set('pc_type', 'fieldsplit')
-        PETScOptions.set('pc_fieldsplit_type', 'additive')
-        PETScOptions.set('fieldsplit_u_pc_type', 'lu')
-        PETScOptions.set('fieldsplit_p_pc_type', 'jacobi')
+        # PETScOptions.set('pc_type', 'fieldsplit')
+        # PETScOptions.set('pc_fieldsplit_type', 'additive')
+        # PETScOptions.set('fieldsplit_u_pc_type', 'lu')
+        # PETScOptions.set('fieldsplit_p_pc_type', 'jacobi')
 
-        # Create Krylov solver with custom preconditioner.
-        solver = PETScKrylovSolver('gmres', prec)
-        solver.set_operator(A)
+        # # Create Krylov solver with custom preconditioner.
+        # solver = PETScKrylovSolver('gmres', prec)
+        # solver.set_operator(A)
 
     return

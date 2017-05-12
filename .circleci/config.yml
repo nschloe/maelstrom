@@ -4,9 +4,7 @@ jobs:
   build:
     working_directory: ~/maelstrom
     docker:
-      # Use dev image for XDMF interface support
-      # - image: quay.io/fenicsproject/stable:current
-      - image: quay.io/fenicsproject/dev
+      - image: quay.io/fenicsproject/stable:2017.1.0
         user: fenics
         environment:
           LD_LIBRARY_PATH: /home/fenics/local/lib
