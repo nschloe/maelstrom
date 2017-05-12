@@ -19,12 +19,11 @@ parameters['allow_extrapolation'] = True
 
 
 @pytest.mark.parametrize('problem', [
-    # problems.Lid_driven_cavity()
-    # problems.Rotating_lid()
-    problems.Ball_in_tube()
+    problems.Lid_driven_cavity(),
+    # problems.Rotating_lid(),
+    problems.Ball_in_tube(),
     ])
 def test(problem, max_num_steps=2):
-
     # # Density depends on temperature.
     # material = 'water'
     # rho = params[material]['density'](293.0)
