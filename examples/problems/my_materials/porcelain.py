@@ -11,3 +11,6 @@ electrical_conductivity = 0.0
 
 # http://www.engineeringtoolbox.com/specific-heat-capacity-d_391.html
 specific_heat_capacity = 1085.0
+
+# http://www.engineeringtoolbox.com/thermal-conductivity-d_429.html
+thermal_conductivity = 1.5

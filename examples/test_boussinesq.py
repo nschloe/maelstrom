@@ -35,7 +35,7 @@ def test():
 
     problem = problems.Crucible()
 
-    dx = Measure('dx')[problem.subdomains]
+    dx = Measure('dx', subdomain_data=problem.subdomains)
 
     subdomain_indices = problem.subdomain_materials.keys()
 
@@ -47,8 +47,14 @@ def test():
     for k in subdomain_indices:
         material = problem.subdomain_materials[k]
         rho[k] = material.density
-        cp[k] = material.specific_heat_capacity
-        kappa[k] = material.thermal_conductivity
+        try:
+            cp[k] = material.specific_heat_capacity
+        except AttributeError:
+            cp[k] = None
+        try:
+            kappa[k] = material.thermal_conductivity
+        except AttributeError:
+            kappa[k] = None
 
     material = problem.subdomain_materials[problem.wpi]
     mu = {problem.wpi: material.dynamic_viscosity}
@@ -62,7 +68,7 @@ def test():
 
     # Initial states.
     u_1 = Function(problem.W, name='velocity')
-    u_1.interpolate(Constant((0.0, 0.0)))
+    u_1.interpolate(Constant((0.0, 0.0, 0.0)))
 
     p_1 = Function(problem.P, name='pressure')
     p_1.interpolate(Constant(0.0))

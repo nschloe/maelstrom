@@ -6,6 +6,9 @@ mu0 = pi * 4.0e-7
 magnetic_permeability = mu0
 electrical_conductivity = 0.0
 
+# http://www.engineeringtoolbox.com/argon-d_1414.html
+specific_heat_capacity = 523.0
+thermal_conductivity = 0.0172
 
 def density(T):
     '''https://en.wikipedia.org/wiki/Argon tells us that for 0°C, 101.325
