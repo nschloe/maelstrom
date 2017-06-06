@@ -3,10 +3,11 @@
 '''
 Numerical solution schemes for the Stokes equation in cylindrical coordinates.
 '''
+from __future__ import print_function
+
 from dolfin import (
     DirichletBC, TrialFunctions, TestFunctions, grad, pi, dx, assemble_system,
-    KrylovSolver, PETScPreconditioner, PETScOptions, PETScKrylovSolver, inner,
-    solve, SpatialCoordinate
+    KrylovSolver, inner, solve, SpatialCoordinate
     )
 
 
@@ -31,7 +32,7 @@ def stokes_solve(
         for bc in bcs:
             space = bc.function_space()
             C = space.component()
-            if len(C) == 0:
+            if not C:
                 new_bcs.append(DirichletBC(WP.sub(k),
                                            bc.value(),
                                            bc.domain_args[0]))
@@ -75,7 +76,7 @@ def stokes_solve(
         #
         prec = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
             - p * q * 2 * pi * r * dx
-        P, btmp = assemble_system(prec, L, new_bcs)
+        P, _ = assemble_system(prec, L, new_bcs)
         solver = KrylovSolver('tfqmr', 'hypre_amg')
         # solver = KrylovSolver('gmres', 'hypre_amg')
         solver.set_operators(A, P)

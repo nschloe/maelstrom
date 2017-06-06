@@ -12,13 +12,18 @@ class HeatCylindrical(ts.ParabolicProblem):
     def __init__(self, V, u, v, b,
                  kappa, rho, cp,
                  source,
-                 dirichlet_bcs=[],
-                 neumann_bcs={},
-                 robin_bcs={},
+                 dirichlet_bcs=None,
+                 neumann_bcs=None,
+                 robin_bcs=None,
                  dx=dx,
                  ds=ds
                  ):
         super(HeatCylindrical, self).__init__()
+
+        dirichlet_bcs = [] if dirichlet_bcs is None else dirichlet_bcs
+        neumann_bcs = {} if neumann_bcs is None else neumann_bcs
+        robin_bcs = {} if robin_bcs is None else robin_bcs
+
         self.dirichlet_bcs = dirichlet_bcs
         self.V = V
 
