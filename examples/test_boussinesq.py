@@ -50,11 +50,11 @@ def test():
         try:
             cp[k] = material.specific_heat_capacity
         except AttributeError:
-            cp[k] = None
+            pass
         try:
             kappa[k] = material.thermal_conductivity
         except AttributeError:
-            kappa[k] = None
+            pass
 
     material = problem.subdomain_materials[problem.wpi]
     mu = {problem.wpi: material.dynamic_viscosity}
@@ -92,7 +92,10 @@ def test():
             begin('Computing heat...')
             # Stabilization in the workpiece.
             # rho_cp = rho[wpi](1550.0) * cp[wpi](1550.0)
-            k = kappa[problem.wpi](1550.0)
+            try:
+                k = kappa[problem.wpi](1550.0)
+            except TypeError:  # 'float' object is not callable
+                k = kappa[problem.wpi]
             # tau = stab.supg2(
             #     Q.mesh(),  # TODO what to put here?
             #     u_1,
