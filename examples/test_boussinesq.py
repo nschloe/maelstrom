@@ -27,6 +27,65 @@ parameters['allow_extrapolation'] = True
 GMSH_EPS = 1.0e-15
 
 
+# Stabilization in the workpiece.
+# rho_cp = rho[wpi](1550.0) * cp[wpi](1550.0)
+# tau = stab.supg2(
+#     Q.mesh(),  # TODO what to put here?
+#     u_1,
+#     k/rho_cp,
+#     Q.ufl_element().degree()
+#     )
+# u_tau = stab.supg(u_1,
+#                   k/rho_cp,
+#                   Q.ufl_element().degree()
+#                   )
+# Build right-hand side F of heat equation such that u' = F(u).
+
+# def weak_F(t, u_t, trial, v):
+#     # TODO reevaluate
+#     # Don't use zero() or 0 to avoid errors as described in
+#     # <https://bitbucket.org/fenics-project/dolfin/issue/44/assemble-0-vectors>.
+#     # Use Expression instead of Constant to work around the error
+#     # <https://bitbucket.org/fenics-project/dolfin/issue/38/constant-expressions-dont-use-the-cell>.
+#     # Also, explicitly both RHS and LHS to something that doesn't
+#     # evaluate to an empty form.
+#     F = trial \
+#         * Expression('0.0', cell=triangle) * v * 2*pi*r*dx(0) \
+#         + Expression('0.0', cell=triangle) * v * 2*pi*r*dx(0)
+#     for i in subdomain_indices:
+#         # Take all parameters at 1550K.
+#         rho_cp = rho[i](1550.0) * cp[i](1550.0)
+#         k = kappa[i](1550.0)
+#         F -= k * r * dot(grad(trial), grad(v/rho_cp)) * 2*pi*dx(i)
+#     # Add convection.
+#     F -= dot(u_1, grad(trial)) * v * 2*pi*r*dx(problem.wpi)
+#     # # Add SUPG stabilization.
+#     # rho_cp = rho[wpi](background_temp)*cp[wpi]
+#     # k = kappa[wpi](background_temp)
+#     # Rdx = u_t * 2*pi*r*dx(wpi) \
+#     #     + dot(u_1, grad(trial)) * 2*pi*r*dx(wpi) \
+#     #     - 1.0/(rho_cp) * div(k*r*grad(trial)) * 2*pi*dx(wpi)
+#     # #F -= dot(tau*u_1, grad(v)) * Rdx
+#     # #F -= tau * inner(u_1, grad(v)) * 2*pi*r*dx(wpi)
+#     # #plot(tau, mesh=V.mesh(), title='u_tau')
+#     # #interactive()
+#     # #F -= tau * v * 2*pi*r*dx(wpi)
+#     # #F -= tau * Rdx
+#     return F
+# theta = ts.implicit_euler_step(
+#     problem.Q,
+#     weak_F,
+#     theta_1,
+#     t, dt,
+#     sympy_bcs=problem.heater_bcs,
+#     tol=1.0e-12,
+#     lhs_multiplier=2*pi*r,
+#     verbose=False,
+#     form_compiler_parameters={
+#         'quadrature_rule': 'vertex',
+#         'quadrature_degree': 1,
+#         },
+#     )
 class Heat(object):
     def __init__(self, V, conv, kappa, rho, cp, dirichlet_bcs, neumann_bcs):
         # TODO stabilization
@@ -131,14 +190,7 @@ class Heat(object):
         return u
 
 
-def test():
-    # mesh, V, Q, u_bcs, p_bcs, heat_boundary, left_boundary, right_boundary, \
-    #     lower_boundary, upper_boundary = _domain_ballintube()
-    # mesh, subdomains, subdomain_materials, wpi, V, Q, P, u_bcs, p_bcs, \
-    #     heater_boundary = _domain_peter()
-    # mesh, subdomains, subdomain_materials, wpi, V, Q, P, u_bcs, p_bcs, \
-    #     background_temp, heater_bcs = probs.crucible()
-
+def test(target_time=0.1):
     problem = problems.Crucible()
 
     # dx = Measure('dx', subdomain_data=problem.subdomains)
@@ -151,98 +203,38 @@ def test():
 
     # Start time, end time, time step.
     t = 0.0
-    T = 1200.0
     dt = 1.0e-4
 
-    g = Constant((0.0, -9.81))
+    g = Constant((0.0, -9.81, 0.0))
 
     # Initial states.
-    u_1 = Function(problem.W, name='velocity')
-    u_1.interpolate(Constant((0.0, 0.0, 0.0)))
+    u0 = Function(problem.W, name='velocity')
+    u0.interpolate(Constant((0.0, 0.0, 0.0)))
 
-    p_1 = Function(problem.P, name='pressure')
-    p_1.interpolate(Constant(0.0))
+    p0 = Function(problem.P, name='pressure')
+    p0.interpolate(Constant(0.0))
 
-    theta_1 = Function(problem.Q, name='temperature')
-    theta_1.interpolate(Constant(problem.background_temp))
+    theta0 = Function(problem.Q, name='temperature')
+    theta0.interpolate(Constant(problem.background_temp))
 
     with XDMFFile(mpi_comm_world(), 'boussinesq.xdmf') as xdmf_file:
         xdmf_file.parameters['flush_output'] = True
         xdmf_file.parameters['rewrite_function_mesh'] = False
 
-        xdmf_file.write(u_1, t)
-        xdmf_file.write(p_1, t)
-        xdmf_file.write(theta_1, t)
+        xdmf_file.write(u0, t)
+        xdmf_file.write(p0, t)
+        xdmf_file.write(theta0, t)
 
-        while t < T + DOLFIN_EPS:
+        while t < target_time + DOLFIN_EPS:
             begin('Time step %e -> %e...' % (t, t+dt))
 
             begin('Computing heat...')
-            # Stabilization in the workpiece.
-            # rho_cp = rho[wpi](1550.0) * cp[wpi](1550.0)
-            # tau = stab.supg2(
-            #     Q.mesh(),  # TODO what to put here?
-            #     u_1,
-            #     k/rho_cp,
-            #     Q.ufl_element().degree()
-            #     )
-            # u_tau = stab.supg(u_1,
-            #                   k/rho_cp,
-            #                   Q.ufl_element().degree()
-            #                   )
-            # Build right-hand side F of heat equation such that u' = F(u).
-
-            # def weak_F(t, u_t, trial, v):
-            #     # TODO reevaluate
-            #     # Don't use zero() or 0 to avoid errors as described in
-            #     # <https://bitbucket.org/fenics-project/dolfin/issue/44/assemble-0-vectors>.
-            #     # Use Expression instead of Constant to work around the error
-            #     # <https://bitbucket.org/fenics-project/dolfin/issue/38/constant-expressions-dont-use-the-cell>.
-            #     # Also, explicitly both RHS and LHS to something that doesn't
-            #     # evaluate to an empty form.
-            #     F = trial \
-            #         * Expression('0.0', cell=triangle) * v * 2*pi*r*dx(0) \
-            #         + Expression('0.0', cell=triangle) * v * 2*pi*r*dx(0)
-            #     for i in subdomain_indices:
-            #         # Take all parameters at 1550K.
-            #         rho_cp = rho[i](1550.0) * cp[i](1550.0)
-            #         k = kappa[i](1550.0)
-            #         F -= k * r * dot(grad(trial), grad(v/rho_cp)) * 2*pi*dx(i)
-            #     # Add convection.
-            #     F -= dot(u_1, grad(trial)) * v * 2*pi*r*dx(problem.wpi)
-            #     # # Add SUPG stabilization.
-            #     # rho_cp = rho[wpi](background_temp)*cp[wpi]
-            #     # k = kappa[wpi](background_temp)
-            #     # Rdx = u_t * 2*pi*r*dx(wpi) \
-            #     #     + dot(u_1, grad(trial)) * 2*pi*r*dx(wpi) \
-            #     #     - 1.0/(rho_cp) * div(k*r*grad(trial)) * 2*pi*dx(wpi)
-            #     # #F -= dot(tau*u_1, grad(v)) * Rdx
-            #     # #F -= tau * inner(u_1, grad(v)) * 2*pi*r*dx(wpi)
-            #     # #plot(tau, mesh=V.mesh(), title='u_tau')
-            #     # #interactive()
-            #     # #F -= tau * v * 2*pi*r*dx(wpi)
-            #     # #F -= tau * Rdx
-            #     return F
-            # theta = ts.implicit_euler_step(
-            #     problem.Q,
-            #     weak_F,
-            #     theta_1,
-            #     t, dt,
-            #     sympy_bcs=problem.heater_bcs,
-            #     tol=1.0e-12,
-            #     lhs_multiplier=2*pi*r,
-            #     verbose=False,
-            #     form_compiler_parameters={
-            #         'quadrature_rule': 'vertex',
-            #         'quadrature_degree': 1,
-            #         },
-            #     )
 
             stepper = parabolic.ImplicitEuler(
                     Heat(
                         problem.Q,
                         # Only take the first two components of the convection
-                        as_vector([u_1[0], u_1[1]]),
+                        as_vector([u0[0], u0[1]]),
                         # Take all parameters at 1550K.
                         kappa, rho(1550.0), cp,
                         problem.theta_bcs_d,
@@ -250,24 +242,26 @@ def test():
                         problem.theta_bcs_n
                         )
                     )
-            theta = stepper.step(theta_1, t, dt)
+            theta1 = stepper.step(theta0, t, dt)
             end()
 
             # Do one Navier-Stokes time step.
             begin('Computing flux and pressure...')
-            try:
-                u, p = cyl_ns.ipcs_step(
-                    problem.W, problem.P, dt,
-                    mu[problem.wpi](problem.background_temp),
-                    rho[problem.wpi](problem.background_temp),
-                    u_1, problem.u_bcs,
-                    p_1, problem.p_bcs,
-                    f0=rho(theta_1) * g,
-                    f1=rho(theta) * g,
-                    theta=1.0,
-                    stabilization=True,
-                    tol=1.0e-10
+            stepper = cyl_ns.IPCS(
+                    time_step_method='backward euler',
+                    stabilization=None
                     )
+            try:
+                u1, p1 = stepper.step(
+                        dt,
+                        {0: u0}, p0,
+                        problem.W, problem.P,
+                        problem.u_bcs, problem.p_bcs,
+                        rho(problem.background_temp),
+                        mu(problem.background_temp),
+                        f={0: rho(theta0)*g, 1: rho(theta1)*g},
+                        tol=1.0e-10
+                        )
             except RuntimeError as e:
                 print(e.message)
                 print('Navier--Stokes solver failed to converge. '
@@ -282,26 +276,26 @@ def test():
             end()
 
             # Assignments and plotting.
-            theta_1.assign(theta)
-            u_1.assign(u)
-            p_1.assign(p)
+            theta0.assign(theta1)
+            u0.assign(u1)
+            p0.assign(p1)
 
             # Save
-            xdmf_file.write(theta_1, t+dt)
-            xdmf_file.write(u_1, t+dt)
-            xdmf_file.write(p_1, t+dt)
+            xdmf_file.write(theta0, t+dt)
+            xdmf_file.write(u0, t+dt)
+            xdmf_file.write(p0, t+dt)
 
-            plot(theta_1, title='temperature', rescale=True)
-            plot(u_1, title='velocity', rescale=True)
-            plot(p_1, title='pressure', rescale=True)
+            plot(theta0, title='temperature', rescale=True)
+            plot(u0, title='velocity', rescale=True)
+            plot(p0, title='pressure', rescale=True)
             # interactive()
             t += dt
 
             # Time update.
             begin('Step size adaptation...')
-            u1, u2 = u_1.split()
+            ux, uy, uz = u0.split()
             unorm = project(
-                    abs(u1) + abs(u2),
+                    abs(ux) + abs(uy) + abs(uz),
                     problem.P,
                     form_compiler_parameters={'quadrature_degree': 4}
                     )
@@ -309,8 +303,7 @@ def test():
             # print('||u||_inf = %e' % unorm)
             unorm = max(unorm, DOLFIN_EPS)
             # http://scicomp.stackexchange.com/questions/2927/estimating-the-courant-number-for-the-navier-stokes-equations-under-differing-re
-            rho_mu = rho[problem.wpi](problem.background_temp) \
-                / mu[problem.wpi](problem.background_temp)
+            rho_mu = rho(problem.background_temp) / mu(problem.background_temp)
             target_dt = min(
                 0.5*problem.mesh.hmin()/unorm,
                 0.5*problem.mesh.hmin()**2 * rho_mu
@@ -334,4 +327,4 @@ def test():
 
 
 if __name__ == '__main__':
-    test()
+    test(target_time=1200.0)
