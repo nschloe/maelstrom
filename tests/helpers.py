@@ -167,8 +167,6 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
 
             mesh_area = assemble(1.0 * dx(mesh))
             method = MethodClass(
-                    W, P,
-                    rho, mu,
                     time_step_method='backward euler',
                     # time_step_method='crank-nicolson',
                     stabilization=None
@@ -195,14 +193,17 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                 p_bcs = []
                 fenics_rhs0.t = 0.0
                 fenics_rhs1.t = dt
-                method.step(dt,
-                            u1, p1,
-                            u, p0,
-                            u_bcs=u_bcs, p_bcs=p_bcs,
-                            f={0: fenics_rhs0, 1: fenics_rhs1},
-                            verbose=False,
-                            tol=1.0e-10
-                            )
+                u1, p1 = method.step(
+                        dt,
+                        u, p0,
+                        W, P,
+                        u_bcs, p_bcs,
+                        rho, mu,
+                        f={0: fenics_rhs0, 1: fenics_rhs1},
+                        verbose=False,
+                        tol=1.0e-10
+                        )
+
                 sol_u.t = dt
                 sol_p.t = dt
                 errors['u'][k][j] = errornorm(sol_u, u1)
