@@ -6,9 +6,9 @@ coordinates,
 TODO update
 
 .. math::
-        \\rho \left(\\frac{du}{dt} + (u\cdot\\nabla)u\\right)
+        \\rho \\left(\\frac{du}{dt} + (u\\cdot\\nabla)u\\right)
           = -\\nabla p
-            + \mu \left(
+            + \\mu \\left(
                 \\frac{1}{r} div(r \\nabla u)
                 - e_r \\frac{u_r}{r^2}
                 \\right)
@@ -18,8 +18,8 @@ TODO update
 cf.
 https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Cylindrical_coordinates.
 In the weak formulation, we consider integrals in pseudo 3D, resulting in a
-weighting with :math:`2\pi r` of the equations. (The volume element is
-:math:`2\pi r dx`, cf. https://answers.launchpad.net/dolfin/+question/228170.)
+weighting with :math:`2\\pi r` of the equations. (The volume element is
+:math:`2\\pi r dx`, cf. https://answers.launchpad.net/dolfin/+question/228170.)
 
 The order of the variables is taken to be :math:`(r, z, \\theta)`. This makes
 sure that for planar domains, the :math:`x`- and :math:`y`-coordinates are
@@ -27,12 +27,10 @@ interpreted as :math:`r`, :math:`z`.
 '''
 
 from dolfin import (
-    TestFunction, Function, Constant, Expression, dot, grad, inner, pi, dx,
-    div, solve, derivative, project, TrialFunction, PETScPreconditioner,
-    PETScKrylovSolver, plot, interactive, as_backend_type, FunctionSpace, info,
-    assemble, norm, FacetNormal, sqrt, ds, DirichletBC, as_vector,
-    NonlinearProblem, NewtonSolver, TestFunctions, SpatialCoordinate, diff,
-    interpolate
+    TestFunction, Function, Constant, dot, grad, inner, pi, dx, div, solve,
+    derivative, TrialFunction, PETScPreconditioner, PETScKrylovSolver,
+    as_backend_type, info, assemble, norm, FacetNormal, sqrt, ds, DirichletBC,
+    as_vector, NonlinearProblem, NewtonSolver, TestFunctions, SpatialCoordinate
     )
 
 from . import stabilization as stab
@@ -318,9 +316,7 @@ def _step(
         ui.assign(u[0])
         solver.solve(step_problem, ui.vector())
         # div_u = 1/r * div(r*ui)
-        # plot(div_u)
-        # interactive()
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     with Message('Computing pressure correction'):
         # The pressure correction is based on the update formula
         #
@@ -366,13 +362,7 @@ def _step(
                 tol=tol,
                 verbose=verbose
                 )
-    # plot(ui, title='u intermediate')
-    # #plot(f, title='f')
-    # #plot(ui[1], title='u intermediate[1]')
-    # plot(div(ui), title='div(u intermediate)')
-    # plot(p1, title='p1')
-    # interactive()
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     # Velocity correction.
     #   U = u[0] - dt/rho \nabla (p1-p0).
     with Message('Computing velocity correction'):
@@ -410,11 +400,7 @@ def _step(
         r = SpatialCoordinate(W.mesh())[0]
         div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
         info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
-        # plot(div_u)
-        # interactive()
 
-        # # Ha! TODO remove
-        # u1.vector()[:] = ui.vector()
     return u1, p1
 
 
