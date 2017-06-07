@@ -4,16 +4,18 @@
 '''
 Navier-Stokes testbed.
 '''
-import problems
-
-import maelstrom.navier_stokes as cyl_ns
-import maelstrom.stokes as cyl_stokes
+from __future__ import print_function
 
 from dolfin import (
     begin, end, parameters, Constant, Function, XDMFFile, DOLFIN_EPS, plot,
     project, norm, mpi_comm_world
     )
 import pytest
+
+import maelstrom.navier_stokes as cyl_ns
+import maelstrom.stokes as cyl_stokes
+
+import problems
 
 parameters['allow_extrapolation'] = True
 

@@ -5,6 +5,8 @@
 Coupled solve of the Navier--Stokes and the heat equation
 in cylindrical coordinates.
 '''
+from __future__ import print_function
+
 from dolfin import (
     parameters, Constant, Function, XDMFFile, mpi_comm_world,
     SpatialCoordinate, DOLFIN_EPS, begin, end, dot, grad, pi, project, plot,
@@ -44,9 +46,9 @@ GMSH_EPS = 1.0e-15
 # def weak_F(t, u_t, trial, v):
 #     # TODO reevaluate
 #     # Don't use zero() or 0 to avoid errors as described in
-#     # <https://bitbucket.org/fenics-project/dolfin/issue/44/assemble-0-vectors>.
+# <https://bitbucket.org/fenics-project/dolfin/issue/44/assemble-0-vectors>.
 #     # Use Expression instead of Constant to work around the error
-#     # <https://bitbucket.org/fenics-project/dolfin/issue/38/constant-expressions-dont-use-the-cell>.
+# <https://bitbucket.org/fenics-project/dolfin/issue/38/constant-expressions-dont-use-the-cell>.
 #     # Also, explicitly both RHS and LHS to something that doesn't
 #     # evaluate to an empty form.
 #     F = trial \
@@ -160,6 +162,7 @@ class Heat(object):
         f2r = assemble(rhs(f2))
         return alpha * f1 + beta * f2l, f2r
 
+    # pylint: disable=unused-argument
     def eval_alpha_M_beta_F(self, alpha, beta, u, t):
         # Evaluate  alpha * M * u + beta * F(u, t).
         v = TestFunction(self.V)

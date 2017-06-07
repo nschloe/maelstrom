@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
+from __future__ import print_function
+
 from dolfin import (
     parameters, XDMFFile, Measure, FunctionSpace, begin, end, SubMesh, project,
     Function, assemble, grad, as_vector, File, DOLFIN_EPS, info, interactive,
@@ -79,7 +81,7 @@ def _convert_to_complex(A):
     into proper complex-valued format.
     '''
     m, n = A.shape
-    assert(m == n)
+    assert m == n
 
     # Prepare index sets.
     I0 = numpy.array(range(0, n, 2))
@@ -128,13 +130,14 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     v_ref = 1.0
     voltages_list = [{coils[0]['rings'][0]: v_ref}]
 
-    A, P, b_list, M, W = cmx._build_system(V, dx,
-                                           Mu, Sigma,  # dictionaries
-                                           omega,
-                                           voltages_list,  # dictionary
-                                           convections={},
-                                           bcs=[]
-                                           )
+    A, P, b_list, M, W = cmx.build_system(
+            V, dx,
+            Mu, Sigma,  # dictionaries
+            omega,
+            voltages_list,  # dictionary
+            convections={},
+            bcs=[]
+            )
 
     # Convert the matrix and rhs into scipy objects.
     rows, cols, values = A.data()
@@ -214,13 +217,14 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
             x_init = numpy.zeros((n, 1), dtype=complex)
             x = numpy.empty((n, 1), dtype=complex)
             residuals = []
-            x[:, 0] = ml.solve(rhs,
-                               x0=x_init,
-                               maxiter=cycles,
-                               tol=0.0,
-                               accel=None,
-                               residuals=residuals
-                               )
+            x[:, 0] = ml.solve(
+                    rhs,
+                    x0=x_init,
+                    maxiter=cycles,
+                    tol=0.0,
+                    accel=None,
+                    residuals=residuals
+                    )
             # # Alternative for one cycle:
             # amg_prec = ml.aspreconditioner( cycle='V' )
             # x = amg_prec * rhs

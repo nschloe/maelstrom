@@ -202,10 +202,10 @@ def solve(
     #     <https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=877730>
     #
     # doesn't work too well here.
-    # The matrix P, created in _build_system(), provides a better alternative.
-    # For more details, see documentation in _build_system().
+    # The matrix P, created in build_system(), provides a better alternative.
+    # For more details, see documentation in build_system().
     #
-    A, P, b_list, _, W = _build_system(
+    A, P, b_list, _, W = build_system(
             V, dx,
             Mu, Sigma,
             omega,
@@ -242,7 +242,7 @@ def solve(
     return phi_list
 
 
-def _build_system(
+def build_system(
         V, dx,
         Mu, Sigma,
         omega,
