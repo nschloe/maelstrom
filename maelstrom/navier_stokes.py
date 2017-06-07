@@ -37,7 +37,7 @@ from . import stabilization as stab
 from .message import Message
 
 
-def _momentum_equation(u, v, p, f, rho, mu, stabilization, dx):
+def _momentum_equation(u, v, p, f, rho, mu, stabilization):
     '''Weak form of the momentum equation.
     '''
     assert rho > 0.0
@@ -137,8 +137,7 @@ def _compute_tentative_velocity(
                 u, p0, dt,
                 bcs,
                 f,
-                stabilization=False,
-                dx=dx
+                stabilization=False
                 ):
             super(TentativeVelocityProblem, self).__init__()
 
@@ -151,7 +150,7 @@ def _compute_tentative_velocity(
 
             def me(uu, ff):
                 return _momentum_equation(
-                    uu, v, p0, ff, rho, mu, stabilization, dx
+                    uu, v, p0, ff, rho, mu, stabilization
                     )
 
             self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*dx
@@ -168,6 +167,7 @@ def _compute_tentative_velocity(
             self.reset_sparsity = True
             return
 
+        # pylint: disable=unused-argument
         def F(self, b, x):
             # We need to evaluate F at x, so we have to make sure that self.F0
             # is assembled for ui=x. We could use a self.ui and set
@@ -221,8 +221,7 @@ def _compute_tentative_velocity(
             u, p0, dt,
             u_bcs,
             f,
-            stabilization,
-            dx=dx
+            stabilization
             )
 
     # Take u[0] as initial guess.
@@ -510,8 +509,7 @@ def _step(
         f,
         rotational_form=False,
         verbose=True,
-        tol=1.0e-10,
-        dx=dx
+        tol=1.0e-10
         ):
     '''General pressure projection scheme as described in section 3.4 of
     :cite:`GMS06`.
