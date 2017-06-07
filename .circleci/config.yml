@@ -13,8 +13,11 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y git gmsh
       - run: sudo apt remove -y python3-pytest
-      - run: sudo -H pip3 install matplotlib pytest pytest-cov pygmsh materials lxml
+      - run: sudo -H pip3 install matplotlib pytest pytest-cov pygmsh materials lxml pylint
       - checkout
+      # lint
+      - run: pylint maelstrom/
+      - run: pylint tests/*.py
       # The actual test
       - run: PYTHONPATH=$PWD:$PYTHONPATH pytest --cov maelstrom
       # submit to codecov

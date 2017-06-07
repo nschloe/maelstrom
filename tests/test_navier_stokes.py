@@ -176,7 +176,7 @@ def test_order(problem, method):
     '''
     # TODO add test for spatial order
     # Methods together with the expected order of convergence.
-    helpers._assert_time_order(problem, method)
+    helpers.assert_time_order(problem, method)
     return
 
 
