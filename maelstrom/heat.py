@@ -4,8 +4,6 @@ from dolfin import (
     dx, ds, dot, grad, pi, assemble, lhs, rhs, SpatialCoordinate
     )
 
-from . import time_steppers as ts
-
 
 class HeatCylindrical(object):
 
@@ -48,11 +46,13 @@ class HeatCylindrical(object):
                 * 2 * pi * ds(k)
         return
 
+    # pylint: disable=unused-argument
     def get_system(self, t):
         # Don't use assemble_system()! See bugs
         # <https://bitbucket.org/fenics-project/dolfin/issue/257/system_assembler-bilinear-and-linear-forms>,
         # <https://bitbucket.org/fenics-project/dolfin/issue/78/systemassembler-problem-with-subdomains-on>.
         return assemble(lhs(self.F0)), assemble(rhs(self.F0))
 
+    # pylint: disable=unused-argument
     def get_bcs(self, t):
         return self.dirichlet_bcs
