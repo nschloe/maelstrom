@@ -16,7 +16,7 @@ def stokes_solve(
         mu,
         u_bcs, p_bcs,
         f,
-        dx=dx,
+        my_dx=dx,
         verbose=True,
         tol=1.0e-10,
         maxiter=1000
@@ -54,12 +54,12 @@ def stokes_solve(
     print("mu = %e" % mu)
 
     # build system
-    a = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
-        - ((r * v[0]).dx(0) + (r * v[1]).dx(1)) * p * 2 * pi * dx \
-        + ((r * u[0]).dx(0) + (r * u[1]).dx(1)) * q * 2 * pi * dx
-    #   - div(r*v)*p* 2*pi*dx \
-    #   + q*div(r*u)* 2*pi*dx
-    L = inner(f, v) * 2 * pi * r * dx
+    a = mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx \
+        - ((r * v[0]).dx(0) + (r * v[1]).dx(1)) * p * 2 * pi * my_dx \
+        + ((r * u[0]).dx(0) + (r * u[1]).dx(1)) * q * 2 * pi * my_dx
+    #   - div(r*v)*p* 2*pi*my_dx \
+    #   + q*div(r*u)* 2*pi*my_dx
+    L = inner(f, v) * 2 * pi * r * my_dx
 
     A, b = assemble_system(a, L, new_bcs)
 
@@ -74,8 +74,8 @@ def stokes_solve(
         #     Fast iterative solvers for discrete Stokes equations;
         #     J. Peters, V. Reichelt, A. Reusken.
         #
-        prec = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
-            - p * q * 2 * pi * r * dx
+        prec = mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx \
+            - p * q * 2 * pi * r * my_dx
         P, _ = assemble_system(prec, L, new_bcs)
         solver = KrylovSolver('tfqmr', 'hypre_amg')
         # solver = KrylovSolver('gmres', 'hypre_amg')

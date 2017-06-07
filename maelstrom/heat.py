@@ -7,7 +7,7 @@ from dolfin import (
 from . import time_steppers as ts
 
 
-class HeatCylindrical(ts.ParabolicProblem):
+class HeatCylindrical(object):
 
     def __init__(self, V, u, v, b,
                  kappa, rho, cp,

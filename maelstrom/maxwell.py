@@ -60,7 +60,7 @@ avoids dividing by r in the convections and the right hand side.
 from dolfin import (
     info, DOLFIN_EPS, DirichletBC, Function, KrylovSolver, dot, grad, pi,
     TrialFunctions, TestFunctions, assemble, Constant, project, FunctionSpace,
-    SpatialCoordinate
+    SpatialCoordinate, mpi_comm_world
     )
 import numpy
 
@@ -205,7 +205,7 @@ def solve(
     # The matrix P, created in _build_system(), provides a better alternative.
     # For more details, see documentation in _build_system().
     #
-    A, P, b_list, M, W = _build_system(
+    A, P, b_list, _, W = _build_system(
             V, dx,
             Mu, Sigma,
             omega,
@@ -528,9 +528,8 @@ def compute_potential(
             phi_out = interpolate(phi, W_submesh)
             phi_out.rename('phi%02d' % k, 'phi%02d' % k)
             # Write to file
-            phi_file = XDMFFile(io_submesh.mpi_comm(), 'phi%02d.xdmf' % k)
-            phi_file.parameters['flush_output'] = True
-            phi_file << phi_out
+            with XDMFFile(mpi_comm_world(), 'phi%02d.xdmf' % k) as xdmf_file:
+                xdmf_file.write(phi_out)
             # plot(phi_out)
             # interactive()
 
@@ -683,6 +682,7 @@ def get_voltage_current_matrix(
     return J
 
 
+# pylint: disable=unused-argument
 def compute_joule(
         Phi, voltages,
         omega, Sigma, Mu,

@@ -7,36 +7,38 @@ Routines for one time-stepping of the general equation
     \\frac{du}{dt} = F(u).
 
 '''
-from dolfin import TrialFunction, TestFunction, Function, dx, Constant, \
-    solve, assemble, DirichletBC, Expression, error, KrylovSolver
+from dolfin import (
+    TrialFunction, TestFunction, Function, dx, Constant, solve, assemble,
+    DirichletBC, Expression, error, KrylovSolver
+    )
 
 
-class ParabolicProblem(object):
-    '''
-    Abstract problem class for use with the time steppers.
-    '''
-    def __init__(self):
-        self.dx = dx
-        self.dx_multiplier = 1.0
-        return
+# class ParabolicProblem(object):
+#     '''
+#     Abstract problem class for use with the time steppers.
+#     '''
+#     def __init__(self):
+#         self.dx = dx
+#         self.dx_multiplier = 1.0
+#         return
+#
+#     def get_system(self, t):
+#         raise NotImplementedError(
+#                 'Classes derived from ParabolicProblem must '
+#                 'implement get_system().'
+#                 )
+#
+#     def get_bcs(self, t):
+#         raise NotImplementedError(
+#                 'Classes derived from ParabolicProblem must '
+#                 'implement get_bcs().'
+#                 )
+#
+#     def get_preconditioner(self, t):
+#         return None
 
-    def get_system(self, t):
-        raise NotImplementedError(
-                'Classes derived from ParabolicProblem must '
-                'implement get_system().'
-                )
 
-    def get_bcs(self, t):
-        raise NotImplementedError(
-                'Classes derived from ParabolicProblem must '
-                'implement get_bcs().'
-                )
-
-    def get_preconditioner(self, t):
-        return None
-
-
-class Dummy():
+class Dummy(object):
     '''
     Dummy method for :math:`u' = F(u)`.
     '''
@@ -49,6 +51,7 @@ class Dummy():
         # u = u0
         return
 
+    # pylint: disable=unused-argument
     def step(self, u0, t, dt, bcs1,
              tol=1.0e-10,
              verbose=True
@@ -58,7 +61,7 @@ class Dummy():
         return u1
 
 
-class ExplicitEuler():
+class ExplicitEuler(object):
     '''
     Explicit Euler method for :math:`u' = F(u)`.
     '''
@@ -107,7 +110,7 @@ class ExplicitEuler():
         return
 
 
-class ImplicitEuler():
+class ImplicitEuler(object):
     '''
     Implicit Euler method for :math:`u' = F(u)`.
     '''
@@ -158,7 +161,7 @@ class ImplicitEuler():
         return
 
 
-class Trapezoidal():
+class Trapezoidal(object):
     '''
     Trapezoidal method for :math:`u' = F(u)`. (Known as Crank-Nicolson in the
     ODE context.)
@@ -227,7 +230,7 @@ def heun_step(V,
     alpha = 2.0 / 3.0
     # alpha = 1.0
     c = [0.0, alpha]
-    A = [[0.0,   0.0],
+    A = [[0.0, 0.0],
          [alpha, 0.0]]
     b = [1.0 - 1.0 / (2 * alpha), 1.0 / (2 * alpha)]
 
@@ -281,7 +284,7 @@ def rkf_step(V,
          [0.25, 0.0, 0.0, 0.0, 0.0, 0.0],
          [3./32, 9./32, 0.0, 0.0, 0.0, 0.0],
          [1932./2197, -7200./2197, 7296./2197, 0.0, 0.0, 0.0],
-         [439./216, -8., 3680./513,  -845./4104, 0.0, 0.0],
+         [439./216, -8., 3680./513, -845./4104, 0.0, 0.0],
          [-8./27, 2., -3544./2565, 1859./4104, -11./40, 0.0]]
     # b = [25./216, 0.0, 1408./2565, 2197./4104, -1./5,  0.0] # 4th order
     b = [16./135, 0.0, 6656./12825, 28561./56430, -9./50, 2./55]  # 5th order

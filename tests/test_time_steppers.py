@@ -39,7 +39,7 @@ def problem_sin1d():
     f = Expression(sympy.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
 
     # The corresponding operator in weak form.
-    class HeatEquation(ts.ParabolicProblem):
+    class HeatEquation(object):
         def __init__(self, V):
             super(HeatEquation, self).__init__()
             self.V = V
@@ -94,7 +94,7 @@ def problem_sinsin():
     f = Expression(sympy.printing.ccode(f_sympy), degree=4, t=0.0)
 
     # The corresponding operator in weak form.
-    class HeatEquation(ts.ParabolicProblem):
+    class HeatEquation(object):
         def __init__(self, V):
             super(HeatEquation, self).__init__()
             self.V = V
@@ -158,7 +158,7 @@ def problem_coscos_cartesian():
     kappa = Expression(sympy.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
     # The corresponding operator in weak form.
-    class HeatEquation(ts.ParabolicProblem):
+    class HeatEquation(object):
         def __init__(self, V):
             super(HeatEquation, self).__init__()
             # Define the differential equation.
@@ -241,7 +241,7 @@ def problem_coscos_cylindrical():
             )
     kappa = Expression(sympy.printing.ccode(kappa_sympy), degree=1, t=0.0)
 
-    class HeatEquation(ts.ParabolicProblem):
+    class HeatEquation(object):
         def __init__(self, V):
             super(HeatEquation, self).__init__()
             # Define the differential equation.
@@ -316,7 +316,7 @@ def problem_stefanboltzmann():
     f = Expression(sympy.printing.ccode(f_sympy), degree=MAX_DEGREE, t=0.0)
     u0 = Expression(sympy.printing.ccode(u0), degree=MAX_DEGREE, t=0.0)
 
-    class HeatEquation(ts.ParabolicProblem):
+    class HeatEquation(object):
         def __init__(self, V):
             super(HeatEquation, self).__init__()
             # Define the differential equation.
