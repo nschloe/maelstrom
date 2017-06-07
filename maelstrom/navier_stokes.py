@@ -83,7 +83,7 @@ def momentum_equation(u, v, p, f, rho, mu, stabilization, dx):
         #
         # SUPG stabilization has the form
         #
-        #     <R, tau*grad(v)*u[-1]>
+        #     <R, tau*grad(v)*u[0]>
         #
         # with R being the residual in strong form. The choice of the tau is
         # subject to research.
@@ -138,18 +138,16 @@ class NavierStokesCylindrical(NonlinearProblem):
                         DirichletBC(
                             self.WP.sub(k), bc.value(), bc.domain_args[0]
                             ))
-                elif len(C) == 1:
+                else:
+                    assert len(C) == 1, \
+                        'Illegal number of subspace components.'
                     self.bcs.append(
                         DirichletBC(
                             self.WP.sub(k).sub(int(C[0])),
                             bc.value(),
                             bc.domain_args[0]
                             ))
-                else:
-                    raise RuntimeError('Illegal number of '
-                                       'subspace components.'
-                                       )
-        #
+
         self.up = Function(self.WP)
         u, p = self.up.split()
         v, q = TestFunctions(self.WP)
@@ -214,30 +212,17 @@ class TentativeVelocityProblem(NonlinearProblem):
 
         r = SpatialCoordinate(ui.function_space().mesh())[0]
 
-        # self.F0 = (
-        #     rho * dot(3*ui - 4*u[-1] + u[-2], v) / (2*Constant(dt))
-        #     * 2*pi*r*dx
-        #     )
-        # self.F0 += momentum_equation(
-        #         ui, v,
-        #         p0,
-        #         f1,
-        #         rho, mu,
-        #         stabilization=stabilization,
-        #         dx=dx
-        #         )
-
         stab = stabilization
-        self.F0 = rho * dot(ui - u[-1], v) / Constant(dt) * 2*pi*r*dx
+        self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*dx
         if time_step_method == 'forward euler':
-            self.F0 += momentum_equation(u[-1], v, p0, f[0], rho, mu, stab, dx)
+            self.F0 += momentum_equation(u[0], v, p0, f[0], rho, mu, stab, dx)
         elif time_step_method == 'backward euler':
             self.F0 += momentum_equation(ui, v, p0, f[1], rho, mu, stab, dx)
         else:
             assert time_step_method == 'crank-nicolson', \
                     'Unknown time stepper \'{}\''.format(time_step_method)
             self.F0 += 0.5 * (
-                momentum_equation(u[-1], v, p0, f[0], rho, mu, stab, dx) +
+                momentum_equation(u[0], v, p0, f[0], rho, mu, stab, dx) +
                 momentum_equation(ui, v, p0, f[1], rho, mu, stab, dx)
                 )
         self.jacobian = derivative(self.F0, ui)
@@ -314,7 +299,7 @@ class PressureProjection(object):
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Compute tentative velocity step.
-        # rho (u[-1] + (u.\nabla)u) = mu 1/r \div(r \nabla u) + rho g.
+        # rho (u[0] + (u.\nabla)u) = mu 1/r \div(r \nabla u) + rho g.
         with Message('Computing tentative velocity'):
             solver = NewtonSolver()
             solver.parameters['maximum_iterations'] = 5
@@ -323,7 +308,7 @@ class PressureProjection(object):
             solver.parameters['report'] = True
             # The nonlinear term makes the problem generally nonsymmetric.
             solver.parameters['linear_solver'] = 'gmres'
-            # If the nonsymmetry is too strong, e.g., if u[-1] is large, then
+            # If the nonsymmetry is too strong, e.g., if u[0] is large, then
             # AMG preconditioning might not work very well.
             # Use HYPRE-Euclid instead of ILU for parallel computation.
             solver.parameters['preconditioner'] = 'hypre_euclid'
@@ -344,8 +329,8 @@ class PressureProjection(object):
                     dx=self.dx
                     )
 
-            # Take u[-1] as initial guess.
-            ui.assign(u[-1])
+            # Take u[0] as initial guess.
+            ui.assign(u[0])
             solver.solve(step_problem, ui.vector())
             # div_u = 1/r * div(r*ui)
             # plot(div_u)
@@ -404,7 +389,7 @@ class PressureProjection(object):
         # interactive()
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Velocity correction.
-        #   U = u[-1] - dt/rho \nabla (p1-p0).
+        #   U = u[0] - dt/rho \nabla (p1-p0).
         with Message('Computing velocity correction'):
             u = TrialFunction(self.W)
             v = TestFunction(self.W)

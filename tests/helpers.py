@@ -180,19 +180,14 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             divu1 = Function(P)
             for j, dt in enumerate(Dt):
                 # Prepare previous states for multistepping.
-                u = [Expression(
-                    sol_u.cppcode,
-                    degree=_truncate_degree(solution['u']['degree']),
-                    t=0.0,
-                    cell=cell_type
-                    ),
-                    # Expression(
-                    # sol_u.cppcode,
-                    # degree=_truncate_degree(solution['u']['degree']),
-                    # t=0.5*dt,
-                    # cell=cell_type
-                    # )
-                    ]
+                u = {
+                    0: Expression(
+                        sol_u.cppcode,
+                        degree=_truncate_degree(solution['u']['degree']),
+                        t=0.0,
+                        cell=cell_type
+                        )
+                    }
                 sol_u.t = dt
                 u_bcs = [DirichletBC(W, sol_u, 'on_boundary')]
                 sol_p.t = dt
