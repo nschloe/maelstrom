@@ -13,9 +13,9 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y git gmsh
       - run: sudo apt remove -y python3-pytest
-      - run: sudo -H pip3 install -r requirements.txt
       - run: sudo -H pip3 install pytest pytest-cov pylint
       - checkout
+      - run: sudo -H pip3 install -r requirements.txt
       # lint
       - run: pylint maelstrom/
       - run: pylint tests/*.py
