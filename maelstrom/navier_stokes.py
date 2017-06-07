@@ -27,19 +27,19 @@ interpreted as :math:`r`, :math:`z`.
 '''
 
 from dolfin import (
-    TestFunction, Function, Constant, Expression, dot, grad, inner,
-    pi, dx, DOLFIN_EPS, div, solve, derivative, project, TrialFunction,
-    PETScPreconditioner, PETScKrylovSolver, plot, interactive, as_backend_type,
-    FunctionSpace, info, refine, assemble, norm, FacetNormal, sqrt, ds,
-    DirichletBC, as_vector, NonlinearProblem, NewtonSolver, TestFunctions,
-    SpatialCoordinate, diff
+    TestFunction, Function, Constant, Expression, dot, grad, inner, pi, dx,
+    div, solve, derivative, project, TrialFunction, PETScPreconditioner,
+    PETScKrylovSolver, plot, interactive, as_backend_type, FunctionSpace, info,
+    assemble, norm, FacetNormal, sqrt, ds, DirichletBC, as_vector,
+    NonlinearProblem, NewtonSolver, TestFunctions, SpatialCoordinate, diff,
+    interpolate
     )
 
 from . import stabilization as stab
 from .message import Message
 
 
-def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
+def momentum_equation(u, v, p, f, rho, mu, stabilization, dx):
     '''Weak form of the momentum equation.
     '''
     assert rho > 0.0
@@ -197,11 +197,11 @@ class NavierStokesCylindrical(NonlinearProblem):
 
 class TentativeVelocityProblem(NonlinearProblem):
 
-    def __init__(self, ui, theta,
+    def __init__(self, ui, time_step_method,
                  rho, mu,
                  u, p0, dt,
                  bcs,
-                 f0, f1,
+                 f,
                  stabilization=False,
                  dx=dx
                  ):
@@ -227,35 +227,19 @@ class TentativeVelocityProblem(NonlinearProblem):
         #         dx=dx
         #         )
 
+        stab = stabilization
         self.F0 = rho * dot(ui - u[-1], v) / Constant(dt) * 2*pi*r*dx
-        if abs(theta) > DOLFIN_EPS:
-            # Implicit terms.
-            if f1 is None:
-                raise RuntimeError(
-                        'Implicit schemes need right-hand side '
-                        'at target step (f1).'
-                        )
-            self.F0 += theta * momentum_equation(
-                        ui, v,
-                        p0,
-                        f1,
-                        rho, mu,
-                        stabilization=stabilization,
-                        dx=dx
-                        )
-        if abs(1.0 - theta) > DOLFIN_EPS:
-            # Explicit terms.
-            if f0 is None:
-                raise RuntimeError('Explicit schemes need right-hand side '
-                                   'at current step (f0).')
-            self.F0 += (1.0 - theta) * momentum_equation(
-                        u[-1], v,
-                        p0,
-                        f0,
-                        rho, mu,
-                        stabilization=stabilization,
-                        dx=dx
-                        )
+        if time_step_method == 'forward euler':
+            self.F0 += momentum_equation(u[-1], v, p0, f[0], rho, mu, stab, dx)
+        elif time_step_method == 'backward euler':
+            self.F0 += momentum_equation(ui, v, p0, f[1], rho, mu, stab, dx)
+        else:
+            assert time_step_method == 'crank-nicolson', \
+                    'Unknown time stepper \'{}\''.format(time_step_method)
+            self.F0 += 0.5 * (
+                momentum_equation(u[-1], v, p0, f[0], rho, mu, stab, dx) +
+                momentum_equation(ui, v, p0, f[1], rho, mu, stab, dx)
+                )
         self.jacobian = derivative(self.F0, ui)
         self.reset_sparsity = True
         return
@@ -296,11 +280,11 @@ class PressureProjection(object):
             self,
             W, P,
             rho, mu,
-            theta,
+            time_step_method,
             stabilization=None,
             dx=dx
             ):
-        self.theta = theta
+        self.time_step_method = time_step_method
         self.W = W
         self.P = P
         self.rho = rho
@@ -315,7 +299,7 @@ class PressureProjection(object):
             u1, p1,
             u, p0,
             u_bcs, p_bcs,
-            f0=None, f1=None,
+            f,
             verbose=True,
             tol=1.0e-10
             ):
@@ -351,11 +335,11 @@ class PressureProjection(object):
             ui = Function(self.W)
             step_problem = TentativeVelocityProblem(
                     ui,
-                    self.theta,
+                    self.time_step_method,
                     self.rho, self.mu,
                     u, p0, k,
                     u_bcs,
-                    f0, f1,
+                    f,
                     stabilization=self.stabilization,
                     dx=self.dx
                     )
@@ -472,10 +456,10 @@ class PressureProjection(object):
             verbose=True
             ):
         '''Solve the pressure Poisson equation
-            -1/r \div(r \nabla (p1-p0)) = -1/r div(r*u),
+            -1/r div(r \\nabla (p1-p0)) = -1/r div(r*u),
             boundary conditions,
         for
-            \nabla p = u.
+            \\nabla p = u.
         '''
         r = SpatialCoordinate(self.W.mesh())[0]
 
@@ -647,12 +631,12 @@ class IPCS(PressureProjection):
         }
 
     def __init__(
-            self, W, P, rho, mu, theta,
+            self, W, P, rho, mu, time_step_method,
             stabilization=False,
             dx=dx
             ):
         super(IPCS, self).__init__(
-                W, P, rho, mu, theta,
+                W, P, rho, mu, time_step_method,
                 stabilization=stabilization,
                 dx=dx
                 )

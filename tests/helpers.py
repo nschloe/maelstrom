@@ -156,6 +156,8 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     domain=mesh
                     )
             # Create initial states.
+            W = VectorFunctionSpace(mesh, 'CG', 2)
+            P = FunctionSpace(mesh, 'CG', 1)
             p0 = Expression(
                     sol_p.cppcode,
                     degree=_truncate_degree(solution['p']['degree']),
@@ -164,13 +166,11 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     )
 
             mesh_area = assemble(1.0 * dx(mesh))
-            W = VectorFunctionSpace(mesh, 'CG', 2)
-            P = FunctionSpace(mesh, 'CG', 1)
             method = MethodClass(
                     W, P,
                     rho, mu,
-                    theta=1.0,
-                    # theta=0.5,
+                    time_step_method='backward euler',
+                    # time_step_method='crank-nicolson',
                     stabilization=None
                     # stabilization='SUPG'
                     )
@@ -204,7 +204,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                             u1, p1,
                             u, p0,
                             u_bcs=u_bcs, p_bcs=p_bcs,
-                            f0=fenics_rhs0, f1=fenics_rhs1,
+                            f={0: fenics_rhs0, 1: fenics_rhs1},
                             verbose=False,
                             tol=1.0e-10
                             )
