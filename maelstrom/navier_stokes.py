@@ -29,8 +29,8 @@ interpreted as :math:`r`, :math:`z`.
 from dolfin import (
     TestFunction, Function, Constant, dot, grad, inner, pi, dx, div, solve,
     derivative, TrialFunction, PETScPreconditioner, PETScKrylovSolver,
-    as_backend_type, info, assemble, norm, FacetNormal, sqrt, ds, DirichletBC,
-    as_vector, NonlinearProblem, NewtonSolver, TestFunctions, SpatialCoordinate
+    as_backend_type, info, assemble, norm, FacetNormal, sqrt, ds, as_vector,
+    NonlinearProblem, NewtonSolver, SpatialCoordinate
     )
 
 from . import stabilization as stab
@@ -119,79 +119,79 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, dx):
     return F
 
 
-class TentativeVelocityProblem(NonlinearProblem):
-
-    def __init__(
-            self, ui, time_step_method,
-            rho, mu,
-            u, p0, dt,
-            bcs,
-            f,
-            stabilization=False,
-            dx=dx
-            ):
-        super(TentativeVelocityProblem, self).__init__()
-
-        W = ui.function_space()
-        v = TestFunction(W)
-
-        self.bcs = bcs
-
-        r = SpatialCoordinate(ui.function_space().mesh())[0]
-
-        def me(uu, ff):
-            return _momentum_equation(uu, v, p0, ff, rho, mu, stabilization, dx)
-
-        self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*dx
-        if time_step_method == 'forward euler':
-            self.F0 += me(u[0], f[0])
-        elif time_step_method == 'backward euler':
-            self.F0 += me(ui, f[1])
-        else:
-            assert time_step_method == 'crank-nicolson', \
-                    'Unknown time stepper \'{}\''.format(time_step_method)
-            self.F0 += 0.5 * (me(u[0], f[0]) + me(ui, f[1]))
-
-        self.jacobian = derivative(self.F0, ui)
-        self.reset_sparsity = True
-        return
-
-    def F(self, b, x):
-        # We need to evaluate F at x, so we have to make sure that self.F0 is
-        # assembled for ui=x. We could use a self.ui and set
-        #
-        #     self.ui.vector()[:] = x
-        #
-        # here. One way around this copy is to instantiate this class with the
-        # same Function ui that is then used for the solver.solve().
-        assemble(
-            self.F0,
-            tensor=b,
-            form_compiler_parameters={'optimize': True}
-            )
-        for bc in self.bcs:
-            bc.apply(b, x)
-        return
-
-    def J(self, A, x):
-        # We can ignore x; see comment at F().
-        assemble(
-            self.jacobian,
-            tensor=A,
-            form_compiler_parameters={'optimize': True}
-            )
-        for bc in self.bcs:
-            bc.apply(A)
-        self.reset_sparsity = False
-        return
-
-
 def _compute_tentative_velocity(
         time_step_method, rho, mu,
         u, p0, dt, u_bcs, f, W,
         stabilization,
         verbose, tol
         ):
+    class TentativeVelocityProblem(NonlinearProblem):
+        def __init__(
+                self, ui, time_step_method,
+                rho, mu,
+                u, p0, dt,
+                bcs,
+                f,
+                stabilization=False,
+                dx=dx
+                ):
+            super(TentativeVelocityProblem, self).__init__()
+
+            W = ui.function_space()
+            v = TestFunction(W)
+
+            self.bcs = bcs
+
+            r = SpatialCoordinate(ui.function_space().mesh())[0]
+
+            def me(uu, ff):
+                return _momentum_equation(
+                    uu, v, p0, ff, rho, mu, stabilization, dx
+                    )
+
+            self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*dx
+            if time_step_method == 'forward euler':
+                self.F0 += me(u[0], f[0])
+            elif time_step_method == 'backward euler':
+                self.F0 += me(ui, f[1])
+            else:
+                assert time_step_method == 'crank-nicolson', \
+                        'Unknown time stepper \'{}\''.format(time_step_method)
+                self.F0 += 0.5 * (me(u[0], f[0]) + me(ui, f[1]))
+
+            self.jacobian = derivative(self.F0, ui)
+            self.reset_sparsity = True
+            return
+
+        def F(self, b, x):
+            # We need to evaluate F at x, so we have to make sure that self.F0
+            # is assembled for ui=x. We could use a self.ui and set
+            #
+            #     self.ui.vector()[:] = x
+            #
+            # here. One way around this copy is to instantiate this class with
+            # the same Function ui that is then used for the solver.solve().
+            assemble(
+                self.F0,
+                tensor=b,
+                form_compiler_parameters={'optimize': True}
+                )
+            for bc in self.bcs:
+                bc.apply(b, x)
+            return
+
+        def J(self, A, x):
+            # We can ignore x; see comment at F().
+            assemble(
+                self.jacobian,
+                tensor=A,
+                form_compiler_parameters={'optimize': True}
+                )
+            for bc in self.bcs:
+                bc.apply(A)
+            self.reset_sparsity = False
+            return
+
     solver = NewtonSolver()
     solver.parameters['maximum_iterations'] = 5
     solver.parameters['absolute_tolerance'] = tol
@@ -199,8 +199,8 @@ def _compute_tentative_velocity(
     solver.parameters['report'] = True
     # The nonlinear term makes the problem generally nonsymmetric.
     solver.parameters['linear_solver'] = 'gmres'
-    # If the nonsymmetry is too strong, e.g., if u[0] is large, then
-    # AMG preconditioning might not work very well.
+    # If the nonsymmetry is too strong, e.g., if u[0] is large, then AMG
+    # preconditioning might not work very well.
     # Use HYPRE-Euclid instead of ILU for parallel computation.
     solver.parameters['preconditioner'] = 'hypre_euclid'
     solver.parameters['krylov_solver']['relative_tolerance'] = tol
@@ -337,10 +337,10 @@ def _compute_pressure(
         # TODO think about condition here
         # if abs(alpha) > normB * DOLFIN_EPS:
         if abs(alpha) > normB * 1.0e-12:
-            divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
+            # divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
             adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * dx)
             info('\\int 1/r * div(r*u) * 2*pi*r  =  %e' % adivu)
-            n = FacetNormal(Q.mesh())
+            n = FacetNormal(P.mesh())
             boundary_integral = assemble((n[0] * u[0] + n[1] * u[1])
                                          * 2 * pi * r * ds)
             info('\\int_Gamma n.u * 2*pi*r = %e' % boundary_integral)
@@ -379,7 +379,7 @@ def _compute_pressure(
         # The system is consistent, but the matrix has an eigenvalue 0.
         # This does not harm the convergence of CG, but when
         # preconditioning one has to make sure that the preconditioner
-        # preserves the kernel.  ILU might destroy this (and the
+        # preserves the kernel. ILU might destroy this (and the
         # semidefiniteness). With AMG, the coarse grid solves cannot be LU
         # then, so try Jacobi here.
         # <http://lists.mcs.anl.gov/pipermail/petsc-users/2012-February/012139.html>
