@@ -281,9 +281,9 @@ def _compute_pressure(
 
     .. math::
 
-      \\int r * \\grad(phi)\\cdot\\grad(q) \cdot 2 \\pi =
-           - \\rho/dt \\int div(r*u*) q \cdot 2 p
-           - \\rho/dt \\int_{\\Gamma} n\\cdot(r*(u_{n+1}-u*)) q \\cdot 2\\pi.
+      \\int r * \\grad(phi)\\cdot\\grad(q) \\cdot 2 \\pi =
+           - \\rho/dt \\int div(r u*) q \\cdot 2 \\pi
+           - \\rho/dt \\int_{\\Gamma} n\\cdot(r (u_{n+1}-u*)) q \\cdot 2\\pi.
 
     (The terms :math:`1/r` cancel with the volume elements :math:`2\\pi r`.) If
     the Dirichlet boundary conditions are applied to both :math:`u*` and
