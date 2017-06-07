@@ -259,7 +259,7 @@ class TentativeVelocityProblem(NonlinearProblem):
         return
 
 
-def _solve_tentative_velocity(
+def _compute_tentative_velocity(
         time_step_method, rho, mu,
         u, p0, dt, u_bcs, f, W,
         stabilization,
@@ -300,124 +300,7 @@ def _solve_tentative_velocity(
     return ui
 
 
-def _step(
-        dt,
-        u, p0,
-        W, P,
-        u_bcs, p_bcs,
-        rho, mu,
-        stabilization,
-        time_step_method,
-        f,
-        rotational_form=False,
-        verbose=True,
-        tol=1.0e-10,
-        dx=dx
-        ):
-    '''General pressure projection scheme as described in section 3.4 of
-    :cite:`GMS06`.
-    '''
-    # Some initial sanity checkups.
-    assert dt > 0.0
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # Compute tentative velocity step.
-    # rho (u[0] + (u.\nabla)u) = mu 1/r \div(r \nabla u) + rho g.
-    with Message('Computing tentative velocity'):
-        ui = _solve_tentative_velocity(
-                time_step_method, rho, mu,
-                u, p0, dt, u_bcs, f, W,
-                stabilization,
-                verbose, tol
-                )
-
-    with Message('Computing pressure correction'):
-        # The pressure correction is based on the update formula
-        #
-        #                           (    dphi/dr    )
-        #     rho/dt (u_{n+1}-u*) + (    dphi/dz    ) = 0
-        #                           (1/r dphi/dtheta)
-        #
-        # with
-        #
-        #     phi = p_{n+1} - p*
-        #
-        # and
-        #
-        #      1/r d/dr    (r ur_{n+1})
-        #    +     d/dz    (  uz_{n+1})
-        #    + 1/r d/dtheta(  utheta_{n+1}) = 0
-        #
-        # With the assumption that u does not change in the direction
-        # theta, one derives
-        #
-        #  - 1/r * div(r * \nabla phi) = 1/r * rho/dt div(r*(u_{n+1} - u*))
-        #  - 1/r * n. (r * \nabla phi) = 1/r * rho/dt  n.(r*(u_{n+1} - u*))
-        #
-        # In its weak form, this is
-        #
-        #   \int r * \grad(phi).\grad(q) *2*pi =
-        #       - rho/dt \int div(r*u*) q *2*p
-        #       - rho/dt \int_Gamma n.(r*(u_{n+1}-u*)) q *2*pi.
-        #
-        # (The terms 1/r cancel with the volume elements 2*pi*r.)
-        # If Dirichlet boundary conditions are applied to both u* and u_n
-        # (the latter in the final step), the boundary integral vanishes.
-        #
-        p1 = _pressure_poisson(
-                P, p0,
-                mu, ui,
-                rho * ui / dt,
-                p_bcs=p_bcs,
-                rotational_form=rotational_form,
-                tol=tol,
-                verbose=verbose
-                )
-
-    # Velocity correction.
-    #   U = u[0] - dt/rho \nabla (p1-p0).
-    with Message('Computing velocity correction'):
-        u = TrialFunction(W)
-        v = TestFunction(W)
-        a3 = dot(u, v) * dx
-        phi = Function(P)
-        print(p1, p1.function_space())
-        print(phi, phi.function_space())
-        phi.assign(p1)
-        if p0:
-            phi -= p0
-        if rotational_form:
-            r = SpatialCoordinate(W.mesh())[0]
-            div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
-            phi += mu * div_ui
-        L3 = dot(ui, v) * dx \
-            - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * dx
-        u1 = Function(W)
-        solve(
-            a3 == L3, u1,
-            bcs=u_bcs,
-            solver_parameters={
-                'linear_solver': 'iterative',
-                'symmetric': True,
-                'preconditioner': 'hypre_amg',
-                'krylov_solver': {
-                    'relative_tolerance': tol,
-                    'absolute_tolerance': 0.0,
-                    'maximum_iterations': 100,
-                    'monitor_convergence': verbose
-                    }
-                }
-            )
-        # u = project(ui - k/rho * grad(phi), V)
-        # div_u = 1/r * div(r*u)
-        r = SpatialCoordinate(W.mesh())[0]
-        div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
-        info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
-
-    return u1, p1
-
-
-def _pressure_poisson(
+def _compute_pressure(
         P, p0,
         mu, ui,
         u,
@@ -589,6 +472,135 @@ def _pressure_poisson(
         solver.set_operator(A_petsc)
         solver.solve(p1_petsc, b_petsc)
     return p1
+
+
+def _compute_velocity_correction(
+        ui, p0, p1, u_bcs, rho, mu, dt,
+        rotational_form, tol, verbose
+        ):
+    W = ui.function_space()
+    P = p1.function_space()
+
+    u = TrialFunction(W)
+    v = TestFunction(W)
+    a3 = dot(u, v) * dx
+    phi = Function(P)
+    phi.assign(p1)
+    if p0:
+        phi -= p0
+    if rotational_form:
+        r = SpatialCoordinate(W.mesh())[0]
+        div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
+        phi += mu * div_ui
+    L3 = dot(ui, v) * dx \
+        - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * dx
+    u1 = Function(W)
+    solve(
+        a3 == L3, u1,
+        bcs=u_bcs,
+        solver_parameters={
+            'linear_solver': 'iterative',
+            'symmetric': True,
+            'preconditioner': 'hypre_amg',
+            'krylov_solver': {
+                'relative_tolerance': tol,
+                'absolute_tolerance': 0.0,
+                'maximum_iterations': 100,
+                'monitor_convergence': verbose
+                }
+            }
+        )
+    # u = project(ui - k/rho * grad(phi), V)
+    # div_u = 1/r * div(r*u)
+    r = SpatialCoordinate(W.mesh())[0]
+    div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
+    info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
+    return u1
+
+
+def _step(
+        dt,
+        u, p0,
+        W, P,
+        u_bcs, p_bcs,
+        rho, mu,
+        stabilization,
+        time_step_method,
+        f,
+        rotational_form=False,
+        verbose=True,
+        tol=1.0e-10,
+        dx=dx
+        ):
+    '''General pressure projection scheme as described in section 3.4 of
+    :cite:`GMS06`.
+    '''
+    # Some initial sanity checkups.
+    assert dt > 0.0
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Compute tentative velocity step.
+    # rho (u[0] + (u.\nabla)u) = mu 1/r \div(r \nabla u) + rho g.
+    with Message('Computing tentative velocity'):
+        ui = _compute_tentative_velocity(
+                time_step_method, rho, mu,
+                u, p0, dt, u_bcs, f, W,
+                stabilization,
+                verbose, tol
+                )
+
+    with Message('Computing pressure correction'):
+        # The pressure correction is based on the update formula
+        #
+        #                           (    dphi/dr    )
+        #     rho/dt (u_{n+1}-u*) + (    dphi/dz    ) = 0
+        #                           (1/r dphi/dtheta)
+        #
+        # with
+        #
+        #     phi = p_{n+1} - p*
+        #
+        # and
+        #
+        #      1/r d/dr    (r ur_{n+1})
+        #    +     d/dz    (  uz_{n+1})
+        #    + 1/r d/dtheta(  utheta_{n+1}) = 0
+        #
+        # With the assumption that u does not change in the direction
+        # theta, one derives
+        #
+        #  - 1/r * div(r * \nabla phi) = 1/r * rho/dt div(r*(u_{n+1} - u*))
+        #  - 1/r * n. (r * \nabla phi) = 1/r * rho/dt  n.(r*(u_{n+1} - u*))
+        #
+        # In its weak form, this is
+        #
+        #   \int r * \grad(phi).\grad(q) *2*pi =
+        #       - rho/dt \int div(r*u*) q *2*p
+        #       - rho/dt \int_Gamma n.(r*(u_{n+1}-u*)) q *2*pi.
+        #
+        # (The terms 1/r cancel with the volume elements 2*pi*r.)
+        # If Dirichlet boundary conditions are applied to both u* and u_n
+        # (the latter in the final step), the boundary integral vanishes.
+        #
+        p1 = _compute_pressure(
+                P, p0,
+                mu, ui,
+                rho * ui / dt,
+                p_bcs=p_bcs,
+                rotational_form=rotational_form,
+                tol=tol,
+                verbose=verbose
+                )
+
+    # Velocity correction.
+    #   U = u[0] - dt/rho \nabla (p1-p0).
+    with Message('Computing velocity correction'):
+        u1 = _compute_velocity_correction(
+            ui, p0, p1, u_bcs, rho, mu, dt,
+            rotational_form, tol, verbose
+            )
+
+    return u1, p1
 
 
 class IPCS(object):
