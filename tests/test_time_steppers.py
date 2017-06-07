@@ -6,7 +6,7 @@ from dolfin import (
     set_log_level, WARNING, Expression, FunctionSpace, DirichletBC, Function,
     errornorm, project, plot, interactive, triangle, norm, UnitIntervalMesh,
     pi, inner, grad, dx, ds, dot, UnitSquareMesh, FacetNormal, interval,
-    TrialFunction, TestFunction, assemble, lhs, rhs, MPI, SpatialCoordinates
+    TrialFunction, TestFunction, assemble, lhs, rhs, MPI, SpatialCoordinate
     )
 import matplotlib.pyplot as plt
 import numpy
