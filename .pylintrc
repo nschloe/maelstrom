@@ -8,8 +8,10 @@ disable=
     invalid-name,
     missing-docstring,
     no-member,
-    no-name-in-module,
     too-few-public-methods,
     too-many-arguments,
     too-many-locals,
     too-many-statements,
+    #
+    no-name-in-module,
+    invalid-unary-operand-type,

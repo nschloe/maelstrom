@@ -308,7 +308,6 @@ def build_system(
             + 1.0 / (Mu[i] * r) * dot(grad(r * ur), grad(r * vr)) * 2*pi*dx(i)
             + 1.0 / (Mu[i] * r) * dot(grad(r * ui), grad(r * vi)) * 2*pi*dx(i)
             )
-        # pylint: disable=invalid-unary-operand-type
         a2 += (
             - om * sigma * ui * vr * 2*pi*r * dx(i)
             + om * sigma * ur * vi * 2*pi*r * dx(i)
