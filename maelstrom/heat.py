@@ -15,8 +15,8 @@ class HeatCylindrical(ts.ParabolicProblem):
                  dirichlet_bcs=None,
                  neumann_bcs=None,
                  robin_bcs=None,
-                 dx=dx,
-                 ds=ds
+                 my_dx=dx,
+                 my_ds=ds
                  ):
         super(HeatCylindrical, self).__init__()
 
@@ -31,16 +31,16 @@ class HeatCylindrical(ts.ParabolicProblem):
         self.dx_multiplier = 2*pi*r
 
         self.F0 = kappa * r * dot(grad(u), grad(v / (rho * cp))) \
-            * 2*pi * dx
+            * 2*pi * my_dx
         # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
         if b:
-            self.F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * dx
+            self.F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
         # Joule heat
-        self.F0 -= 1.0 / (rho * cp) * source * v * 2*pi*r * dx
+        self.F0 -= 1.0 / (rho * cp) * source * v * 2*pi*r * my_dx
         # Neumann boundary conditions
         for k, nGradT in neumann_bcs.items():
             self.F0 -= r * kappa * nGradT * v / (rho * cp) \
-                * 2 * pi * ds(k)
+                * 2 * pi * my_ds(k)
         # Robin boundary conditions
         for k, value in robin_bcs.items():
             alpha, u0 = value

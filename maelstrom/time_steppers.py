@@ -242,12 +242,14 @@ def rk4_step(V,
              F,
              u0,
              t, dt,
-             sympy_dirichlet_bcs=[],
+             sympy_dirichlet_bcs=None,
              tol=1.0e-10,
              verbose=True
              ):
     '''Classical RK4.
     '''
+    sympy_dirichlet_bcs = \
+        [] if sympy_dirichlet_bcs is None else sympy_dirichlet_bcs
     c = [0.0, 0.5, 0.5, 1.0]
     A = [[0.0, 0.0, 0.0, 0.0],
          [0.5, 0.0, 0.0, 0.0],
@@ -266,21 +268,23 @@ def rkf_step(V,
              F,
              u0,
              t, dt,
-             sympy_dirichlet_bcs=[],
+             sympy_dirichlet_bcs=None,
              tol=1.0e-10,
              verbose=True
              ):
     '''Runge--Kutta--Fehlberg method.
     '''
+    sympy_dirichlet_bcs = \
+        [] if sympy_dirichlet_bcs is None else sympy_dirichlet_bcs
     c = [0.0, 0.25, 3.0 / 8.0, 12.0 / 13.0, 1.0, 0.5]
-    A = [[0.0,         0.0,         0.0,         0.0,         0.0,    0.0],
-         [0.25,        0.0,         0.0,         0.0,         0.0,    0.0],
-         [3./32,       9./32,       0.0,         0.0,         0.0,    0.0],
-         [1932./2197, -7200./2197,  7296./2197,  0.0,         0.0,    0.0],
-         [439./216,   -8.,          3680./513,  -845./4104,   0.0,    0.0],
-         [-8./27,      2.,         -3544./2565,  1859./4104, -11./40, 0.0]]
+    A = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+         [0.25, 0.0, 0.0, 0.0, 0.0, 0.0],
+         [3./32, 9./32, 0.0, 0.0, 0.0, 0.0],
+         [1932./2197, -7200./2197, 7296./2197, 0.0, 0.0, 0.0],
+         [439./216, -8., 3680./513,  -845./4104, 0.0, 0.0],
+         [-8./27, 2., -3544./2565, 1859./4104, -11./40, 0.0]]
     # b = [25./216, 0.0, 1408./2565, 2197./4104, -1./5,  0.0] # 4th order
-    b = [16./135, 0.0, 6656./12825,  28561./56430, -9./50, 2./55]  # 5th order
+    b = [16./135, 0.0, 6656./12825, 28561./56430, -9./50, 2./55]  # 5th order
 
     return runge_kutta_step(A, b, c,
                             V, F, u0, t, dt,
@@ -294,7 +298,7 @@ def runge_kutta_step(A, b, c,
                      F,
                      u0,
                      t, dt,
-                     sympy_dirichlet_bcs=[],
+                     sympy_dirichlet_bcs=None,
                      tol=1.0e-10,
                      verbose=True
                      ):
@@ -303,6 +307,8 @@ def runge_kutta_step(A, b, c,
     # Make sure that the scheme is strictly upper-triangular.
     import numpy
     import sympy as smp
+    sympy_dirichlet_bcs = \
+        [] if sympy_dirichlet_bcs is None else sympy_dirichlet_bcs
     s = len(b)
     A = numpy.array(A)
     if numpy.any(abs(A[numpy.triu_indices(s)]) > 1.0e-15):
