@@ -37,7 +37,7 @@ from . import stabilization as stab
 from .message import Message
 
 
-def momentum_equation(u, v, p, f, rho, mu, stabilization, dx):
+def _momentum_equation(u, v, p, f, rho, mu, stabilization, dx):
     '''Weak form of the momentum equation.
     '''
     assert rho > 0.0
@@ -119,79 +119,6 @@ def momentum_equation(u, v, p, f, rho, mu, stabilization, dx):
     return F
 
 
-class NavierStokesCylindrical(NonlinearProblem):
-
-    def __init__(self, WP, rho, mu, f, u_bcs, p_bcs, dx, stabilization=None):
-        super(NavierStokesCylindrical, self).__init__()
-        #
-        self.WP = WP
-        # Translate the boundary conditions into the product space.
-        self.bcs = []
-        for k, bcs in enumerate([u_bcs, p_bcs]):
-            for bc in bcs:
-                space = bc.function_space()
-                C = space.component()
-                # pylint: disable=len-as-condition
-                if len(C) == 0:
-                    self.bcs.append(
-                        DirichletBC(
-                            self.WP.sub(k), bc.value(), bc.domain_args[0]
-                            ))
-                else:
-                    assert len(C) == 1, \
-                        'Illegal number of subspace components.'
-                    self.bcs.append(
-                        DirichletBC(
-                            self.WP.sub(k).sub(int(C[0])),
-                            bc.value(),
-                            bc.domain_args[0]
-                            ))
-
-        self.up = Function(self.WP)
-        u, p = self.up.split()
-        v, q = TestFunctions(self.WP)
-        # Momentum equation.
-        self.F0 = momentum_equation(
-                u, v,
-                p,
-                f,
-                rho, mu,
-                stabilization=stabilization,
-                dx=dx
-                )
-        # div_u = 1/r * div(r*u)
-        r = SpatialCoordinate(WP.mesh())[0]
-        self.F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q * 2*pi*r * dx
-
-        self.jacobian = derivative(self.F0, self.up)
-        self.reset_sparsity = True
-        return
-
-    def F(self, b, x):
-        self.up.vector()[:] = x
-        assemble(
-            self.F0,
-            tensor=b,
-            form_compiler_parameters={'optimize': True}
-            )
-        for bc in self.bcs:
-            bc.apply(b, x)
-        return
-
-    def J(self, A, x):
-        self.up.vector()[:] = x
-        assemble(
-            self.jacobian,
-            tensor=A,
-            reset_sparsity=self.reset_sparsity,
-            form_compiler_parameters={'optimize': True}
-            )
-        for bc in self.bcs:
-            bc.apply(A)
-        self.reset_sparsity = False
-        return
-
-
 class TentativeVelocityProblem(NonlinearProblem):
 
     def __init__(
@@ -213,7 +140,7 @@ class TentativeVelocityProblem(NonlinearProblem):
         r = SpatialCoordinate(ui.function_space().mesh())[0]
 
         def me(uu, ff):
-            return momentum_equation(uu, v, p0, ff, rho, mu, stabilization, dx)
+            return _momentum_equation(uu, v, p0, ff, rho, mu, stabilization, dx)
 
         self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*dx
         if time_step_method == 'forward euler':
