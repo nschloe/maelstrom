@@ -131,6 +131,7 @@ class NavierStokesCylindrical(NonlinearProblem):
             for bc in bcs:
                 space = bc.function_space()
                 C = space.component()
+                # pylint: disable=len-as-condition
                 if len(C) == 0:
                     self.bcs.append(
                         DirichletBC(
@@ -193,14 +194,15 @@ class NavierStokesCylindrical(NonlinearProblem):
 
 class TentativeVelocityProblem(NonlinearProblem):
 
-    def __init__(self, ui, time_step_method,
-                 rho, mu,
-                 u, p0, dt,
-                 bcs,
-                 f,
-                 stabilization=False,
-                 dx=dx
-                 ):
+    def __init__(
+            self, ui, time_step_method,
+            rho, mu,
+            u, p0, dt,
+            bcs,
+            f,
+            stabilization=False,
+            dx=dx
+            ):
         super(TentativeVelocityProblem, self).__init__()
 
         W = ui.function_space()
@@ -257,6 +259,47 @@ class TentativeVelocityProblem(NonlinearProblem):
         return
 
 
+def _solve_tentative_velocity(
+        time_step_method, rho, mu,
+        u, p0, dt, u_bcs, f, W,
+        stabilization,
+        verbose, tol
+        ):
+    solver = NewtonSolver()
+    solver.parameters['maximum_iterations'] = 5
+    solver.parameters['absolute_tolerance'] = tol
+    solver.parameters['relative_tolerance'] = 0.0
+    solver.parameters['report'] = True
+    # The nonlinear term makes the problem generally nonsymmetric.
+    solver.parameters['linear_solver'] = 'gmres'
+    # If the nonsymmetry is too strong, e.g., if u[0] is large, then
+    # AMG preconditioning might not work very well.
+    # Use HYPRE-Euclid instead of ILU for parallel computation.
+    solver.parameters['preconditioner'] = 'hypre_euclid'
+    solver.parameters['krylov_solver']['relative_tolerance'] = tol
+    solver.parameters['krylov_solver']['absolute_tolerance'] = 0.0
+    solver.parameters['krylov_solver']['maximum_iterations'] = 1000
+    solver.parameters['krylov_solver']['monitor_convergence'] = verbose
+
+    ui = Function(W)
+    step_problem = TentativeVelocityProblem(
+            ui,
+            time_step_method,
+            rho, mu,
+            u, p0, dt,
+            u_bcs,
+            f,
+            stabilization,
+            dx=dx
+            )
+
+    # Take u[0] as initial guess.
+    ui.assign(u[0])
+    solver.solve(step_problem, ui.vector())
+    # div_u = 1/r * div(r*ui)
+    return ui
+
+
 def _step(
         dt,
         u, p0,
@@ -277,45 +320,16 @@ def _step(
     # Some initial sanity checkups.
     assert dt > 0.0
 
-    # Define coefficients
-    k = Constant(dt)
-
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Compute tentative velocity step.
     # rho (u[0] + (u.\nabla)u) = mu 1/r \div(r \nabla u) + rho g.
     with Message('Computing tentative velocity'):
-        solver = NewtonSolver()
-        solver.parameters['maximum_iterations'] = 5
-        solver.parameters['absolute_tolerance'] = tol
-        solver.parameters['relative_tolerance'] = 0.0
-        solver.parameters['report'] = True
-        # The nonlinear term makes the problem generally nonsymmetric.
-        solver.parameters['linear_solver'] = 'gmres'
-        # If the nonsymmetry is too strong, e.g., if u[0] is large, then
-        # AMG preconditioning might not work very well.
-        # Use HYPRE-Euclid instead of ILU for parallel computation.
-        solver.parameters['preconditioner'] = 'hypre_euclid'
-        solver.parameters['krylov_solver']['relative_tolerance'] = tol
-        solver.parameters['krylov_solver']['absolute_tolerance'] = 0.0
-        solver.parameters['krylov_solver']['maximum_iterations'] = 1000
-        solver.parameters['krylov_solver']['monitor_convergence'] = verbose
-
-        ui = Function(W)
-        step_problem = TentativeVelocityProblem(
-                ui,
-                time_step_method,
-                rho, mu,
-                u, p0, k,
-                u_bcs,
-                f,
+        ui = _solve_tentative_velocity(
+                time_step_method, rho, mu,
+                u, p0, dt, u_bcs, f, W,
                 stabilization,
-                dx=dx
+                verbose, tol
                 )
-
-        # Take u[0] as initial guess.
-        ui.assign(u[0])
-        solver.solve(step_problem, ui.vector())
-        # div_u = 1/r * div(r*ui)
 
     with Message('Computing pressure correction'):
         # The pressure correction is based on the update formula
@@ -350,13 +364,10 @@ def _step(
         # If Dirichlet boundary conditions are applied to both u* and u_n
         # (the latter in the final step), the boundary integral vanishes.
         #
-        alpha = 1.0
-        # alpha = 3.0 / 2.0
-        p1 = Function(P)
-        _pressure_poisson(
-                p1, p0,
+        p1 = _pressure_poisson(
+                P, p0,
                 mu, ui,
-                rho * alpha * ui / k,
+                rho * ui / dt,
                 p_bcs=p_bcs,
                 rotational_form=rotational_form,
                 tol=tol,
@@ -370,6 +381,8 @@ def _step(
         v = TestFunction(W)
         a3 = dot(u, v) * dx
         phi = Function(P)
+        print(p1, p1.function_space())
+        print(phi, phi.function_space())
         phi.assign(p1)
         if p0:
             phi -= p0
@@ -378,7 +391,7 @@ def _step(
             div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
             phi += mu * div_ui
         L3 = dot(ui, v) * dx \
-            - k / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * dx
+            - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * dx
         u1 = Function(W)
         solve(
             a3 == L3, u1,
@@ -405,7 +418,7 @@ def _step(
 
 
 def _pressure_poisson(
-        p1, p0,
+        P, p0,
         mu, ui,
         u,
         p_bcs=None,
@@ -422,10 +435,8 @@ def _pressure_poisson(
     W = ui.function_space()
     r = SpatialCoordinate(W.mesh())[0]
 
-    Q = p1.function_space()
-
-    p = TrialFunction(Q)
-    q = TestFunction(Q)
+    p = TrialFunction(P)
+    q = TestFunction(P)
     a2 = dot(r * grad(p), grad(q)) * 2 * pi * dx
     # The boundary conditions
     #     n.(p1-p0) = 0
@@ -466,6 +477,7 @@ def _pressure_poisson(
         # L2 -= mu * (n[0] * grad_div_ui[0] + n[1] * grad_div_ui[1]) \
         #     * q * 2*pi*r*ds
 
+    p1 = Function(P)
     if p_bcs:
         solve(
             a2 == L2, p1,
@@ -499,7 +511,7 @@ def _pressure_poisson(
         A = assemble(a2)
         b = assemble(L2)
         # Assert that the system is indeed consistent.
-        e = Function(Q)
+        e = Function(P)
         e.interpolate(Constant(1.0))
         evec = e.vector()
         evec /= norm(evec)
@@ -517,11 +529,11 @@ def _pressure_poisson(
         if abs(alpha) > normB * 1.0e-12:
             divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
             adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * dx)
-            info('\int 1/r * div(r*u) * 2*pi*r  =  %e' % adivu)
+            info('\\int 1/r * div(r*u) * 2*pi*r  =  %e' % adivu)
             n = FacetNormal(Q.mesh())
             boundary_integral = assemble((n[0] * u[0] + n[1] * u[1])
                                          * 2 * pi * r * ds)
-            info('\int_Gamma n.u * 2*pi*r = %e' % boundary_integral)
+            info('\\int_Gamma n.u * 2*pi*r = %e' % boundary_integral)
             message = (
                 'System not consistent! '
                 '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e.') \
@@ -576,7 +588,7 @@ def _pressure_poisson(
         p1_petsc = as_backend_type(p1.vector())
         solver.set_operator(A_petsc)
         solver.solve(p1_petsc, b_petsc)
-    return
+    return p1
 
 
 class IPCS(object):
