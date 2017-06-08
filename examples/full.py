@@ -12,21 +12,19 @@ Full* simulation of the melt problem.
 
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
+import os
 
 from dolfin import (
-    parameters, Measure, Function,
-    FunctionSpace, Constant, SubMesh, plot, interactive, ds,
-    project, XDMFFile, DirichletBC, dot, grad, TimeSeriesHDF5,
-    Expression, triangle, DOLFIN_EPS, as_vector, info, norm, assemble,
-    TestFunction, TrialFunction, KrylovSolver, MPI,
-    MixedFunctionSpace, split, NonlinearProblem, derivative,
-    inner, TestFunctions, dx, mpi_comm_world, assign, errornorm,
+    parameters, Measure, Function, FunctionSpace, Constant, SubMesh, plot,
+    interactive, ds, project, XDMFFile, DirichletBC, dot, grad, Expression,
+    triangle, DOLFIN_EPS, as_vector, info, norm, assemble, TestFunction,
+    TrialFunction, KrylovSolver, MPI, MixedFunctionSpace, split,
+    NonlinearProblem, derivative, inner, TestFunctions, dx, assign, errornorm,
     interpolate
     )
 
 import numpy
 from numpy import pi
-import os
 
 import maelstrom.navier_stokes_cylindrical as cyl_ns
 import maelstrom.stokes_cylindrical as cyl_stokes
@@ -125,6 +123,7 @@ def dbcs_to_productspace(W, bcs_list):
     for k, bcs in enumerate(bcs_list):
         for bc in bcs:
             C = bc.function_space().component()
+            # pylint: disable=len-as-condition
             if len(C) == 0:
                 new_bcs.append(DirichletBC(W.sub(k),
                                            bc.value(),
@@ -146,12 +145,17 @@ class StokesHeat(NonlinearProblem):
                  g, extra_force,
                  heat_source,
                  u_bcs, p_bcs,
-                 theta_dirichlet_bcs={},
-                 theta_neumann_bcs={},
-                 theta_robin_bcs={},
-                 dx=dx,
-                 ds=ds
+                 theta_dirichlet_bcs=None,
+                 theta_neumann_bcs=None,
+                 theta_robin_bcs=None,
+                 my_dx=dx,
+                 my_ds=ds
                  ):
+
+        theta_dirichlet_bcs = theta_dirichlet_bcs or {}
+        theta_neumann_bcs = theta_neumann_bcs or {}
+        theta_robin_bcs = theta_robin_bcs or {}
+
         super(StokesHeat, self).__init__()
         # Translate the boundary conditions into the product space.
         self.bcs = dbcs_to_productspace(
@@ -178,8 +182,8 @@ class StokesHeat(NonlinearProblem):
             dirichlet_bcs=theta_dirichlet_bcs,
             neumann_bcs=theta_neumann_bcs,
             robin_bcs=theta_robin_bcs,
-            dx=dx,
-            ds=ds
+            dx=my_dx,
+            ds=my_ds
             )
 
         self.F0 = self.stokes.F0(mu) + self.heat.F0
@@ -217,43 +221,6 @@ def _average(u):
     '''
     return assemble(u * dx) \
         / assemble(1.0 * dx(u.function_space().mesh()))
-
-
-def _read_initial_state(W, P, Q,
-                        u_file, p_file, theta_file,
-                        step=-1
-                        ):
-    '''Read velocity, pressure, and temperature data from files.
-    '''
-    # Uselessly do something with MPI to work around bug
-    # <https://bitbucket.org/fenics-project/dolfin/issue/237/timeserieshdf5-the-mpi_info_create>.
-    from dolfin import UnitIntervalMesh
-    UnitIntervalMesh(1)
-
-    comm = mpi_comm_world()
-
-    # Read u.
-    u_data = TimeSeriesHDF5(comm, u_file)
-    u_times = u_data.vector_times()
-    u0 = Function(W)
-    u_data.retrieve(u0.vector(), u_times[step])
-
-    # Read p.
-    p_data = TimeSeriesHDF5(comm, theta_file)
-    p_times = p_data.vector_times()
-    p0 = Function(Q)
-    p_data.retrieve(p0.vector(), p_times[step])
-
-    # Read theta.
-    theta_data = TimeSeriesHDF5(comm, theta_file)
-    theta_times = theta_data.vector_times()
-    theta0 = Function(Q)
-    theta_data.retrieve(theta0.vector(), theta_times[step])
-
-    # Make sure that the files are consistent.
-    assert(all(abs(u_times - p_times) < 1.0e-14))
-    assert(all(abs(u_times - theta_times) < 1.0e-14))
-    return u0, p0, theta0
 
 
 def _construct_initial_state(
@@ -312,10 +279,10 @@ def _construct_initial_state(
             u_bcs, p_bcs,
             theta_dirichlet_bcs=theta_bcs_d,
             theta_neumann_bcs=theta_bcs_n,
-            dx=dx_submesh,
-            ds=ds_submesh
+            my_dx=dx_submesh,
+            my_ds=ds_submesh
             )
-        #solver = FixedPointSolver()
+        # solver = FixedPointSolver()
         from dolfin import PETScSNESSolver
         solver = PETScSNESSolver()
         # http://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/SNESType.html
@@ -352,7 +319,7 @@ def _construct_initial_state(
             # Try a regular solve
             solver.solve(stokes_heat_problem, uptheta0.vector())
 
-        #u0, p0, theta0 = split(uptheta0)
+        # u0, p0, theta0 = split(uptheta0)
         # Create a *deep* copy of u0, p0, theta0 to be able to deal with them
         # as actually separate entities vectors.
         u0, p0, theta0 = uptheta0.split(deepcopy=True)
@@ -388,7 +355,7 @@ def _construct_initial_state(
                 f += as_vector((extra_force[0], extra_force[1], 0.0))
 
             # Solve problem for velocity, pressure.
-            #up1 = up0.copy()
+            # up1 = up0.copy()
             cyl_stokes.stokes_solve(
                 up0,
                 mu_wpi(theta_average),
@@ -399,31 +366,23 @@ def _construct_initial_state(
                 verbose=False,
                 maxiter=1000
                 )
-            #u1, p1 = up1.split()
 
             plot(u0)
-            #plot(p0)
             plot(theta0)
-            #interactive()
-            #u_diff = errornorm(u1, u0)
-            #p_diff = errornorm(p1, p0)
-
-            #u0.assign(u1)
-            #p0.assign(p1)
 
             theta_diff = errornorm(theta0, theta1)
             info('||theta - theta0|| = %e' % theta_diff)
-            #info('||u - u0||         = %e' % u_diff)
-            #info('||p - p0||         = %e' % p_diff)
-            #diff = theta_diff + u_diff + p_diff
+            # info('||u - u0||         = %e' % u_diff)
+            # info('||p - p0||         = %e' % p_diff)
+            # diff = theta_diff + u_diff + p_diff
             diff = theta_diff
             info('sum = %e' % diff)
 
-            ## Show the iterates.
-            #plot(theta0, title='theta0')
-            #plot(u0, title='u0')
-            #interactive()
-            ##exit()
+            # # Show the iterates.
+            # plot(theta0, title='theta0')
+            # plot(u0, title='u0')
+            # interactive()
+            # #exit()
             if diff < 1.0e-10:
                 break
 
@@ -439,7 +398,7 @@ def _construct_initial_state(
 
     # Create a *deep* copy of u0, p0, to be able to deal with them as actually
     # separate entities.
-    #u0, p0 = up0.split(deepcopy=True)
+    # u0, p0 = up0.split(deepcopy=True)
     return u0, p0, theta0
 
 
@@ -458,13 +417,14 @@ def _compute_lorentz_joule(
     # values.
     dx_subdomains = Measure('dx')[subdomains]
     with Message('Computing magnetic field...'):
-        Phi, voltages = cmx.compute_potential(coils,
-                                              V,
-                                              dx_subdomains,
-                                              mu, sigma, omega,
-                                              convections={}
-                                              #io_submesh=submesh_workpiece
-                                              )
+        Phi, voltages = cmx.compute_potential(
+                coils,
+                V,
+                dx_subdomains,
+                mu, sigma, omega,
+                convections={}
+                # io_submesh=submesh_workpiece
+                )
         # Get resulting Lorentz force.
         lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[wpi])
 
@@ -472,11 +432,11 @@ def _compute_lorentz_joule(
         V_submesh = FunctionSpace(submesh_workpiece, 'CG', 1)
         pl = project(lorentz_wpi, V_submesh * V_submesh)
         pl.rename('Lorentz force', 'Lorentz force')
-        lorentz_file = XDMFFile(submesh_workpiece.mpi_comm(),
-                                os.path.join(output_folder, 'lorentz.xdmf')
-                                )
-        lorentz_file.parameters['flush_output'] = True
-        lorentz_file << pl
+        filename = os.path.join(output_folder, 'lorentz.xdmf')
+        with XDMFFile(submesh_workpiece.mpi_comm(), filename) as f:
+            f.parameters['flush_output'] = True
+            f.write(pl)
+
         show_lorentz = False
         if show_lorentz:
             plot(pl, title='Lorentz force')
@@ -488,14 +448,14 @@ def _compute_lorentz_joule(
                                   subdomain_indices
                                   )
         show_joule = []
-        #show_joule = subdomain_indices
+        # show_joule = subdomain_indices
         for ii in show_joule:
             # Show Joule heat source.
             submesh = SubMesh(mesh, subdomains, ii)
             W_submesh = FunctionSpace(submesh, 'CG', 1)
             jp = Function(W_submesh, name='Joule heat source')
             jp.assign(project(joule[ii], W_submesh))
-            #jp.interpolate(joule[ii])
+            # jp.interpolate(joule[ii])
             plot(jp)
             interactive()
 
@@ -612,171 +572,135 @@ def _compute(u0, p0, theta0, problem, voltages, T,
         plot(f, mesh=submesh_workpiece, title='Total external force')
         interactive()
 
-    # Create result files.
-    u_file = XDMFFile(submesh_workpiece.mpi_comm(),
-                      os.path.join(output_folder, 'velocity.xdmf')
-                      )
-    u_file.parameters['flush_output'] = True
-    u_file.parameters['rewrite_function_mesh'] = False
+    with XDMFFile(submesh_workpiece.mpi_comm(), 'full.xdmf') as outfile:
+        outfile.parameters['flush_output'] = True
+        outfile.parameters['rewrite_function_mesh'] = False
 
-    p_file = XDMFFile(submesh_workpiece.mpi_comm(),
-                      os.path.join(output_folder, 'pressure.xdmf')
-                      )
-    p_file.parameters['flush_output'] = True
-    p_file.parameters['rewrite_function_mesh'] = False
+        def store_and_plot(u, p, theta, t):
+            outfile.write(u, t)
+            outfile.write(p, t)
+            outfile.write(theta, t)
+            plot(theta, title='temperature', rescale=True)
+            plot(u, title='velocity', rescale=True)
+            plot(p, title='pressure', rescale=True)
+            # interactive()
 
-    theta_file = XDMFFile(
-            submesh_workpiece.mpi_comm(),
-            os.path.join(output_folder, 'temperature.xdmf')
-            )
-    theta_file.parameters['flush_output'] = True
-    theta_file.parameters['rewrite_function_mesh'] = False
+        store_and_plot(u0, p0, theta0, t)
 
-    # f_file = XDMFFile(os.path.join(output_folder, 'force.xdmf'))
-    # f_file.parameters['flush_output'] = True
-    # f_file.parameters['rewrite_function_mesh'] = False
+        # For time-stepping in buoyancy-driven flows, see
+        #
+        #     Numerical solution of buoyancy-driven flows;
+        #     Einar Rossebø Christensen;
+        #     Master's thesis;
+        #     <http://www.diva-portal.org/smash/get/diva2:348831/FULLTEXT01.pdf>.
+        #
+        # Similar to the present approach, one first solves for velocity and
+        # pressure, then for temperature.
+        #
+        heat_stepper = ts.ImplicitEuler(heat_problem)
+        ns_stepper = cyl_ns.IPCS(
+                problem.W, problem.P,
+                rho=rho_wpi(theta_average),
+                mu=mu_wpi(theta_average),
+                theta=1.0,
+                stabilization=None,
+                dx=dx(submesh_workpiece)
+                # stabilization='SUPG'
+                )
 
-    # Write out the data in a lossless format, too.
-    tst = TimeSeriesHDF5(
-            submesh_workpiece.mpi_comm(),
-            os.path.join(output_folder, 'lossless_T')
-            )
-    tsu = TimeSeriesHDF5(
-            submesh_workpiece.mpi_comm(),
-            os.path.join(output_folder, 'lossless_u')
-            )
-    tsp = TimeSeriesHDF5(
-            submesh_workpiece.mpi_comm(),
-            os.path.join(output_folder, 'lossless_p')
-            )
-    # In the first step, store the mesh as well.
-    tst.store(submesh_workpiece, t)
-    tsu.store(submesh_workpiece, t)
-    tsp.store(submesh_workpiece, t)
-
-    def store_and_plot(u, p, theta, t):
-        u_file << (u, t)
-        p_file << (p, t)
-        theta_file << (theta, t)
-        tst.store(theta.vector(), t)
-        tsu.store(u.vector(), t)
-        tsp.store(p.vector(), t)
-        plot(theta, title='temperature', rescale=True)
-        plot(u, title='velocity', rescale=True)
-        plot(p, title='pressure', rescale=True)
-        # interactive()
-
-    store_and_plot(u0, p0, theta0, t)
-
-    # For time-stepping in buoyancy-driven flows, see
-    #
-    #     Numerical solution of buoyancy-driven flows;
-    #     Einar Rossebø Christensen;
-    #     Master's thesis;
-    #     <http://www.diva-portal.org/smash/get/diva2:348831/FULLTEXT01.pdf>.
-    #
-    # Similar to the present approach, one first solves for velocity and
-    # pressure, then for temperature.
-    #
-    heat_stepper = ts.ImplicitEuler(heat_problem)
-    ns_stepper = cyl_ns.IPCS(
-            problem.W, problem.P,
-            rho=rho_wpi(theta_average),
-            mu=mu_wpi(theta_average),
-            theta=1.0,
-            stabilization=None,
-            dx=dx(submesh_workpiece)
-            # stabilization='SUPG'
-            )
-
-    successful_steps = 0
-    failed_steps = 0
-    while t < T + DOLFIN_EPS:
-        info('Successful steps: %d    (failed: %d, total: %d)'
-             % (successful_steps,
-                failed_steps,
-                successful_steps + failed_steps))
-        with Message('Time step %e -> %e...' % (t, t + dt)):
-            try:
-                # Do one heat time step.
-                with Message('Computing heat...'):
-                    # Use HYPRE-Euclid instead of ILU for parallel computation.
-                    heat_stepper.step(theta1,
-                                      theta0,
-                                      t, dt,
-                                      tol=1.0e-12,
-                                      maxiter=1000,
-                                      krylov='gmres',
-                                      preconditioner='hypre_euclid',
-                                      verbose=False
-                                      )
-                # Do one Navier-Stokes time step.
-                with Message('Computing flux and pressure...'):
-                    # Include proper temperature-dependence here to account for
-                    # Boussinesq effect.
-                    f0 = rho_wpi(theta0) * g
-                    f1 = rho_wpi(theta1) * g
-                    if lorentz_wpi is not None:
-                        f = as_vector((lorentz_wpi[0], lorentz_wpi[1], 0.0))
-                        f0 += f
-                        f1 += f
-                    ns_stepper.step(
-                            dt,
-                            u1, p1,
-                            [u0], p0,
-                            u_bcs=problem.u_bcs, p_bcs=problem.p_bcs,
-                            f0=f0, f1=f1,
-                            verbose=False,
-                            tol=1.0e-10
-                            )
-            except RuntimeError as e:
-                info(e.message)
-                info('Navier--Stokes solver failed to converge. '
-                     'Decrease time step from %e to %e and try again.' %
-                     (dt, 0.5 * dt)
-                     )
-                dt *= 0.5
-                failed_steps += 1
-                continue
-            successful_steps += 1
-
-            # Assignments and plotting.
-            theta0.assign(theta1)
-            u0.assign(u1)
-            p0.assign(p1)
-
-            store_and_plot(u0, p0, theta0, t + dt)
-
-            t += dt
-            with Message('Diagnostics...'):
-                # Print some general info on the flow in the crucible.
-                umax = get_umax(u0)
-                _print_diagnostics(theta0, umax,
-                                   submesh_workpiece, wpi_area,
-                                   problem.subdomain_materials,
-                                   problem.wpi,
-                                   rho_wpi,
-                                   mu_wpi,
-                                   char_length,
-                                   grav)
-                info('')
-            with Message('Step size adaptation...'):
-                # Some smooth step-size adaption.
-                target_dt = 0.2 * hmax_workpiece / umax
-                info('previous dt: %e' % dt)
-                info('target dt: %e' % target_dt)
-                # agg is the aggressiveness factor. The distance between the
-                # current step size and the target step size is reduced by
-                # |1-agg|. Hence, if agg==1 then dt_next==target_dt. Otherwise
-                # target_dt is approached more slowly.
-                agg = 0.5
-                dt = min(dt_max,
-                         # At most double the step size from step to step.
-                         dt * min(2.0, 1.0 + agg * (target_dt - dt) / dt)
+        successful_steps = 0
+        failed_steps = 0
+        while t < T + DOLFIN_EPS:
+            info('Successful steps: {}    (failed: {}, total: {})'.format(
+                    successful_steps,
+                    failed_steps,
+                    successful_steps + failed_steps
+                 ))
+            with Message('Time step {:e} -> {:e}...'.format(t, t + dt)):
+                try:
+                    # Do one heat time step.
+                    with Message('Computing heat...'):
+                        # Use HYPRE-Euclid instead of ILU for parallel
+                        # computation.
+                        heat_stepper.step(
+                                theta1,
+                                theta0,
+                                t, dt,
+                                tol=1.0e-12,
+                                maxiter=1000,
+                                krylov='gmres',
+                                preconditioner='hypre_euclid',
+                                verbose=False
+                                )
+                    # Do one Navier-Stokes time step.
+                    with Message('Computing flux and pressure...'):
+                        # Include proper temperature-dependence here to account
+                        # for Boussinesq effect.
+                        f0 = rho_wpi(theta0) * g
+                        f1 = rho_wpi(theta1) * g
+                        if lorentz_wpi is not None:
+                            f = as_vector(
+                                (lorentz_wpi[0], lorentz_wpi[1], 0.0)
+                                )
+                            f0 += f
+                            f1 += f
+                        ns_stepper.step(
+                                dt,
+                                u1, p1,
+                                [u0], p0,
+                                u_bcs=problem.u_bcs, p_bcs=problem.p_bcs,
+                                f0=f0, f1=f1,
+                                verbose=False,
+                                tol=1.0e-10
+                                )
+                except RuntimeError as e:
+                    info(e.message)
+                    info('Navier--Stokes solver failed to converge. '
+                         'Decrease time step from %e to %e and try again.' %
+                         (dt, 0.5 * dt)
                          )
-                info('new dt:    %e' % dt)
+                    dt *= 0.5
+                    failed_steps += 1
+                    continue
+                successful_steps += 1
+
+                # Assignments and plotting.
+                theta0.assign(theta1)
+                u0.assign(u1)
+                p0.assign(p1)
+
+                store_and_plot(u0, p0, theta0, t + dt)
+
+                t += dt
+                with Message('Diagnostics...'):
+                    # Print some general info on the flow in the crucible.
+                    umax = get_umax(u0)
+                    _print_diagnostics(theta0, umax,
+                                       submesh_workpiece, wpi_area,
+                                       problem.subdomain_materials,
+                                       problem.wpi,
+                                       rho_wpi,
+                                       mu_wpi,
+                                       char_length,
+                                       grav)
+                    info('')
+                with Message('Step size adaptation...'):
+                    # Some smooth step-size adaption.
+                    target_dt = 0.2 * hmax_workpiece / umax
+                    info('previous dt: %e' % dt)
+                    info('target dt: %e' % target_dt)
+                    # agg is the aggressiveness factor. The distance between
+                    # the current step size and the target step size is reduced
+                    # by |1-agg|. Hence, if agg==1 then dt_next==target_dt.
+                    # Otherwise target_dt is approached more slowly.
+                    agg = 0.5
+                    dt = min(dt_max,
+                             # At most double the step size from step to step.
+                             dt * min(2.0, 1.0 + agg * (target_dt - dt) / dt)
+                             )
+                    info('new dt:    %e' % dt)
+                    info('')
                 info('')
-            info('')
     return
 
 
@@ -919,7 +843,7 @@ def _main():
     #          = sin(omega t + arg(v)) |v|.
     #
     # Hence, for a lagging voltage, arg(v) needs to be negative.
-    #voltages = None
+    # voltages = None
     #
     num_steps = 51
     Alpha = numpy.linspace(0.0, 2.0, num_steps)
@@ -931,54 +855,47 @@ def _main():
         25.0 * numpy.exp(-1j * 2 * pi * 1 * 70.0 / 360.0)
         ]
 
-    #voltages = [0.0, 0.0, 0.0, 0.0, 0.0]
+    # voltages = [0.0, 0.0, 0.0, 0.0, 0.0]
     #
-    #voltages = [25.0 * numpy.exp(-1j * 2*pi * 2 * 70.0/360.0),
-    #            25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0),
-    #            25.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #            38.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #            38.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
-    #            ]
+    # voltages = [
+    #         25.0 * numpy.exp(-1j * 2*pi * 2 * 70.0/360.0),
+    #         25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0),
+    #         25.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
+    #         38.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
+    #         38.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
+    #         ]
     #
-    #voltages = [38.0 * numpy.exp(+1j * 2*pi * 2 * 70.0/360.0),
-    #            38.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0),
-    #            38.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #            25.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #            25.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0)
-    #            ]
+    # voltages = [
+    #         38.0 * numpy.exp(+1j * 2*pi * 2 * 70.0/360.0),
+    #         38.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0),
+    #         38.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
+    #         25.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
+    #         25.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0)
+    #         ]
 
     problem = probs.crucible.CrucibleProblem()
 
-    # Get the initial state.
-    warm_start = False
-    if warm_start:
-        u0, p0, theta0 = _read_initial_state(problem.W, problem.P, problem.Q,
-                                             'lossless_u',
-                                             'lossless_p',
-                                             'lossless_T'
-                                             )
-    else:
-        # Solve construct initial state without Lorentz force and Joule heat.
-        m = problem.subdomain_materials[problem.wpi]
-        k_wpi = m.thermal_conductivity
-        cp_wpi = m.specific_heat_capacity
-        rho_wpi = m.density
-        mu_wpi = m.dynamic_viscosity
+    # Solve construct initial state without Lorentz force and Joule heat.
+    m = problem.subdomain_materials[problem.wpi]
+    k_wpi = m.thermal_conductivity
+    cp_wpi = m.specific_heat_capacity
+    rho_wpi = m.density
+    mu_wpi = m.dynamic_viscosity
 
-        g = _gravitational_force(problem.W.num_sub_spaces())
-        submesh_workpiece = problem.W.mesh()
-        ds_workpiece = Measure('ds')[problem.wp_boundaries]
-        u0, p0, theta0 = _construct_initial_state(
-            problem.W, problem.P, problem.Q,
-            k_wpi, cp_wpi, rho_wpi, mu_wpi,
-            Constant(0.0),
-            problem.u_bcs, problem.p_bcs,
-            problem.theta_bcs_d, problem.theta_bcs_n,
-            dx(submesh_workpiece),
-            ds_workpiece,
-            g,
-            extra_force=None
-            )
+    g = _gravitational_force(problem.W.num_sub_spaces())
+    submesh_workpiece = problem.W.mesh()
+    ds_workpiece = Measure('ds')[problem.wp_boundaries]
+    u0, p0, theta0 = _construct_initial_state(
+        problem.W, problem.P, problem.Q,
+        k_wpi, cp_wpi, rho_wpi, mu_wpi,
+        Constant(0.0),
+        problem.u_bcs, problem.p_bcs,
+        problem.theta_bcs_d, problem.theta_bcs_n,
+        dx(submesh_workpiece),
+        ds_workpiece,
+        g,
+        extra_force=None
+        )
 
     # Rename the states for plotting and such.
     u0.rename('velocity', 'velocity')
