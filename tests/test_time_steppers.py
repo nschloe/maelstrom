@@ -44,6 +44,8 @@ def problem_sin1d():
     class HeatEquation(object):
         def __init__(self, V):
             super(HeatEquation, self).__init__()
+            self.dx = dx
+            self.dx_multiplier = 1.0
             self.V = V
             self.sol = Expression(
                     sympy.printing.ccode(theta),
@@ -99,6 +101,8 @@ def problem_sinsin():
     class HeatEquation(object):
         def __init__(self, V):
             super(HeatEquation, self).__init__()
+            self.dx = dx
+            self.dx_multiplier = 1.0
             self.V = V
             self.sol = Expression(
                     sympy.printing.ccode(theta),
@@ -164,6 +168,8 @@ def problem_coscos_cartesian():
         def __init__(self, V):
             super(HeatEquation, self).__init__()
             # Define the differential equation.
+            self.dx = dx
+            self.dx_multiplier = 1.0
             self.V = V
             self.rho_cp = rho * cp
             self.sol = Expression(
