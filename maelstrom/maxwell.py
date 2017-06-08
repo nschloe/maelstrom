@@ -7,12 +7,12 @@ flux :math:`u`, modeled by Navier-Stokes.  In the setup with convections, the
 current density is expressed by
 
 .. math::
-     J = \sigma (E + u \\times B)
+     J = \\sigma (E + u \\times B)
 
 which leads to
 
 .. math::
-     curl(\sigma^{-1} (J - u\\times B) + i \omega A) = 0.
+     curl(\\sigma^{-1} (J - u\\times B) + i \\omega A) = 0.
 
 Assuming that :math:`u` only has components in :math:`r`- and
 :math:`z`-direction,
@@ -20,46 +20,47 @@ Assuming that :math:`u` only has components in :math:`r`- and
 .. math::
      u = u_r e_r + u_z e_z,
 
-and :math:`B = curl(\phi e_{\\theta})`, we end up with
+and :math:`B = curl(\\phi e_{\\theta})`, we end up with
 
 .. math::
-    u \\times B &= u \\times curl(\phi e_{\\theta}) \\\\
-                &= u \\times \left(- \\frac{d\phi}{dz} e_r + \\frac{1}{r}
-                \\frac{d(r\phi)}{dr} e_z\\right) \\\\
-                &= -u_z \\frac{d\phi}{dz} e_{\\theta} - u_r \\frac{1}{r}
-                \\frac{d(r\phi)}{dr} e_{\\theta}.
+    u \\times B &= u \\times curl(\\phi e_{\\theta}) \\\\
+                &= u \\times \\left(- \\frac{d\\phi}{dz} e_r + \\frac{1}{r}
+                \\frac{d(r\\phi)}{dr} e_z\\right) \\\\
+                &= -u_z \\frac{d\\phi}{dz} e_{\\theta} - u_r \\frac{1}{r}
+                \\frac{d(r\\phi)}{dr} e_{\\theta}.
 
 Following Chaboudez, this eventually leads to the equation system
 
 .. math::
     \\begin{cases}
-    - div\left(\\frac{1}{\mu r} \\nabla(r\phi)\\right) + \left\langle u,
-      \\frac{1}{r}\\nabla(r\phi)\\right\\rangle + i \sigma \omega \phi
-    = \\frac{\sigma v_k}{2\pi r}    \quad\\text{in } \Omega,\\\\
-    n\cdot\left(- \\frac{1}{\mu r} \\nabla(r\phi)\\right) = 0    \quad\\text{on
-    }\Gamma \setminus \{r=0\}\\\\
-    \phi = 0    \quad\\text{ for } r=0.
+    - div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right) + \\left\\langle u,
+      \\frac{1}{r}\\nabla(r\\phi)\\right\\rangle + i \\sigma \\omega \\phi
+    = \\frac{\\sigma v_k}{2\\pi r}    \\quad\\text{in } \\Omega,\\\\
+    n\\cdot\\left(- \\frac{1}{\\mu r} \\nabla(r\\phi)\\right) = 0
+      \\quad\\text{on
+    }\\Gamma \\setminus \\{r=0\\}\\\\
+    \\phi = 0    \\quad\\text{ for } r=0.
     \\end{cases}
 
 The differential operators are interpreted like 2D for :math:`r` and :math:`z`.
 The seemingly complicated additional term :math:`u\\times B` finally breaks
 down to just a convective component.
 
-For the weak formulation, the volume elements :math:`2\pi r dx` are used. This
+For the weak formulation, the volume elements :math:`2\\pi r dx` are used. This
 corresponds to the full 3D rotational formulation and also makes
 sure that at least the diffusive term is nice and symmetric. Additionally, it
 avoids dividing by r in the convections and the right hand side.
 
 .. math::
-       \int div\left(\\frac{1}{\mu r} \\nabla(r u)\\right) (2\pi r v)
-     + \langle b, \\nabla(r u)\\rangle 2\pi v
-     + i \sigma \omega u 2 \pi r v
-   = \int \sigma v_k v.
+       \\int div\\left(\\frac{1}{\\mu r} \\nabla(r u)\\right) (2\\pi r v)
+     + \\langle b, \\nabla(r u)\\rangle 2\\pi v
+     + i \\sigma \\omega u 2 \\pi r v
+   = \\int \\sigma v_k v.
 '''
 from dolfin import (
-    info, Expression, DOLFIN_EPS, DirichletBC, Function, KrylovSolver, dot,
-    grad, pi, TrialFunctions, TestFunctions, assemble, Constant, project,
-    FunctionSpace, SpatialCoordinate
+    info, DOLFIN_EPS, DirichletBC, Function, KrylovSolver, dot, grad, pi,
+    TrialFunctions, TestFunctions, assemble, Constant, project, FunctionSpace,
+    SpatialCoordinate, mpi_comm_world
     )
 import numpy
 
@@ -79,8 +80,8 @@ def solve(
     coordinates
 
     .. math::
-         div\\left(\\frac{1}{\mu r} \\nabla(r\phi)\\right)
-         + \langle u, 1/r \\nabla(r\phi)\\rangle + i \sigma \omega \phi
+         div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
+         + \\langle u, 1/r \\nabla(r\\phi)\\rangle + i \\sigma \\omega \\phi
             = f
 
     with finite elements.
@@ -116,7 +117,7 @@ def solve(
     '''
     # For the exact solution of the magnetic scalar potential, see
     # <http://www.physics.udel.edu/~jim/PHYS809_10F/Class_Notes/Class_26.pdf>.
-    # Here, the value of \phi along the rotational axis is specified as
+    # Here, the value of \\phi along the rotational axis is specified as
     #
     #    phi(z) = 2 pi I / c * (z/|z| - z/sqrt(z^2 + a^2))
     #
@@ -155,15 +156,15 @@ def solve(
         # At the other boundaries, it is not uncommon (?) to set so-called
         # impedance boundary conditions; see, e.g.,
         #
-        #    Chaboudez et al.,
-        #    Numerical Modeling in Induction Heating for Axisymmetric
-        #    Geometries,
-        #    IEEE Transactions on Magnetics, vol. 33, no. 1, Jan 1997,
-        #    <http://www.esi-group.com/products/casting/publications/Articles_PDF/InductionaxiIEEE97.pdf>.
+        # Chaboudez et al.,
+        # Numerical Modeling in Induction Heating for Axisymmetric
+        # Geometries,
+        # IEEE Transactions on Magnetics, vol. 33, no. 1, Jan 1997,
+        # <http://www.esi-group.com/products/casting/publications/Articles_PDF/InductionaxiIEEE97.pdf>.
         #
         # or
         #
-        #    <ftp://ftp.math.ethz.ch/pub/sam-reports/reports/reports2010/2010-39.pdf>.
+        # <ftp://ftp.math.ethz.ch/pub/sam-reports/reports/reports2010/2010-39.pdf>.
         #
         # TODO review those, references don't seem to be too accurate
         # Those translate into Robin-type boundary conditions (and are in fact
@@ -201,10 +202,10 @@ def solve(
     #     <https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=877730>
     #
     # doesn't work too well here.
-    # The matrix P, created in _build_system(), provides a better alternative.
-    # For more details, see documentation in _build_system().
+    # The matrix P, created in build_system(), provides a better alternative.
+    # For more details, see documentation in build_system().
     #
-    A, P, b_list, M, W = _build_system(
+    A, P, b_list, _, W = build_system(
             V, dx,
             Mu, Sigma,
             omega,
@@ -216,7 +217,8 @@ def solve(
 
     # prepare solver
     # Don't use 'amg', since that defaults to `ml_amg` if available which
-    # crashes <https://bitbucket.org/fenics-project/docker/issues/61/petsc-vectorfunctionspace-amg-malloc>.
+    # crashes
+    # <https://bitbucket.org/fenics-project/docker/issues/61/petsc-vectorfunctionspace-amg-malloc>.
     solver = KrylovSolver('gmres', 'hypre_amg')
     solver.set_operators(A, P)
 
@@ -240,7 +242,7 @@ def solve(
     return phi_list
 
 
-def _build_system(
+def build_system(
         V, dx,
         Mu, Sigma,
         omega,
@@ -252,11 +254,11 @@ def _build_system(
     '''Build FEM system for
 
     .. math::
-         div\\left(\\frac{1}{\mu r} \\nabla(r\phi)\\right)
-         + \langle u, 1/r \\nabla(r\phi)\\rangle + i \sigma \omega \phi
+         div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
+         + \\langle u, 1/r \\nabla(r\\phi)\\rangle + i \\sigma \\omega \\phi
             = f
 
-    by multiplying with :math:`2\pi r v` and integrating over the domain.
+    by multiplying with :math:`2\\pi r v` and integrating over the domain.
     '''
     r = SpatialCoordinate(V.mesh())[0]
 
@@ -479,8 +481,8 @@ def compute_potential(
         verbose=True,
         io_submesh=None
         ):
-    '''Compute the magnetic potential :math:`\Phi` with
-    :math:`A = \exp(i \omega t) \Phi e_{\\theta}` for a number of coils.
+    '''Compute the magnetic potential :math:`\\Phi` with
+    :math:`A = \\exp(i \\omega t) \\Phi e_{\\theta}` for a number of coils.
     '''
     # Index all coil rings consecutively, starting with 0.
     # This makes them easier to handle for the equation system.
@@ -526,9 +528,8 @@ def compute_potential(
             phi_out = interpolate(phi, W_submesh)
             phi_out.rename('phi%02d' % k, 'phi%02d' % k)
             # Write to file
-            phi_file = XDMFFile(io_submesh.mpi_comm(), 'phi%02d.xdmf' % k)
-            phi_file.parameters['flush_output'] = True
-            phi_file << phi_out
+            with XDMFFile(mpi_comm_world(), 'phi%02d.xdmf' % k) as xdmf_file:
+                xdmf_file.write(phi_out)
             # plot(phi_out)
             # interactive()
 
@@ -616,7 +617,7 @@ def compute_potential(
     # The function Phi is guaranteed to fulfill the PDE as well (iff the
     # the boundary conditions are linear in phi too).
     #
-    # Form $\sum_l c_l \phi_l$.
+    # Form $\sum_l c_l \\phi_l$.
     # https://answers.launchpad.net/dolfin/+question/214172
     #
     # Unfortunately, one cannot just use
@@ -681,6 +682,7 @@ def get_voltage_current_matrix(
     return J
 
 
+# pylint: disable=unused-argument
 def compute_joule(
         Phi, voltages,
         omega, Sigma, Mu,
@@ -699,7 +701,7 @@ def compute_joule(
     # The Joule heating source is
     # https://en.wikipedia.org/wiki/Joule_heating#Differential_Form
     #
-    #   P = J.E =  \sigma E.E.
+    #   P = J.E =  \\sigma E.E.
     #
     # joule_source = zero() * dx(0)
     joule_source = {}
@@ -715,14 +717,14 @@ def compute_joule(
         # In a time-harmonic approximation with
         #     A = Re(a exp(i omega t)),
         #     B = Re(b exp(i omega t)),
-        # the time-average of $A\cdot B$ over one period is
+        # the time-average of $A\\cdot B$ over one period is
         #
-        #    \overline{A\cdot B} = 1/2 Re(a \cdot b*)
+        #    \\overline{A\\cdot B} = 1/2 Re(a \\cdot b*)
         #
         # see <http://www.ece.rutgers.edu/~orfanidi/ewa/ch01.pdf>.
         # In particular,
         #
-        #    \overline{A\cdot A} = 1/2 ||a||^2
+        #    \\overline{A\\cdot A} = 1/2 ||a||^2
         #
         # Consequently, we can compute the average source term over one period
         # as
@@ -767,13 +769,13 @@ def compute_lorentz(Phi, omega, sigma):
     In a time-harmonic discretization with
 
     .. math::
-        A &= \Re(a \exp(i \omega t)),\\\\
-        B &= \Re(b \exp(i \omega t)),
+        A &= \\Re(a \\exp(i \\omega t)),\\\\
+        B &= \\Re(b \\exp(i \\omega t)),
 
     the time-average of :math:`A\\times B` over one period is
 
     .. math::
-        \overline{A\\times B} = \\frac{1}{2} \Re(a \\times b^*),
+        \\overline{A\\times B} = \\frac{1}{2} \\Re(a \\times b^*),
 
     see <http://www.ece.rutgers.edu/~orfanidi/ewa/ch01.pdf>.
     Since the Lorentz force generated by the current :math:`J` in the magnetic
@@ -785,33 +787,34 @@ def compute_lorentz(Phi, omega, sigma):
     its time average is
 
     .. math::
-       \overline{F_L} = \\frac{1}{2} \Re(j \\times b^*).
+       \\overline{F_L} = \\frac{1}{2} \\Re(j \\times b^*).
 
     With
 
     .. math::
-       J &= \Re(\exp(i \omega t) j e_{\\theta}),\\\\
-       B &= \Re\left(
-           \exp(i \omega t) \left(
-           -\\frac{d\phi}{dz} e_r + \\frac{1}{r} \\frac{d(r\phi)}{dr} e_z
+       J &= \\Re(\\exp(i \\omega t) j e_{\\theta}),\\\\
+       B &= \\Re\\left(
+           \\exp(i \\omega t) \\left(
+           -\\frac{d\\phi}{dz} e_r + \\frac{1}{r} \\frac{d(r\\phi)}{dr} e_z
            \\right)
            \\right),
 
     we have
 
     .. math::
-       \overline{F_L}
-           &= \\frac{1}{2} \Re\left(j \\frac{d\phi^*}{dz} e_z
-              + \\frac{j}{r} \\frac{d(r\phi^*)}{dr} e_r\\right)\\\\
-           &= \\frac{1}{2} \Re\\left(\\frac{j}{r} \\nabla(r\phi^*)\\right)\\\\
-           &= \\frac{1}{2} \\left(\\frac{\Re(j)}{r} \\nabla(r \Re(\phi))
-              +\\frac{\Im(j)}{r} \\nabla(r \Im(\phi))\\right)
+       \\overline{F_L}
+           &= \\frac{1}{2} \\Re\\left(j \\frac{d\\phi^*}{dz} e_z
+              + \\frac{j}{r} \\frac{d(r\\phi^*)}{dr} e_r\\right)\\\\
+           &= \\frac{1}{2}
+              \\Re\\left(\\frac{j}{r} \\nabla(r\\phi^*)\\right)\\\\
+           &= \\frac{1}{2} \\left(\\frac{\\Re(j)}{r} \\nabla(r \\Re(\\phi))
+              +\\frac{\\Im(j)}{r} \\nabla(r \\Im(\\phi))\\right)
 
     Only create the Lorentz force for the workpiece. This avoids complications
     with j(r,z) for which we here can assume
 
     .. math::
-        j = -i \sigma \omega \phi
+        j = -i \\sigma \\omega \\phi
 
     (in particular not containing a voltage term).
     '''

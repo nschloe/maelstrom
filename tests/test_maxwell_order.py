@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-import helpers
-import maelstrom.maxwell as maxwell
+from __future__ import print_function
+
+import warnings
 
 from dolfin import (
     FunctionSpace, errornorm, UnitSquareMesh, Measure, CellFunction,
@@ -14,7 +15,9 @@ import matplotlib.pyplot as plt
 import numpy
 import pytest
 import sympy
-import warnings
+
+import helpers
+import maelstrom.maxwell as maxwell
 
 # Turn down the log level to only error messages.
 # set_log_level(WARNING)
@@ -108,7 +111,7 @@ def problem_coscos():
     if show:
         from dolfin import plot, interactive
         n = 50
-        mesh, dx, ds = mesh_generator(n)
+        mesh, _, _ = mesh_generator(n)
         plot(
             Expression(sympy.printing.ccode(phi[0])),
             mesh=mesh, title='phi.real'
@@ -230,8 +233,8 @@ def _build_residuals(
         ])
 def test_residual(problem):
     mesh_size = 16
-    mesh_generator, solution, f, cell_type = problem()
-    mesh, dx, ds = mesh_generator(mesh_size)
+    mesh_generator, _, f, _ = problem()
+    mesh, dx, _ = mesh_generator(mesh_size)
 
     # from dolfin import plot, interactive
     # plot(mesh)
@@ -285,7 +288,7 @@ def test_order(problem):
     errors, hmax = _compute_errors(problem, mesh_sizes)
 
     # Compute the numerical order of convergence.
-    order = helpers._compute_numerical_order_of_convergence(hmax, errors)
+    order = helpers.compute_numerical_order_of_convergence(hmax, errors)
 
     # The test is considered passed if the numerical order of convergence
     # matches the expected order in at least the first step in the coarsest
@@ -322,7 +325,7 @@ def _compute_errors(problem, mesh_sizes):
     errors = numpy.empty(len(mesh_sizes))
     hmax = numpy.empty(len(mesh_sizes))
     for k, mesh_size in enumerate(mesh_sizes):
-        mesh, dx, ds = mesh_generator(mesh_size)
+        mesh, dx, _ = mesh_generator(mesh_size)
         hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
         V = FunctionSpace(mesh, 'CG', 1)
         # TODO don't hardcode Mu, Sigma, ...
@@ -354,10 +357,10 @@ def _show_order_info(problem, mesh_sizes):
     show some information about it. Useful for debugging.
     '''
     errors, hmax = _compute_errors(problem, mesh_sizes)
-    order = helpers._compute_numerical_order_of_convergence(hmax, errors)
+    order = helpers.compute_numerical_order_of_convergence(hmax, errors)
 
     # Print the data
-    print
+    print()
     print('hmax            ||u - u_h||     conv. order')
     print('%e    %e' % (hmax[0], errors[0]))
     for j in range(len(errors) - 1):
@@ -365,7 +368,7 @@ def _show_order_info(problem, mesh_sizes):
         print('%e    %e' % (hmax[j + 1], errors[j + 1]))
 
     # Plot the actual data.
-    for i, mesh_size in enumerate(mesh_sizes):
+    for mesh_size in mesh_sizes:
         plt.loglog(hmax, errors, '-o', label=mesh_size)
 
     # Compare with order curves.
@@ -385,5 +388,5 @@ def _show_order_info(problem, mesh_sizes):
 
 
 if __name__ == '__main__':
-    mesh_sizes = [16, 32, 64, 128]
-    _show_order_info(problem_coscos, mesh_sizes)
+    mesh_sizes_ = [16, 32, 64, 128]
+    _show_order_info(problem_coscos, mesh_sizes_)

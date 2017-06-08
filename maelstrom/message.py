@@ -9,7 +9,7 @@ Allows using DOLFIN's indented block messages with 'with', i.e.,
 from dolfin import begin, end
 
 
-class Message:
+class Message(object):
 
     def __init__(self, string):
         self.string = string
@@ -19,6 +19,6 @@ class Message:
         begin(self.string)
         return
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, tpe, value, traceback):
         end()
         return

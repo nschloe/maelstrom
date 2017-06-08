@@ -1,0 +1,5 @@
+lxml
+matplotlib
+materials
+parabolic
+pygmsh

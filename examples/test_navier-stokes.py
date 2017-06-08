@@ -4,16 +4,18 @@
 '''
 Navier-Stokes testbed.
 '''
-import problems
-
-import maelstrom.navier_stokes as cyl_ns
-import maelstrom.stokes as cyl_stokes
+from __future__ import print_function
 
 from dolfin import (
     begin, end, parameters, Constant, Function, XDMFFile, DOLFIN_EPS, plot,
     project, norm, mpi_comm_world
     )
 import pytest
+
+import maelstrom.navier_stokes as cyl_ns
+import maelstrom.stokes as cyl_stokes
+
+import problems
 
 parameters['allow_extrapolation'] = True
 
@@ -51,7 +53,7 @@ def test(problem, max_num_steps=2):
 
     initial_stokes = False
     if initial_stokes:
-        u_1, p_1 = cyl_stokes.solve(
+        u0, p0 = cyl_stokes.solve(
                 problem.W, problem.P,
                 mu, rho,
                 problem.u_bcs, problem.p_bcs,
@@ -61,61 +63,58 @@ def test(problem, max_num_steps=2):
                 )
     else:
         # Initial states.
-        u_1 = Function(problem.W, name='velocity')
-        u_1.vector().zero()
-        p_1 = Function(problem.P, name='pressure')
-        p_1.vector().zero()
+        u0 = Function(problem.W, name='velocity')
+        u0.vector().zero()
+        p0 = Function(problem.P, name='pressure')
+        p0.vector().zero()
 
     filename = 'navier_stokes.xdmf'
     with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
         xdmf_file.parameters['flush_output'] = True
         xdmf_file.parameters['rewrite_function_mesh'] = False
 
-        xdmf_file.write(u_1, t)
-        xdmf_file.write(p_1, t)
+        xdmf_file.write(u0, t)
+        xdmf_file.write(p0, t)
 
         stepper = cyl_ns.IPCS(
-                problem.W, problem.P, rho, mu,
-                theta=1.0,
+                time_step_method='backward euler',
                 stabilization=None
                 )
         steps = 0
         while t < T + DOLFIN_EPS and steps < max_num_steps:
             steps += 1
             begin('Time step %e -> %e...' % (t, t+dt))
-            u = Function(problem.W)
-            p = Function(problem.P)
             try:
-                stepper.step(
+                u1, p1 = stepper.step(
                         dt,
-                        u, p,
-                        {-1: u_1}, p_1,
+                        {0: u0}, p0,
+                        problem.W, problem.P,
                         problem.u_bcs, problem.p_bcs,
-                        f0=rho*g,
-                        f1=rho*g,
+                        rho, mu,
+                        f={0: rho*g, 1: rho*g},
                         tol=1.0e-10
                         )
             except RuntimeError:
                 print('Navier--Stokes solver failed to converge. '
-                      'Decrease time step from %e to %e and try again.' %
-                      (dt, 0.5*dt)
-                      )
+                      'Decrease time step from {} to {} and try again.'.format(
+                          dt, 0.5*dt
+                      ))
                 dt *= 0.5
                 end()
                 end()
                 end()
                 continue
 
-            u_1.assign(u)
-            p_1.assign(p)
+            u0.assign(u1)
+            p0.assign(p1)
 
             # Save to files.
-            xdmf_file.write(u_1, t+dt)
-            xdmf_file.write(p_1, t+dt)
+            xdmf_file.write(u0, t+dt)
+            xdmf_file.write(p0, t+dt)
 
             # Plotting for some reason takes up a lot of memory.
-            plot(u_1, title='velocity', rescale=True)
-            plot(p_1, title='pressure', rescale=True)
+            plot(u0, title='velocity', rescale=True)
+            plot(p0, title='pressure', rescale=True)
             # interactive()
 
             begin('Step size adaptation...')
@@ -124,7 +123,7 @@ def test(problem, max_num_steps=2):
             #                 form_compiler_parameters={'quadrature_degree': 4}
             #                 )
             unorm = project(
-                    norm(u),
+                    norm(u1),
                     problem.P,
                     form_compiler_parameters={'quadrature_degree': 4}
                     )

@@ -1,0 +1,17 @@
+[MESSAGES CONTROL]
+
+disable=
+    bad-continuation,
+    duplicate-code,
+    fixme,
+    import-error,
+    invalid-name,
+    missing-docstring,
+    no-member,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-locals,
+    too-many-statements,
+    #
+    no-name-in-module,
+    invalid-unary-operand-type,

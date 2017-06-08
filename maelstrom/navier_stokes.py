@@ -6,9 +6,9 @@ coordinates,
 TODO update
 
 .. math::
-        \\rho \left(\\frac{du}{dt} + (u\cdot\\nabla)u\\right)
+        \\rho \\left(\\frac{du}{dt} + (u\\cdot\\nabla)u\\right)
           = -\\nabla p
-            + \mu \left(
+            + \\mu \\left(
                 \\frac{1}{r} div(r \\nabla u)
                 - e_r \\frac{u_r}{r^2}
                 \\right)
@@ -18,8 +18,8 @@ TODO update
 cf.
 https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Cylindrical_coordinates.
 In the weak formulation, we consider integrals in pseudo 3D, resulting in a
-weighting with :math:`2\pi r` of the equations. (The volume element is
-:math:`2\pi r dx`, cf. https://answers.launchpad.net/dolfin/+question/228170.)
+weighting with :math:`2\\pi r` of the equations. (The volume element is
+:math:`2\\pi r dx`, cf. https://answers.launchpad.net/dolfin/+question/228170.)
 
 The order of the variables is taken to be :math:`(r, z, \\theta)`. This makes
 sure that for planar domains, the :math:`x`- and :math:`y`-coordinates are
@@ -27,19 +27,17 @@ interpreted as :math:`r`, :math:`z`.
 '''
 
 from dolfin import (
-    TestFunction, Function, Constant, Expression, dot, grad, inner,
-    pi, dx, DOLFIN_EPS, div, solve, derivative, project, TrialFunction,
-    PETScPreconditioner, PETScKrylovSolver, plot, interactive, as_backend_type,
-    FunctionSpace, info, refine, assemble, norm, FacetNormal, sqrt, ds,
-    DirichletBC, as_vector, NonlinearProblem, NewtonSolver, TestFunctions,
-    SpatialCoordinate, diff
+    TestFunction, Function, Constant, dot, grad, inner, pi, dx, div, solve,
+    derivative, TrialFunction, PETScPreconditioner, PETScKrylovSolver,
+    as_backend_type, info, assemble, norm, FacetNormal, sqrt, ds, as_vector,
+    NonlinearProblem, NewtonSolver, SpatialCoordinate
     )
 
 from . import stabilization as stab
 from .message import Message
 
 
-def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
+def _momentum_equation(u, v, p, f, rho, mu, stabilization):
     '''Weak form of the momentum equation.
     '''
     assert rho > 0.0
@@ -83,7 +81,7 @@ def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
         #
         # SUPG stabilization has the form
         #
-        #     <R, tau*grad(v)*u[-1]>
+        #     <R, tau*grad(v)*u[0]>
         #
         # with R being the residual in strong form. The choice of the tau is
         # subject to research.
@@ -121,522 +119,433 @@ def momentum_equation(u, v, p, f, rho, mu, stabilization=None, dx=dx):
     return F
 
 
-class NavierStokesCylindrical(NonlinearProblem):
+def _compute_tentative_velocity(
+        time_step_method, rho, mu,
+        u, p0, dt, u_bcs, f, W,
+        stabilization,
+        verbose, tol
+        ):
+    '''Compute the tentative velocity via
 
-    def __init__(self, WP, rho, mu, f, u_bcs, p_bcs, dx, stabilization=None):
-        super(NavierStokesCylindrical, self).__init__()
-        #
-        self.WP = WP
-        # Translate the boundary conditions into the product space.
-        self.bcs = []
-        for k, bcs in enumerate([u_bcs, p_bcs]):
-            for bc in bcs:
-                space = bc.function_space()
-                C = space.component()
-                if len(C) == 0:
-                    self.bcs.append(
-                        DirichletBC(
-                            self.WP.sub(k), bc.value(), bc.domain_args[0]
-                            ))
-                elif len(C) == 1:
-                    self.bcs.append(
-                        DirichletBC(
-                            self.WP.sub(k).sub(int(C[0])),
-                            bc.value(),
-                            bc.domain_args[0]
-                            ))
-                else:
-                    raise RuntimeError('Illegal number of '
-                                       'subspace components.'
-                                       )
-        #
-        self.up = Function(self.WP)
-        u, p = self.up.split()
-        v, q = TestFunctions(self.WP)
-        # Momentum equation.
-        self.F0 = momentum_equation(
-                u, v,
-                p,
-                f,
+    .. math::
+        \\rho (u[0] + (u\\cdot\\nabla)u) = \\mu 1/r div(r \\nabla u) + \\rho g.
+    '''
+    class TentativeVelocityProblem(NonlinearProblem):
+        def __init__(
+                self, ui, time_step_method,
                 rho, mu,
-                stabilization=stabilization,
-                dx=dx
+                u, p0, dt,
+                bcs,
+                f,
+                stabilization=False
+                ):
+            super(TentativeVelocityProblem, self).__init__()
+
+            W = ui.function_space()
+            v = TestFunction(W)
+
+            self.bcs = bcs
+
+            r = SpatialCoordinate(ui.function_space().mesh())[0]
+
+            def me(uu, ff):
+                return _momentum_equation(
+                    uu, v, p0, ff, rho, mu, stabilization
+                    )
+
+            self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*dx
+            if time_step_method == 'forward euler':
+                self.F0 += me(u[0], f[0])
+            elif time_step_method == 'backward euler':
+                self.F0 += me(ui, f[1])
+            else:
+                assert time_step_method == 'crank-nicolson', \
+                        'Unknown time stepper \'{}\''.format(time_step_method)
+                self.F0 += 0.5 * (me(u[0], f[0]) + me(ui, f[1]))
+
+            self.jacobian = derivative(self.F0, ui)
+            self.reset_sparsity = True
+            return
+
+        # pylint: disable=unused-argument
+        def F(self, b, x):
+            # We need to evaluate F at x, so we have to make sure that self.F0
+            # is assembled for ui=x. We could use a self.ui and set
+            #
+            #     self.ui.vector()[:] = x
+            #
+            # here. One way around this copy is to instantiate this class with
+            # the same Function ui that is then used for the solver.solve().
+            assemble(
+                self.F0,
+                tensor=b,
+                form_compiler_parameters={'optimize': True}
                 )
-        # div_u = 1/r * div(r*u)
-        r = SpatialCoordinate(WP.mesh())[0]
-        self.F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q * 2*pi*r * dx
+            for bc in self.bcs:
+                bc.apply(b, x)
+            return
 
-        self.jacobian = derivative(self.F0, self.up)
-        self.reset_sparsity = True
-        return
+        def J(self, A, x):
+            # We can ignore x; see comment at F().
+            assemble(
+                self.jacobian,
+                tensor=A,
+                form_compiler_parameters={'optimize': True}
+                )
+            for bc in self.bcs:
+                bc.apply(A)
+            self.reset_sparsity = False
+            return
 
-    def F(self, b, x):
-        self.up.vector()[:] = x
-        assemble(
-            self.F0,
-            tensor=b,
-            form_compiler_parameters={'optimize': True}
-            )
-        for bc in self.bcs:
-            bc.apply(b, x)
-        return
+    solver = NewtonSolver()
+    solver.parameters['maximum_iterations'] = 5
+    solver.parameters['absolute_tolerance'] = tol
+    solver.parameters['relative_tolerance'] = 0.0
+    solver.parameters['report'] = True
+    # The nonlinear term makes the problem generally nonsymmetric.
+    solver.parameters['linear_solver'] = 'gmres'
+    # If the nonsymmetry is too strong, e.g., if u[0] is large, then AMG
+    # preconditioning might not work very well.
+    # Use HYPRE-Euclid instead of ILU for parallel computation.
+    solver.parameters['preconditioner'] = 'hypre_euclid'
+    solver.parameters['krylov_solver']['relative_tolerance'] = tol
+    solver.parameters['krylov_solver']['absolute_tolerance'] = 0.0
+    solver.parameters['krylov_solver']['maximum_iterations'] = 1000
+    solver.parameters['krylov_solver']['monitor_convergence'] = verbose
 
-    def J(self, A, x):
-        self.up.vector()[:] = x
-        assemble(
-            self.jacobian,
-            tensor=A,
-            reset_sparsity=self.reset_sparsity,
-            form_compiler_parameters={'optimize': True}
-            )
-        for bc in self.bcs:
-            bc.apply(A)
-        self.reset_sparsity = False
-        return
-
-
-class TentativeVelocityProblem(NonlinearProblem):
-
-    def __init__(self, ui, theta,
-                 rho, mu,
-                 u, p0, dt,
-                 bcs,
-                 f0, f1,
-                 stabilization=False,
-                 dx=dx
-                 ):
-        super(TentativeVelocityProblem, self).__init__()
-
-        W = ui.function_space()
-        v = TestFunction(W)
-
-        self.bcs = bcs
-
-        r = SpatialCoordinate(ui.function_space().mesh())[0]
-
-        # self.F0 = (
-        #     rho * dot(3*ui - 4*u[-1] + u[-2], v) / (2*Constant(dt))
-        #     * 2*pi*r*dx
-        #     )
-        # self.F0 += momentum_equation(
-        #         ui, v,
-        #         p0,
-        #         f1,
-        #         rho, mu,
-        #         stabilization=stabilization,
-        #         dx=dx
-        #         )
-
-        self.F0 = rho * dot(ui - u[-1], v) / Constant(dt) * 2*pi*r*dx
-        if abs(theta) > DOLFIN_EPS:
-            # Implicit terms.
-            if f1 is None:
-                raise RuntimeError(
-                        'Implicit schemes need right-hand side '
-                        'at target step (f1).'
-                        )
-            self.F0 += theta * momentum_equation(
-                        ui, v,
-                        p0,
-                        f1,
-                        rho, mu,
-                        stabilization=stabilization,
-                        dx=dx
-                        )
-        if abs(1.0 - theta) > DOLFIN_EPS:
-            # Explicit terms.
-            if f0 is None:
-                raise RuntimeError('Explicit schemes need right-hand side '
-                                   'at current step (f0).')
-            self.F0 += (1.0 - theta) * momentum_equation(
-                        u[-1], v,
-                        p0,
-                        f0,
-                        rho, mu,
-                        stabilization=stabilization,
-                        dx=dx
-                        )
-        self.jacobian = derivative(self.F0, ui)
-        self.reset_sparsity = True
-        return
-
-    def F(self, b, x):
-        # We need to evaluate F at x, so we have to make sure that self.F0 is
-        # assembled for ui=x. We could use a self.ui and set
-        #
-        #     self.ui.vector()[:] = x
-        #
-        # here. One way around this copy is to instantiate this class with the
-        # same Function ui that is then used for the solver.solve().
-        assemble(
-            self.F0,
-            tensor=b,
-            form_compiler_parameters={'optimize': True}
-            )
-        for bc in self.bcs:
-            bc.apply(b, x)
-        return
-
-    def J(self, A, x):
-        # We can ignore x; see comment at F().
-        assemble(
-            self.jacobian,
-            tensor=A,
-            form_compiler_parameters={'optimize': True}
-            )
-        for bc in self.bcs:
-            bc.apply(A)
-        self.reset_sparsity = False
-        return
-
-
-class PressureProjection(object):
-
-    def __init__(
-            self,
-            W, P,
+    ui = Function(W)
+    step_problem = TentativeVelocityProblem(
+            ui,
+            time_step_method,
             rho, mu,
-            theta,
-            stabilization=None,
-            dx=dx
-            ):
-        self.theta = theta
-        self.W = W
-        self.P = P
-        self.rho = rho
-        self.mu = mu
-        self.stabilization = stabilization
-        self.dx = dx
-        return
+            u, p0, dt,
+            u_bcs,
+            f,
+            stabilization
+            )
 
-    def step(
-            self,
-            dt,
-            u1, p1,
-            u, p0,
-            u_bcs, p_bcs,
-            f0=None, f1=None,
-            verbose=True,
-            tol=1.0e-10
-            ):
-        '''General pressure projection scheme as described in section 3.4 of
-        :cite:`GMS06`.
-        '''
-        # Some initial sanity checkups.
-        assert dt > 0.0
+    # Take u[0] as initial guess.
+    ui.assign(u[0])
+    solver.solve(step_problem, ui.vector())
+    # div_u = 1/r * div(r*ui)
+    return ui
 
-        # Define coefficients
-        k = Constant(dt)
 
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # Compute tentative velocity step.
-        # rho (u[-1] + (u.\nabla)u) = mu 1/r \div(r \nabla u) + rho g.
-        with Message('Computing tentative velocity'):
-            solver = NewtonSolver()
-            solver.parameters['maximum_iterations'] = 5
-            solver.parameters['absolute_tolerance'] = tol
-            solver.parameters['relative_tolerance'] = 0.0
-            solver.parameters['report'] = True
-            # The nonlinear term makes the problem generally nonsymmetric.
-            solver.parameters['linear_solver'] = 'gmres'
-            # If the nonsymmetry is too strong, e.g., if u[-1] is large, then
-            # AMG preconditioning might not work very well.
-            # Use HYPRE-Euclid instead of ILU for parallel computation.
-            solver.parameters['preconditioner'] = 'hypre_euclid'
-            solver.parameters['krylov_solver']['relative_tolerance'] = tol
-            solver.parameters['krylov_solver']['absolute_tolerance'] = 0.0
-            solver.parameters['krylov_solver']['maximum_iterations'] = 1000
-            solver.parameters['krylov_solver']['monitor_convergence'] = verbose
+def _compute_pressure(
+        P, p0,
+        mu, ui,
+        u,
+        p_bcs=None,
+        rotational_form=False,
+        tol=1.0e-10,
+        verbose=True
+        ):
+    '''Solve the pressure Poisson equation
 
-            ui = Function(self.W)
-            step_problem = TentativeVelocityProblem(
-                    ui,
-                    self.theta,
-                    self.rho, self.mu,
-                    u, p0, k,
-                    u_bcs,
-                    f0, f1,
-                    stabilization=self.stabilization,
-                    dx=self.dx
-                    )
+    .. math::
 
-            # Take u[-1] as initial guess.
-            ui.assign(u[-1])
-            solver.solve(step_problem, ui.vector())
-            # div_u = 1/r * div(r*ui)
-            # plot(div_u)
-            # interactive()
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        with Message('Computing pressure correction'):
-            # The pressure correction is based on the update formula
-            #
-            #                           (    dphi/dr    )
-            #     rho/dt (u_{n+1}-u*) + (    dphi/dz    ) = 0
-            #                           (1/r dphi/dtheta)
-            #
-            # with
-            #
-            #     phi = p_{n+1} - p*
-            #
-            # and
-            #
-            #      1/r d/dr    (r ur_{n+1})
-            #    +     d/dz    (  uz_{n+1})
-            #    + 1/r d/dtheta(  utheta_{n+1}) = 0
-            #
-            # With the assumption that u does not change in the direction
-            # theta, one derives
-            #
-            #  - 1/r * div(r * \nabla phi) = 1/r * rho/dt div(r*(u_{n+1} - u*))
-            #  - 1/r * n. (r * \nabla phi) = 1/r * rho/dt  n.(r*(u_{n+1} - u*))
-            #
-            # In its weak form, this is
-            #
-            #   \int r * \grad(phi).\grad(q) *2*pi =
-            #       - rho/dt \int div(r*u*) q *2*p
-            #       - rho/dt \int_Gamma n.(r*(u_{n+1}-u*)) q *2*pi.
-            #
-            # (The terms 1/r cancel with the volume elements 2*pi*r.)
-            # If Dirichlet boundary conditions are applied to both u* and u_n
-            # (the latter in the final step), the boundary integral vanishes.
-            #
-            alpha = 1.0
-            # alpha = 3.0 / 2.0
-            rotational_form = False
-            self._pressure_poisson(
-                    p1, p0,
-                    self.mu, ui,
-                    self.rho * alpha * ui / k,
-                    p_bcs=p_bcs,
-                    rotational_form=rotational_form,
-                    tol=tol,
-                    verbose=verbose
-                    )
-        # plot(ui, title='u intermediate')
-        # #plot(f, title='f')
-        # #plot(ui[1], title='u intermediate[1]')
-        # plot(div(ui), title='div(u intermediate)')
-        # plot(p1, title='p1')
-        # interactive()
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # Velocity correction.
-        #   U = u[-1] - dt/rho \nabla (p1-p0).
-        with Message('Computing velocity correction'):
-            u = TrialFunction(self.W)
-            v = TestFunction(self.W)
-            a3 = dot(u, v) * dx
-            phi = Function(self.P)
-            phi.assign(p1)
-            if p0:
-                phi -= p0
-            if rotational_form:
-                r = SpatialCoordinate(self.W.mesh())[0]
-                div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
-                phi += self.mu * div_ui
-            L3 = dot(ui, v) * dx \
-                - k / self.rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * dx
-            solve(
-                a3 == L3, u1,
-                bcs=u_bcs,
-                solver_parameters={
-                    'linear_solver': 'iterative',
-                    'symmetric': True,
-                    'preconditioner': 'hypre_amg',
-                    'krylov_solver': {
-                        'relative_tolerance': tol,
-                        'absolute_tolerance': 0.0,
-                        'maximum_iterations': 100,
-                        'monitor_convergence': verbose
-                        }
+        -1/r div(r \\nabla (p1-p0)) = -1/r div(r u),\\\\
+        \\text{(with boundary conditions)},
+
+    for
+        \\nabla p = u.
+
+    The pressure correction is based on the update formula
+
+                                (    d\\phi/dr      )
+        \\rho/dt (u_{n+1}-u*) + (    d\\phi/dz      ) = 0
+                                (1/r d\\phi/d\\theta)
+
+    with
+
+        \\phi = p_{n+1} - p*
+
+    and
+
+    .. math::
+
+         1/r d/dr      (r u_r_{n+1})
+       +     d/dz      (  u_z_{n+1})
+       + 1/r d/d\\theta(  u_{\\theta}_{n+1}) = 0
+
+    With the assumption that u does not change in the direction
+    :math:`\\theta`, one derives
+
+    .. math::
+
+     - 1/r     div(r \\nabla phi) = 1/r * \\rho/dt     div(r (u_{n+1} - u*))
+     - 1/r n\\cdot(r \\nabla phi) = 1/r * \\rho/dt n\\cdot(r (u_{n+1} - u*))
+
+    In its weak form, this is
+
+    .. math::
+
+      \\int r * \\grad(phi)\\cdot\\grad(q) \\cdot 2 \\pi =
+           - \\rho/dt \\int div(r u*) q \\cdot 2 \\pi
+           - \\rho/dt \\int_{\\Gamma} n\\cdot(r (u_{n+1}-u*)) q \\cdot 2\\pi.
+
+    (The terms :math:`1/r` cancel with the volume elements :math:`2\\pi r`.) If
+    the Dirichlet boundary conditions are applied to both :math:`u*` and
+    :math:`u_n` (the latter in the velocity correction step), the boundary
+    integral vanishes.
+    '''
+    W = ui.function_space()
+    r = SpatialCoordinate(W.mesh())[0]
+
+    p = TrialFunction(P)
+    q = TestFunction(P)
+    a2 = dot(r * grad(p), grad(q)) * 2 * pi * dx
+    # The boundary conditions
+    #     n.(p1-p0) = 0
+    # are implicitly included.
+    #
+    # L2 = -div(r*u) * q * 2*pi*dx
+    div_u = 1/r * (r * u[0]).dx(0) + u[1].dx(1)
+    L2 = -div_u * q * 2*pi*r*dx
+    if p0:
+        L2 += r * dot(grad(p0), grad(q)) * 2*pi*dx
+
+    # In the Cartesian variant of the rotational form, one makes use of the
+    # fact that
+    #
+    #     curl(curl(u)) = grad(div(u)) - div(grad(u)).
+    #
+    # The same equation holds true in cylindrical form. Hence, to get the
+    # rotational form of the splitting scheme, we need to
+    #
+    # rotational form
+    if rotational_form:
+        # If there is no dependence of the angular coordinate, what is
+        # div(grad(div(u))) in Cartesian coordinates becomes
+        #
+        #     1/r div(r * grad(1/r div(r*u)))
+        #
+        # in cylindrical coordinates (div and grad are in cylindrical
+        # coordinates). Unfortunately, we cannot write it down that
+        # compactly since u_phi is in the game.
+        # When using P2 elements, this value will be 0 anyways.
+        div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
+        grad_div_ui = as_vector((div_ui.dx(0), div_ui.dx(1)))
+        L2 -= r * mu * dot(grad_div_ui, grad(q)) * 2*pi*dx
+        # div_grad_div_ui = 1/r * (r * grad_div_ui[0]).dx(0) \
+        #     + (grad_div_ui[1]).dx(1)
+        # L2 += mu * div_grad_div_ui * q * 2*pi*r*dx
+        # n = FacetNormal(Q.mesh())
+        # L2 -= mu * (n[0] * grad_div_ui[0] + n[1] * grad_div_ui[1]) \
+        #     * q * 2*pi*r*ds
+
+    p1 = Function(P)
+    if p_bcs:
+        solve(
+            a2 == L2, p1,
+            bcs=p_bcs,
+            solver_parameters={
+                'linear_solver': 'iterative',
+                'symmetric': True,
+                'preconditioner': 'hypre_amg',
+                'krylov_solver': {
+                    'relative_tolerance': tol,
+                    'absolute_tolerance': 0.0,
+                    'maximum_iterations': 100,
+                    'monitor_convergence': verbose
                     }
-                )
-            # u = project(ui - k/rho * grad(phi), V)
-            # div_u = 1/r * div(r*u)
-            r = SpatialCoordinate(self.W.mesh())[0]
-            div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
-            info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
-            # plot(div_u)
+                }
+            )
+    else:
+        # If we're dealing with a pure Neumann problem here (which is the
+        # default case), this doesn't hurt CG if the system is consistent,
+        # cf. :cite:`vdV03`. And indeed it is consistent if and only if
+        #
+        #   \int_\Gamma r n.u = 0.
+        #
+        # This makes clear that for incompressible Navier-Stokes, one
+        # either needs to make sure that inflow and outflow always add up
+        # to 0, or one has to specify pressure boundary conditions.
+        #
+        # If the right-hand side is very small, round-off errors may impair
+        # the consistency of the system. Make sure the system we are
+        # solving remains consistent.
+        A = assemble(a2)
+        b = assemble(L2)
+        # Assert that the system is indeed consistent.
+        e = Function(P)
+        e.interpolate(Constant(1.0))
+        evec = e.vector()
+        evec /= norm(evec)
+        alpha = b.inner(evec)
+        normB = norm(b)
+        # Assume that in every component of the vector, a round-off error
+        # of the magnitude DOLFIN_EPS is present. This leads to the
+        # criterion
+        #    |<b,e>| / (||b||*||e||) < DOLFIN_EPS
+        # as a check whether to consider the system consistent up to
+        # round-off error.
+        #
+        # TODO think about condition here
+        # if abs(alpha) > normB * DOLFIN_EPS:
+        if abs(alpha) > normB * 1.0e-12:
+            # divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
+            adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * dx)
+            info('\\int 1/r * div(r*u) * 2*pi*r  =  %e' % adivu)
+            n = FacetNormal(P.mesh())
+            boundary_integral = assemble((n[0] * u[0] + n[1] * u[1])
+                                         * 2 * pi * r * ds)
+            info('\\int_Gamma n.u * 2*pi*r = %e' % boundary_integral)
+            message = (
+                'System not consistent! '
+                '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e.') \
+                % (alpha, normB, alpha / normB)
+            info(message)
+            # # Plot the stuff, and project it to a finer mesh with linear
+            # # elements for the purpose.
+            # plot(divu, title='div(u_tentative)')
+            # # Vp = FunctionSpace(Q.mesh(), 'CG', 2)
+            # # Wp = MixedFunctionSpace([Vp, Vp])
+            # # up = project(u, Wp)
+            # fine_mesh = Q.mesh()
+            # for k in range(1):
+            #     fine_mesh = refine(fine_mesh)
+            # V = FunctionSpace(fine_mesh, 'CG', 1)
+            # W = V * V
+            # # uplot = Function(W)
+            # # uplot.interpolate(u)
+            # uplot = project(u, W)
+            # plot(uplot[0], title='u_tentative[0]')
+            # plot(uplot[1], title='u_tentative[1]')
+            # # plot(u, title='u_tentative')
             # interactive()
+            # exit()
+            raise RuntimeError(message)
+        # Project out the roundoff error.
+        b -= alpha * evec
 
-            # # Ha! TODO remove
-            # u1.vector()[:] = ui.vector()
-        return
-
-    def _pressure_poisson(
-            self, p1, p0,
-            mu, ui,
-            u,
-            p_bcs=None,
-            rotational_form=False,
-            tol=1.0e-10,
-            verbose=True
-            ):
-        '''Solve the pressure Poisson equation
-            -1/r \div(r \nabla (p1-p0)) = -1/r div(r*u),
-            boundary conditions,
-        for
-            \nabla p = u.
-        '''
-        r = SpatialCoordinate(self.W.mesh())[0]
-
-        Q = p1.function_space()
-
-        p = TrialFunction(Q)
-        q = TestFunction(Q)
-        a2 = dot(r * grad(p), grad(q)) * 2 * pi * dx
-        # The boundary conditions
-        #     n.(p1-p0) = 0
-        # are implicitly included.
         #
-        # L2 = -div(r*u) * q * 2*pi*dx
-        div_u = 1/r * (r * u[0]).dx(0) + u[1].dx(1)
-        L2 = -div_u * q * 2*pi*r*dx
-        if p0:
-            L2 += r * dot(grad(p0), grad(q)) * 2*pi*dx
+        # In principle, the ILU preconditioner isn't advised here since it
+        # might destroy the semidefiniteness needed for CG.
+        #
+        # The system is consistent, but the matrix has an eigenvalue 0.
+        # This does not harm the convergence of CG, but when
+        # preconditioning one has to make sure that the preconditioner
+        # preserves the kernel. ILU might destroy this (and the
+        # semidefiniteness). With AMG, the coarse grid solves cannot be LU
+        # then, so try Jacobi here.
+        # <http://lists.mcs.anl.gov/pipermail/petsc-users/2012-February/012139.html>
+        #
+        prec = PETScPreconditioner('hypre_amg')
+        from dolfin import PETScOptions
+        PETScOptions.set('pc_hypre_boomeramg_relax_type_coarse', 'jacobi')
+        solver = PETScKrylovSolver('cg', prec)
+        solver.parameters['absolute_tolerance'] = 0.0
+        solver.parameters['relative_tolerance'] = tol
+        solver.parameters['maximum_iterations'] = 100
+        solver.parameters['monitor_convergence'] = verbose
+        # Create solver and solve system
+        A_petsc = as_backend_type(A)
+        b_petsc = as_backend_type(b)
+        p1_petsc = as_backend_type(p1.vector())
+        solver.set_operator(A_petsc)
+        solver.solve(p1_petsc, b_petsc)
+    return p1
 
-        # In the Cartesian variant of the rotational form, one makes use of the
-        # fact that
-        #
-        #     curl(curl(u)) = grad(div(u)) - div(grad(u)).
-        #
-        # The same equation holds true in cylindrical form. Hence, to get the
-        # rotational form of the splitting scheme, we need to
-        #
-        # rotational form
-        if rotational_form:
-            # If there is no dependence of the angular coordinate, what is
-            # div(grad(div(u))) in Cartesian coordinates becomes
-            #
-            #     1/r div(r * grad(1/r div(r*u)))
-            #
-            # in cylindrical coordinates (div and grad are in cylindrical
-            # coordinates). Unfortunately, we cannot write it down that
-            # compactly since u_phi is in the game.
-            # When using P2 elements, this value will be 0 anyways.
-            div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
-            grad_div_ui = as_vector((div_ui.dx(0), div_ui.dx(1)))
-            L2 -= r * mu * dot(grad_div_ui, grad(q)) * 2*pi*dx
-            # div_grad_div_ui = 1/r * (r * grad_div_ui[0]).dx(0) \
-            #     + (grad_div_ui[1]).dx(1)
-            # L2 += mu * div_grad_div_ui * q * 2*pi*r*dx
-            # n = FacetNormal(Q.mesh())
-            # L2 -= mu * (n[0] * grad_div_ui[0] + n[1] * grad_div_ui[1]) \
-            #     * q * 2*pi*r*ds
 
-        if p_bcs:
-            solve(
-                a2 == L2, p1,
-                bcs=p_bcs,
-                solver_parameters={
-                    'linear_solver': 'iterative',
-                    'symmetric': True,
-                    'preconditioner': 'hypre_amg',
-                    'krylov_solver': {
-                        'relative_tolerance': tol,
-                        'absolute_tolerance': 0.0,
-                        'maximum_iterations': 100,
-                        'monitor_convergence': verbose
-                        }
-                    }
+def _compute_velocity_correction(
+        ui, p0, p1, u_bcs, rho, mu, dt,
+        rotational_form, tol, verbose
+        ):
+    '''Compute the velocity correction according to
+
+    .. math::
+
+        U = u_0 - dt/\\rho \\nabla (p_1-p_0).
+    '''
+    W = ui.function_space()
+    P = p1.function_space()
+
+    u = TrialFunction(W)
+    v = TestFunction(W)
+    a3 = dot(u, v) * dx
+    phi = Function(P)
+    phi.assign(p1)
+    if p0:
+        phi -= p0
+    if rotational_form:
+        r = SpatialCoordinate(W.mesh())[0]
+        div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
+        phi += mu * div_ui
+    L3 = dot(ui, v) * dx \
+        - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * dx
+    u1 = Function(W)
+    solve(
+        a3 == L3, u1,
+        bcs=u_bcs,
+        solver_parameters={
+            'linear_solver': 'iterative',
+            'symmetric': True,
+            'preconditioner': 'hypre_amg',
+            'krylov_solver': {
+                'relative_tolerance': tol,
+                'absolute_tolerance': 0.0,
+                'maximum_iterations': 100,
+                'monitor_convergence': verbose
+                }
+            }
+        )
+    # u = project(ui - k/rho * grad(phi), V)
+    # div_u = 1/r * div(r*u)
+    r = SpatialCoordinate(W.mesh())[0]
+    div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
+    info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
+    return u1
+
+
+def _step(
+        dt,
+        u, p0,
+        W, P,
+        u_bcs, p_bcs,
+        rho, mu,
+        stabilization,
+        time_step_method,
+        f,
+        rotational_form=False,
+        verbose=True,
+        tol=1.0e-10
+        ):
+    '''General pressure projection scheme as described in section 3.4 of
+    :cite:`GMS06`.
+    '''
+    # Some initial sanity checkups.
+    assert dt > 0.0
+
+    with Message('Computing tentative velocity'):
+        ui = _compute_tentative_velocity(
+                time_step_method, rho, mu,
+                u, p0, dt, u_bcs, f, W,
+                stabilization,
+                verbose, tol
                 )
-        else:
-            # If we're dealing with a pure Neumann problem here (which is the
-            # default case), this doesn't hurt CG if the system is consistent,
-            # cf. :cite:`vdV03`. And indeed it is consistent if and only if
-            #
-            #   \int_\Gamma r n.u = 0.
-            #
-            # This makes clear that for incompressible Navier-Stokes, one
-            # either needs to make sure that inflow and outflow always add up
-            # to 0, or one has to specify pressure boundary conditions.
-            #
-            # If the right-hand side is very small, round-off errors may impair
-            # the consistency of the system. Make sure the system we are
-            # solving remains consistent.
-            A = assemble(a2)
-            b = assemble(L2)
-            # Assert that the system is indeed consistent.
-            e = Function(Q)
-            e.interpolate(Constant(1.0))
-            evec = e.vector()
-            evec /= norm(evec)
-            alpha = b.inner(evec)
-            normB = norm(b)
-            # Assume that in every component of the vector, a round-off error
-            # of the magnitude DOLFIN_EPS is present. This leads to the
-            # criterion
-            #    |<b,e>| / (||b||*||e||) < DOLFIN_EPS
-            # as a check whether to consider the system consistent up to
-            # round-off error.
-            #
-            # TODO think about condition here
-            # if abs(alpha) > normB * DOLFIN_EPS:
-            if abs(alpha) > normB * 1.0e-12:
-                divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
-                adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * dx)
-                info('\int 1/r * div(r*u) * 2*pi*r  =  %e' % adivu)
-                n = FacetNormal(Q.mesh())
-                boundary_integral = assemble((n[0] * u[0] + n[1] * u[1])
-                                             * 2 * pi * r * ds)
-                info('\int_Gamma n.u * 2*pi*r = %e' % boundary_integral)
-                message = (
-                    'System not consistent! '
-                    '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e.') \
-                    % (alpha, normB, alpha / normB)
-                info(message)
-                # # Plot the stuff, and project it to a finer mesh with linear
-                # # elements for the purpose.
-                # plot(divu, title='div(u_tentative)')
-                # # Vp = FunctionSpace(Q.mesh(), 'CG', 2)
-                # # Wp = MixedFunctionSpace([Vp, Vp])
-                # # up = project(u, Wp)
-                # fine_mesh = Q.mesh()
-                # for k in range(1):
-                #     fine_mesh = refine(fine_mesh)
-                # V = FunctionSpace(fine_mesh, 'CG', 1)
-                # W = V * V
-                # # uplot = Function(W)
-                # # uplot.interpolate(u)
-                # uplot = project(u, W)
-                # plot(uplot[0], title='u_tentative[0]')
-                # plot(uplot[1], title='u_tentative[1]')
-                # # plot(u, title='u_tentative')
-                # interactive()
-                # exit()
-                raise RuntimeError(message)
-            # Project out the roundoff error.
-            b -= alpha * evec
 
-            #
-            # In principle, the ILU preconditioner isn't advised here since it
-            # might destroy the semidefiniteness needed for CG.
-            #
-            # The system is consistent, but the matrix has an eigenvalue 0.
-            # This does not harm the convergence of CG, but when
-            # preconditioning one has to make sure that the preconditioner
-            # preserves the kernel.  ILU might destroy this (and the
-            # semidefiniteness). With AMG, the coarse grid solves cannot be LU
-            # then, so try Jacobi here.
-            # <http://lists.mcs.anl.gov/pipermail/petsc-users/2012-February/012139.html>
-            #
-            prec = PETScPreconditioner('hypre_amg')
-            from dolfin import PETScOptions
-            PETScOptions.set('pc_hypre_boomeramg_relax_type_coarse', 'jacobi')
-            solver = PETScKrylovSolver('cg', prec)
-            solver.parameters['absolute_tolerance'] = 0.0
-            solver.parameters['relative_tolerance'] = tol
-            solver.parameters['maximum_iterations'] = 100
-            solver.parameters['monitor_convergence'] = verbose
-            # Create solver and solve system
-            A_petsc = as_backend_type(A)
-            b_petsc = as_backend_type(b)
-            p1_petsc = as_backend_type(p1.vector())
-            solver.set_operator(A_petsc)
-            solver.solve(p1_petsc, b_petsc)
-        return
+    with Message('Computing pressure correction'):
+        p1 = _compute_pressure(
+                P, p0,
+                mu, ui,
+                rho * ui / dt,
+                p_bcs=p_bcs,
+                rotational_form=rotational_form,
+                tol=tol,
+                verbose=verbose
+                )
+
+    with Message('Computing velocity correction'):
+        u1 = _compute_velocity_correction(
+            ui, p0, p1, u_bcs, rho, mu, dt,
+            rotational_form, tol, verbose
+            )
+
+    return u1, p1
 
 
-class IPCS(PressureProjection):
+class IPCS(object):
     '''
     Incremental pressure correction scheme.
     '''
@@ -646,14 +555,31 @@ class IPCS(PressureProjection):
         'pressure': 0,
         }
 
-    def __init__(
-            self, W, P, rho, mu, theta,
-            stabilization=False,
-            dx=dx
-            ):
-        super(IPCS, self).__init__(
-                W, P, rho, mu, theta,
-                stabilization=stabilization,
-                dx=dx
-                )
+    def __init__(self, time_step_method='backward euler', stabilization=False):
+        self.time_step_method = time_step_method
+        self.stabilization = stabilization
         return
+
+    def step(
+            self,
+            dt,
+            u, p0,
+            W, P,
+            u_bcs, p_bcs,
+            rho, mu,
+            f,
+            verbose=True,
+            tol=1.0e-10
+            ):
+        return _step(
+            dt,
+            u, p0,
+            W, P,
+            u_bcs, p_bcs,
+            rho, mu,
+            self.stabilization,
+            self.time_step_method,
+            f,
+            verbose=verbose,
+            tol=tol
+            )

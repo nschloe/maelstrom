@@ -50,9 +50,9 @@ class Crucible():
 
         self.subdomain_materials = {
             1: my_materials.porcelain,
-            2: my_materials.argon,
-            3: my_materials.gaas_solid,
-            4: my_materials.gaas_liquid,
+            2: materials.argon,
+            3: materials.gallium_arsenide_solid,
+            4: materials.gallium_arsenide_liquid,
             27: materials.air,
             }
 
@@ -433,6 +433,8 @@ class Crucible():
                 title='theta_ref - theta_new'
                 )
             interactive()
+
+        self.background_temp = 1400.0
 
         # self.omega = 2 * pi * 10.0e3
         self.omega = 2 * pi * 300.0

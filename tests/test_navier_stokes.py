@@ -176,7 +176,7 @@ def test_order(problem, method):
     '''
     # TODO add test for spatial order
     # Methods together with the expected order of convergence.
-    helpers._assert_time_order(problem, method)
+    helpers.assert_time_order(problem, method)
     return
 
 
@@ -263,8 +263,8 @@ if __name__ == '__main__':
     # mesh_sizes = [10, 20, 40, 80]
     Dt = [0.5**k for k in range(20)]
     errors = helpers.compute_time_errors(
-        # problem_flat_cylindrical,
-        problem_whirl_cylindrical,
+        problem_flat_cylindrical,
+        # problem_whirl_cylindrical,
         # problem_guermond1_cylindrical,
         # problem_taylor_cylindrical,
         ns_cyl.IPCS,

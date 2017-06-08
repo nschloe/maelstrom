@@ -3,6 +3,10 @@
 '''
 Helper functions for PDE consistency tests.
 '''
+from __future__ import print_function
+
+import warnings
+
 from dolfin import (
     Expression, info, assemble, FunctionSpace, interpolate, plot, interactive,
     errornorm, dx, Function, VectorFunctionSpace, DirichletBC, project
@@ -10,7 +14,6 @@ from dolfin import (
 import matplotlib.pyplot as plt
 import numpy
 import sympy
-import warnings
 
 from maelstrom.message import Message
 
@@ -31,27 +34,27 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
     '''
     # Compute the numerical order of convergence.
     orders = {
-        key: _compute_numerical_order_of_convergence(Dt, errors[key].T).T
+        key: compute_numerical_order_of_convergence(Dt, errors[key].T).T
         for key in errors
         }
 
     # Print the data to the screen
     for i, mesh_size in enumerate(mesh_sizes):
-        print
+        print()
         print('Mesh size %d:' % mesh_size)
-        print('dt = %e' % Dt[0]),
+        print('dt = %e' % Dt[0])
         for label, e in errors.items():
-            print('   err_%s = %e' % (label, e[i][0])),
-        print
+            print('   err_%s = %e' % (label, e[i][0]))
+        print()
         for j in range(len(Dt) - 1):
-            print('                 '),
+            print('                 ')
             for label, o in orders.items():
-                print('   ord_%s = %e' % (label, o[i][j])),
-            print
-            print('dt = %e' % Dt[j+1]),
+                print('   ord_%s = %e' % (label, o[i][j]))
+            print()
+            print('dt = %e' % Dt[j+1])
             for label, e in errors.items():
-                print('   err_%s = %e' % (label, e[i][j+1])),
-            print
+                print('   err_%s = %e' % (label, e[i][j+1]))
+            print()
 
     # Create a figure
     for label, err in errors.items():
@@ -77,19 +80,19 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
     return
 
 
-def _compute_numerical_order_of_convergence(Dt, errors):
+def compute_numerical_order_of_convergence(Dt, errors):
     return numpy.array([
         numpy.log(errors[k] / errors[k+1]) / numpy.log(Dt[k] / Dt[k+1])
         for k in range(len(Dt)-1)
         ])
 
 
-def _assert_time_order(problem, MethodClass, tol=1.0e-10):
+def assert_time_order(problem, MethodClass):
     mesh_sizes = [8, 16, 32]
     Dt = [0.5**k for k in range(2)]
     errors = compute_time_errors(problem, MethodClass, mesh_sizes, Dt)
     orders = {
-        key: _compute_numerical_order_of_convergence(Dt, errors[key].T).T
+        key: compute_numerical_order_of_convergence(Dt, errors[key].T).T
         for key in errors
         }
     # The test is considered passed if the numerical order of convergence
@@ -156,6 +159,8 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     domain=mesh
                     )
             # Create initial states.
+            W = VectorFunctionSpace(mesh, 'CG', 2)
+            P = FunctionSpace(mesh, 'CG', 1)
             p0 = Expression(
                     sol_p.cppcode,
                     degree=_truncate_degree(solution['p']['degree']),
@@ -164,13 +169,9 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     )
 
             mesh_area = assemble(1.0 * dx(mesh))
-            W = VectorFunctionSpace(mesh, 'CG', 2)
-            P = FunctionSpace(mesh, 'CG', 1)
             method = MethodClass(
-                    W, P,
-                    rho, mu,
-                    theta=1.0,
-                    # theta=0.5,
+                    time_step_method='backward euler',
+                    # time_step_method='crank-nicolson',
                     stabilization=None
                     # stabilization='SUPG'
                     )
@@ -180,19 +181,14 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             divu1 = Function(P)
             for j, dt in enumerate(Dt):
                 # Prepare previous states for multistepping.
-                u = [Expression(
-                    sol_u.cppcode,
-                    degree=_truncate_degree(solution['u']['degree']),
-                    t=0.0,
-                    cell=cell_type
-                    ),
-                    # Expression(
-                    # sol_u.cppcode,
-                    # degree=_truncate_degree(solution['u']['degree']),
-                    # t=0.5*dt,
-                    # cell=cell_type
-                    # )
-                    ]
+                u = {
+                    0: Expression(
+                        sol_u.cppcode,
+                        degree=_truncate_degree(solution['u']['degree']),
+                        t=0.0,
+                        cell=cell_type
+                        )
+                    }
                 sol_u.t = dt
                 u_bcs = [DirichletBC(W, sol_u, 'on_boundary')]
                 sol_p.t = dt
@@ -200,14 +196,17 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                 p_bcs = []
                 fenics_rhs0.t = 0.0
                 fenics_rhs1.t = dt
-                method.step(dt,
-                            u1, p1,
-                            u, p0,
-                            u_bcs=u_bcs, p_bcs=p_bcs,
-                            f0=fenics_rhs0, f1=fenics_rhs1,
-                            verbose=False,
-                            tol=1.0e-10
-                            )
+                u1, p1 = method.step(
+                        dt,
+                        u, p0,
+                        W, P,
+                        u_bcs, p_bcs,
+                        rho, mu,
+                        f={0: fenics_rhs0, 1: fenics_rhs1},
+                        verbose=False,
+                        tol=1.0e-10
+                        )
+
                 sol_u.t = dt
                 sol_p.t = dt
                 errors['u'][k][j] = errornorm(sol_u, u1)
