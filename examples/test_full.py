@@ -182,8 +182,8 @@ class StokesHeat(NonlinearProblem):
             dirichlet_bcs=theta_dirichlet_bcs,
             neumann_bcs=theta_neumann_bcs,
             robin_bcs=theta_robin_bcs,
-            dx=my_dx,
-            ds=my_ds
+            my_dx=my_dx,
+            my_ds=my_ds
             )
 
         self.F0 = self.stokes.F0(mu) + self.heat.F0
@@ -260,10 +260,10 @@ def _construct_initial_state(
     else:
         cp_wpi_const = cp_wpi(theta_average)
 
-    mode = 'solve_stokes_heat'
-    # mode = 'block'
+    mode = 'newton'
+    # mode = 'banach'
 
-    if mode == 'solve_stokes_heat':
+    if mode == 'newton':
         WPQ = FunctionSpace(
             mesh, MixedElement([W_element, P_element, Q_element])
             )
@@ -294,44 +294,23 @@ def _construct_initial_state(
         solver = PETScSNESSolver()
         # http://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/SNESType.html
         solver.parameters['method'] = 'newtonls'
-        # The Jacobian system for Stokes (+heat) are hard to solve. Use LU
-        # for now.
+        # The Jacobian system for Stokes (+heat) are hard to solve.
+        # Use LU for now.
         solver.parameters['linear_solver'] = 'lu'
         solver.parameters['maximum_iterations'] = 5
         solver.parameters['absolute_tolerance'] = 1.0e-10
         solver.parameters['relative_tolerance'] = 0.0
         solver.parameters['report'] = True
 
-        do_continuation = True
-        if do_continuation:
-            # Do parameter continuation in mu. Start with something large
-            # (viscous) to make sure we converge. Then decrease the
-            # viscosity step by step.
-            from maelstrom import continuation
-            # Find initial solution
-            mu0 = 10.0
-            stokes_heat_problem.set_parameter(mu0)
-            solver.parameters['maximum_iterations'] = 40
-            solver.solve(stokes_heat_problem, uptheta0.vector())
-            # Poor man's continuation
-            solver.parameters['maximum_iterations'] = 5
-            continuation.poor_man(
-                stokes_heat_problem,
-                uptheta0,
-                parameter_value=mu0,
-                target_value=mu_wpi(theta_average),
-                solver=solver
-                )
-        else:
-            # Try a regular solve
-            solver.solve(stokes_heat_problem, uptheta0.vector())
+        solver.solve(stokes_heat_problem, uptheta0.vector())
 
         # u0, p0, theta0 = split(uptheta0)
         # Create a *deep* copy of u0, p0, theta0 to be able to deal with them
         # as actually separate entities vectors.
         u0, p0, theta0 = uptheta0.split(deepcopy=True)
 
-    elif mode == 'block':
+    else:
+        assert mode == 'banach'
         # Solve the coupled heat-Stokes equation approximately. Do this
         # iteratively by solving the heat equation, then solving Stokes with
         # the updated heat, the heat equation with the updated velocity and so
@@ -352,8 +331,8 @@ def _construct_initial_state(
                 source=joule_wpi,
                 dirichlet_bcs=theta_bcs_d,
                 neumann_bcs=theta_bcs_n,
-                dx=dx_submesh,
-                ds=ds_submesh
+                my_dx=dx_submesh,
+                my_ds=ds_submesh
                 )
             _solve_stationary(heat_problem, theta1, verbose=False)
 
@@ -394,9 +373,6 @@ def _construct_initial_state(
                 break
 
             theta0.assign(theta1)
-
-    else:
-        raise ValueError('Unknown mode \'%s\'.' % mode)
 
     plot(u0, title='u')
     plot(p0, title='p')
@@ -450,10 +426,9 @@ def _compute_lorentz_joule(
             interactive()
 
         # Get Joule heat source.
-        joule = cmx.compute_joule(Phi, voltages,
-                                  omega, sigma, mu,
-                                  subdomain_indices
-                                  )
+        joule = cmx.compute_joule(
+                Phi, voltages, omega, sigma, mu, subdomain_indices
+                )
         show_joule = []
         # show_joule = subdomain_indices
         for ii in show_joule:
@@ -468,7 +443,6 @@ def _compute_lorentz_joule(
 
         joule_wpi = joule[wpi]
     return lorentz_wpi, joule_wpi
-
 
 
 def _compute(
@@ -569,8 +543,8 @@ def _compute(
         source=joule_wpi,
         dirichlet_bcs=problem.theta_bcs_d,
         neumann_bcs=problem.theta_bcs_n,
-        dx=dx(submesh_workpiece),
-        ds=ds_workpiece
+        my_dx=dx(submesh_workpiece),
+        my_ds=ds_workpiece
         )
 
     show_total_force = False
@@ -894,7 +868,8 @@ def test_optimize(num_steps=1, target_time=0.1):
     submesh_workpiece = problem.W.mesh()
     ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
     u0, p0, theta0 = _construct_initial_state(
-        problem.W, problem.P, problem.Q,
+        submesh_workpiece,
+        problem.W_element, problem.P_element, problem.Q_element,
         k_wpi, cp_wpi, rho_wpi, mu_wpi,
         Constant(0.0),
         problem.u_bcs, problem.p_bcs,

@@ -207,11 +207,11 @@ class Crucible():
         V_element = FiniteElement('CG', self.submesh_workpiece.ufl_cell(), 2)
         with_bubbles = False
         if with_bubbles:
-            V_element += FiniteElement('B', self.submesh_workpiece.ufl_cell(), 2)
-        self.W = FunctionSpace(
-                self.submesh_workpiece,
-                MixedElement(3 * [V_element])
-                )
+            V_element += FiniteElement(
+                    'B', self.submesh_workpiece.ufl_cell(), 2
+                    )
+        self.W_element = MixedElement(3 * [V_element])
+        self.W = FunctionSpace(self.submesh_workpiece, self.W_element)
 
         rot0 = Expression(('0.0', '0.0', '-2*pi*x[0] * 5.0/60.0'), degree=1)
         # rot0 = (0.0, 0.0, 0.0)
@@ -226,10 +226,16 @@ class Crucible():
             ]
         self.p_bcs = []
 
-        self.P = FunctionSpace(self.submesh_workpiece, 'CG', 1)
+        self.P_element = FiniteElement(
+                'CG', self.submesh_workpiece.ufl_cell(), 1
+                )
+        self.P = FunctionSpace(self.submesh_workpiece, self.P_element)
 
-        # Boundary conditions for heat equation.
-        self.Q = FunctionSpace(self.submesh_workpiece, 'CG', 2)
+        self.Q_element = FiniteElement(
+                'CG', self.submesh_workpiece.ufl_cell(), 2
+                )
+        self.Q = FunctionSpace(self.submesh_workpiece, self.Q_element)
+
         # Dirichlet.
         # This is a bit of a tough call since the boundary conditions need to
         # be read from a Tecplot file here.
@@ -284,8 +290,11 @@ class Crucible():
                 # pp.plot(x[0], x[1], 'xg')
                 if not edge_found:
                     value[0] = 0.0
-                    warnings.warn('Coordinate (%e, %e) doesn\'t sit on edge.'
-                                  % (x[0], x[1]))
+                    if False:
+                        warnings.warn(
+                            'Coordinate ({:e}, {:e}) doesn\'t sit on edge.'
+                            .format(x[0], x[1])
+                            )
                     # pp.plot(RZ[:, 0], RZ[:, 1], '.k')
                     # pp.plot(x[0], x[1], 'xr')
                     # pp.show()

@@ -354,8 +354,8 @@ def _define():
     return geom
 
 
-def generate():
-    return pygmsh.generate_mesh(_define())
+def generate(verbose=False):
+    return pygmsh.generate_mesh(_define(), verbose=verbose)
 
 
 if __name__ == '__main__':
@@ -366,5 +366,6 @@ if __name__ == '__main__':
             points,
             cells,
             point_data=point_data,
-            cell_data=cell_data
+            cell_data=cell_data,
+            verbose=True
             )
