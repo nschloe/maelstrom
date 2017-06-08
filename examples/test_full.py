@@ -18,21 +18,21 @@ from dolfin import (
     parameters, Measure, Function, FunctionSpace, Constant, SubMesh, plot,
     interactive, ds, project, XDMFFile, DirichletBC, dot, grad, Expression,
     triangle, DOLFIN_EPS, as_vector, info, norm, assemble, TestFunction,
-    TrialFunction, KrylovSolver, MPI, MixedFunctionSpace, split,
-    NonlinearProblem, derivative, inner, TestFunctions, dx, assign, errornorm,
-    interpolate
+    TrialFunction, KrylovSolver, MPI, split, NonlinearProblem, derivative,
+    inner, TestFunctions, dx, assign, errornorm, interpolate, MixedElement
     )
 
 import numpy
 from numpy import pi
 
-import maelstrom.navier_stokes_cylindrical as cyl_ns
-import maelstrom.stokes_cylindrical as cyl_stokes
-import maelstrom.maxwell_cylindrical as cmx
-import maelstrom.heat_cylindrical as cyl_heat
+import maelstrom.navier_stokes as cyl_ns
+import maelstrom.stokes as cyl_stokes
+import maelstrom.maxwell as cmx
+import maelstrom.heat as cyl_heat
 import maelstrom.time_steppers as ts
 from maelstrom.message import Message
-from maelstrom import problems as probs
+
+import problems
 
 # We need to allow extrapolation here since otherwise, the equation systems
 # for Maxwell cannot be constructed: They contain the velocity `u` (from
@@ -224,7 +224,8 @@ def _average(u):
 
 
 def _construct_initial_state(
-        W, P, Q,
+        mesh,
+        W_element, P_element, Q_element,
         k_wpi, cp_wpi, rho_wpi, mu_wpi,
         joule_wpi,
         u_bcs, p_bcs,
@@ -235,6 +236,10 @@ def _construct_initial_state(
         ):
     '''Construct an initial state for the Navier-Stokes simulation.
     '''
+    W = FunctionSpace(mesh, W_element)
+    P = FunctionSpace(mesh, P_element)
+    Q = FunctionSpace(mesh, Q_element)
+
     # theta_average = _average(theta0)
     u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
     p0 = interpolate(Constant(0.0), P)
@@ -259,7 +264,9 @@ def _construct_initial_state(
     # mode = 'block'
 
     if mode == 'solve_stokes_heat':
-        WPQ = MixedFunctionSpace([W, P, Q])
+        WPQ = FunctionSpace(
+            mesh, MixedElement([W_element, P_element, Q_element])
+            )
         uptheta0 = Function(WPQ)
 
         # Initial guess
@@ -329,7 +336,7 @@ def _construct_initial_state(
         # iteratively by solving the heat equation, then solving Stokes with
         # the updated heat, the heat equation with the updated velocity and so
         # forth until the change is 'small'.
-        WP = MixedFunctionSpace([W, P])
+        WP = FunctionSpace(mesh, MixedElement([W_element, P_element]))
         # Initialize functions.
         up0 = Function(WP)
         u0, p0 = up0.split()
@@ -873,7 +880,7 @@ def _main():
     #         25.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0)
     #         ]
 
-    problem = probs.crucible.CrucibleProblem()
+    problem = problems.Crucible()
 
     # Solve construct initial state without Lorentz force and Joule heat.
     m = problem.subdomain_materials[problem.wpi]
