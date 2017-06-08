@@ -422,7 +422,7 @@ def _compute_lorentz_joule(
     # assume though that changes in either of the two will only marginally
     # influence the magnetic field. Consequently, we precompute all associated
     # values.
-    dx_subdomains = Measure('dx')[subdomains]
+    dx_subdomains = Measure('dx', subdomain_data=subdomains)
     with Message('Computing magnetic field...'):
         Phi, voltages = cmx.compute_potential(
                 coils,
@@ -470,26 +470,28 @@ def _compute_lorentz_joule(
     return lorentz_wpi, joule_wpi
 
 
-def _compute(u0, p0, theta0, problem, voltages, T,
-             output_folder
-             ):
 
+def _compute(
+        u0, p0, theta0, problem, voltages, T,
+        output_folder
+        ):
     submesh_workpiece = problem.W.mesh()
 
     # Define a facet measure on the boundaries. See discussion on
     # <https://bitbucket.org/fenics-project/dolfin/issue/249/facet-specification-doesnt-work-on-ds>.
-    ds_workpiece = Measure('ds')[problem.wp_boundaries]
+    ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
 
     info('Input voltages:')
-    info('%r' % voltages)
+    info(repr(voltages))
     coils = []
     if voltages is not None:
         # Merge coil rings with voltages.
         for coil_domain, voltage in zip(problem.coil_domains, voltages):
-            coils.append({'rings': coil_domain,
-                          'c_type': 'voltage',
-                          'c_value': voltage
-                          })
+            coils.append({
+                'rings': coil_domain,
+                'c_type': 'voltage',
+                'c_value': voltage
+                })
 
     subdomain_indices = problem.subdomain_materials.keys()
 
@@ -842,7 +844,7 @@ def _gravitational_force(num_subspaces):
         raise RuntimeError('Illegal number of subspaces (%d).' % num_subspaces)
 
 
-def _main():
+def test_optimize(num_steps=1, target_time=0.1):
     # The voltage is defined as
     #
     #     v(t) = Im(exp(i omega t) v)
@@ -852,7 +854,6 @@ def _main():
     # Hence, for a lagging voltage, arg(v) needs to be negative.
     # voltages = None
     #
-    num_steps = 51
     Alpha = numpy.linspace(0.0, 2.0, num_steps)
     voltages = [
         38.0 * numpy.exp(-1j * 2 * pi * 2 * 70.0 / 360.0),
@@ -891,7 +892,7 @@ def _main():
 
     g = _gravitational_force(problem.W.num_sub_spaces())
     submesh_workpiece = problem.W.mesh()
-    ds_workpiece = Measure('ds')[problem.wp_boundaries]
+    ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
     u0, p0, theta0 = _construct_initial_state(
         problem.W, problem.P, problem.Q,
         k_wpi, cp_wpi, rho_wpi, mu_wpi,
@@ -909,7 +910,6 @@ def _main():
     p0.rename('pressure', 'pressure')
     theta0.rename('temperature', 'temperature')
 
-    T = 600.0
     args = _parse_args()
     output_folder = args.directory
     for k, alpha in enumerate(Alpha):
@@ -918,13 +918,12 @@ def _main():
         of = os.path.join(output_folder, 'step%02d' % k)
         if not os.path.exists(of):
             os.makedirs(of)
-        _compute(u0, p0, theta0,
-                 problem, v, T, of
-                 )
-        # From the second iteration on, only go for 60 secs computation.
-        T = 60.0
+        _compute(u0, p0, theta0, problem, v, target_time, of)
+
+        # From the second iteration on, only go for at most 60 secs
+        target_time = min(60.0, target_time)
     return
 
 
 if __name__ == '__main__':
-    _main()
+    test_optimize(num_steps=51, target_time=600.0)
