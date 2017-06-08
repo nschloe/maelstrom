@@ -289,7 +289,7 @@ def test(target_time=0.1):
             xdmf_file.write(p0, t+dt)
 
             plot(theta0, title='temperature', rescale=True)
-            plot(u0, title='velocity', rescale=True)
+            # plot(u0, title='velocity', rescale=True)
             plot(p0, title='pressure', rescale=True)
             # interactive()
             t += dt
