@@ -16,17 +16,15 @@ import os
 
 from dolfin import (
     parameters, Measure, Function, FunctionSpace, Constant, SubMesh, plot,
-    interactive, ds, project, XDMFFile, DirichletBC, dot, grad, Expression,
-    triangle, DOLFIN_EPS, as_vector, info, norm, assemble, TestFunction,
-    TrialFunction, KrylovSolver, MPI, split, NonlinearProblem, derivative,
-    inner, TestFunctions, dx, assign, errornorm, interpolate, MixedElement
+    interactive, project, XDMFFile, DOLFIN_EPS, as_vector, info, norm,
+    assemble, TestFunction, TrialFunction, KrylovSolver, MPI, dx, interpolate
     )
 
 import numpy
 from numpy import pi
 
 import maelstrom.navier_stokes as cyl_ns
-import maelstrom.stokes as cyl_stokes
+import maelstrom.stokes_heat as stokes_heat
 import maelstrom.maxwell as cmx
 import maelstrom.heat as cyl_heat
 import maelstrom.time_steppers as ts
@@ -40,180 +38,6 @@ import problems
 # Cf. <https://answers.launchpad.net/dolfin/+question/210508>.
 parameters['allow_extrapolation'] = True
 parameters['std_out_all_processes'] = False
-
-
-class FixedPointSolver(object):
-    '''
-    Fixed-point iteration for
-        F(x) + x = x
-    '''
-    def __init__(self):
-        self.parameters = {
-                'maximum_iterations': 0,
-                'absolute_tolerance': 0.0,
-                'relative_tolerance': 0.0,
-                'report': True
-                }
-        return
-
-    def _report(self, k, nrm, nrm0):
-        if self.parameters['report']:
-            print(('Fixed-point iteration %d:' % k) +
-                  (' r (abs) = %e (tol = %e)'
-                   % (nrm, self.parameters['absolute_tolerance'])) +
-                  (' r (rel) = %e (tol = %e)'
-                   % (nrm/nrm0, self.parameters['relative_tolerance']))
-                  )
-        return
-
-    def solve(self, problem, vector):
-        res = vector.copy()
-        problem.F(res, vector)
-        nrm = norm(res)
-        nrm0 = nrm
-        k = 0
-        self._report(k, nrm, nrm0)
-        while nrm > self.parameters['absolute_tolerance'] \
-                or nrm / nrm0 > self.parameters['relative_tolerance']:
-            problem.F(res, vector)
-            vector[:] += res
-            nrm = norm(res)
-            k += 1
-            self._report(k, nrm, nrm0)
-        return
-
-
-class Stokes(object):
-
-    def __init__(self, u, p, v, q, f):
-        super(Stokes, self).__init__()
-        self.u = u
-        self.p = p
-        self.v = v
-        self.q = q
-        self.f = f
-        return
-
-    def F0(self, mu):
-        u = self.u
-        p = self.p
-        v = self.v
-        q = self.q
-        f = self.f
-        mu = Constant(mu)
-        # Momentum equation (without the nonlinear term).
-        r = Expression('x[0]', degree=1, cell=triangle)
-        F0 = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
-            + mu * u[0] / r * v[0] * 2 * pi * dx \
-            - dot(f, v) * 2 * pi * r * dx
-        if len(u) == 3:
-            # Discard nonlinear component.
-            F0 += mu * u[2] / r * v[2] * 2 * pi * dx
-        F0 += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2 * pi * r * dx
-
-        # Incompressibility condition.
-        # div_u = 1/r * div(r*u)
-        F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q \
-            * 2 * pi * r * dx
-        return F0
-
-
-def dbcs_to_productspace(W, bcs_list):
-    new_bcs = []
-    for k, bcs in enumerate(bcs_list):
-        for bc in bcs:
-            C = bc.function_space().component()
-            # pylint: disable=len-as-condition
-            if len(C) == 0:
-                new_bcs.append(DirichletBC(W.sub(k),
-                                           bc.value(),
-                                           bc.domain_args[0]))
-            elif len(C) == 1:
-                new_bcs.append(DirichletBC(W.sub(k).sub(int(C[0])),
-                                           bc.value(),
-                                           bc.domain_args[0]))
-            else:
-                raise RuntimeError('Illegal number of subspace components.')
-    return new_bcs
-
-
-class StokesHeat(NonlinearProblem):
-
-    def __init__(self, WPQ,
-                 kappa, rho, mu, cp,
-                 theta_average,
-                 g, extra_force,
-                 heat_source,
-                 u_bcs, p_bcs,
-                 theta_dirichlet_bcs=None,
-                 theta_neumann_bcs=None,
-                 theta_robin_bcs=None,
-                 my_dx=dx,
-                 my_ds=ds
-                 ):
-
-        theta_dirichlet_bcs = theta_dirichlet_bcs or {}
-        theta_neumann_bcs = theta_neumann_bcs or {}
-        theta_robin_bcs = theta_robin_bcs or {}
-
-        super(StokesHeat, self).__init__()
-        # Translate the boundary conditions into the product space.
-        self.bcs = dbcs_to_productspace(
-            WPQ,
-            [u_bcs, p_bcs, theta_dirichlet_bcs]
-            )
-
-        self.uptheta = Function(WPQ)
-        u, p, theta = split(self.uptheta)
-        v, q, zeta = TestFunctions(WPQ)
-
-        # Right-hand side for momentum equation.
-        f = rho(theta) * g
-        if extra_force is not None:
-            f += as_vector((extra_force[0], extra_force[1], 0.0))
-
-        self.stokes = Stokes(u, p, v, q, f)
-
-        self.heat = cyl_heat.HeatCylindrical(
-            WPQ.sub(2), theta, zeta,
-            u,
-            kappa, rho(theta_average), cp,
-            source=heat_source,
-            dirichlet_bcs=theta_dirichlet_bcs,
-            neumann_bcs=theta_neumann_bcs,
-            robin_bcs=theta_robin_bcs,
-            my_dx=my_dx,
-            my_ds=my_ds
-            )
-
-        self.F0 = self.stokes.F0(mu) + self.heat.F0
-        self.jacobian = derivative(self.F0, self.uptheta)
-        return
-
-    def set_parameter(self, mu):
-        self.F0 = self.stokes.F0(mu) + self.heat.F0
-        self.jacobian = derivative(self.F0, self.uptheta)
-        return
-
-    def F(self, b, x):
-        self.uptheta.vector()[:] = x
-        assemble(self.F0,
-                 tensor=b,
-                 form_compiler_parameters={'optimize': True}
-                 )
-        for bc in self.bcs:
-            bc.apply(b, x)
-        return
-
-    def J(self, A, x):
-        self.uptheta.vector()[:] = x
-        assemble(self.jacobian,
-                 tensor=A,
-                 form_compiler_parameters={'optimize': True}
-                 )
-        for bc in self.bcs:
-            bc.apply(A)
-        return
 
 
 def _average(u):
@@ -240,7 +64,6 @@ def _construct_initial_state(
     P = FunctionSpace(mesh, P_element)
     Q = FunctionSpace(mesh, Q_element)
 
-    # theta_average = _average(theta0)
     u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
     p0 = interpolate(Constant(0.0), P)
     theta0 = interpolate(Constant(1530.0), Q)
@@ -260,119 +83,7 @@ def _construct_initial_state(
     else:
         cp_wpi_const = cp_wpi(theta_average)
 
-    mode = 'newton'
-    # mode = 'banach'
-
-    if mode == 'newton':
-        WPQ = FunctionSpace(
-            mesh, MixedElement([W_element, P_element, Q_element])
-            )
-        uptheta0 = Function(WPQ)
-
-        # Initial guess
-        assign(uptheta0.sub(0), u0)
-        assign(uptheta0.sub(1), p0)
-        assign(uptheta0.sub(2), theta0)
-
-        stokes_heat_problem = StokesHeat(
-            WPQ,
-            k_wpi_const,
-            rho_wpi,
-            mu_wpi(theta_average),
-            cp_wpi_const,
-            theta_average,
-            g, extra_force,
-            joule_wpi,
-            u_bcs, p_bcs,
-            theta_dirichlet_bcs=theta_bcs_d,
-            theta_neumann_bcs=theta_bcs_n,
-            my_dx=dx_submesh,
-            my_ds=ds_submesh
-            )
-        # solver = FixedPointSolver()
-        from dolfin import PETScSNESSolver
-        solver = PETScSNESSolver()
-        # http://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/SNESType.html
-        solver.parameters['method'] = 'newtonls'
-        # The Jacobian system for Stokes (+heat) are hard to solve.
-        # Use LU for now.
-        solver.parameters['linear_solver'] = 'lu'
-        solver.parameters['maximum_iterations'] = 5
-        solver.parameters['absolute_tolerance'] = 1.0e-10
-        solver.parameters['relative_tolerance'] = 0.0
-        solver.parameters['report'] = True
-
-        solver.solve(stokes_heat_problem, uptheta0.vector())
-
-        # u0, p0, theta0 = split(uptheta0)
-        # Create a *deep* copy of u0, p0, theta0 to be able to deal with them
-        # as actually separate entities vectors.
-        u0, p0, theta0 = uptheta0.split(deepcopy=True)
-
-    else:
-        assert mode == 'banach'
-        # Solve the coupled heat-Stokes equation approximately. Do this
-        # iteratively by solving the heat equation, then solving Stokes with
-        # the updated heat, the heat equation with the updated velocity and so
-        # forth until the change is 'small'.
-        WP = FunctionSpace(mesh, MixedElement([W_element, P_element]))
-        # Initialize functions.
-        up0 = Function(WP)
-        u0, p0 = up0.split()
-
-        theta1 = Function(Q)
-        while True:
-            heat_problem = cyl_heat.HeatCylindrical(
-                Q, TrialFunction(Q), TestFunction(Q),
-                b=u0,
-                kappa=k_wpi_const,
-                rho=rho_wpi_const,
-                cp=cp_wpi_const,
-                source=joule_wpi,
-                dirichlet_bcs=theta_bcs_d,
-                neumann_bcs=theta_bcs_n,
-                my_dx=dx_submesh,
-                my_ds=ds_submesh
-                )
-            _solve_stationary(heat_problem, theta1, verbose=False)
-
-            f = rho_wpi(theta0) * g
-            if extra_force:
-                f += as_vector((extra_force[0], extra_force[1], 0.0))
-
-            # Solve problem for velocity, pressure.
-            # up1 = up0.copy()
-            cyl_stokes.stokes_solve(
-                up0,
-                mu_wpi(theta_average),
-                u_bcs, p_bcs,
-                f=f,
-                dx=dx_submesh,
-                tol=1.0e-10,
-                verbose=False,
-                maxiter=1000
-                )
-
-            plot(u0)
-            plot(theta0)
-
-            theta_diff = errornorm(theta0, theta1)
-            info('||theta - theta0|| = %e' % theta_diff)
-            # info('||u - u0||         = %e' % u_diff)
-            # info('||p - p0||         = %e' % p_diff)
-            # diff = theta_diff + u_diff + p_diff
-            diff = theta_diff
-            info('sum = %e' % diff)
-
-            # # Show the iterates.
-            # plot(theta0, title='theta0')
-            # plot(u0, title='u0')
-            # interactive()
-            # #exit()
-            if diff < 1.0e-10:
-                break
-
-            theta0.assign(theta1)
+    u0, p0, theta0 = stokes_heat.solve()
 
     plot(u0, title='u')
     plot(p0, title='p')
@@ -443,6 +154,17 @@ def _compute_lorentz_joule(
 
         joule_wpi = joule[wpi]
     return lorentz_wpi, joule_wpi
+
+
+def _store_and_plot(outfile, u, p, theta, t):
+    outfile.write(u, t)
+    outfile.write(p, t)
+    outfile.write(theta, t)
+    plot(theta, title='temperature', rescale=True)
+    plot(u, title='velocity', rescale=True)
+    plot(p, title='pressure', rescale=True)
+    # interactive()
+    return
 
 
 def _compute(
@@ -559,16 +281,7 @@ def _compute(
         outfile.parameters['flush_output'] = True
         outfile.parameters['rewrite_function_mesh'] = False
 
-        def store_and_plot(u, p, theta, t):
-            outfile.write(u, t)
-            outfile.write(p, t)
-            outfile.write(theta, t)
-            plot(theta, title='temperature', rescale=True)
-            plot(u, title='velocity', rescale=True)
-            plot(p, title='pressure', rescale=True)
-            # interactive()
-
-        store_and_plot(u0, p0, theta0, t)
+        _store_and_plot(outfile, u0, p0, theta0, t)
 
         # For time-stepping in buoyancy-driven flows, see
         #
@@ -652,7 +365,7 @@ def _compute(
                 u0.assign(u1)
                 p0.assign(p1)
 
-                store_and_plot(u0, p0, theta0, t + dt)
+                _store_and_plot(outfile, u0, p0, theta0, t + dt)
 
                 t += dt
                 with Message('Diagnostics...'):
