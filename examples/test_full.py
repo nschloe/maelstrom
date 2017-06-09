@@ -483,30 +483,6 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
     return volume_expansion * deltaT * char_length ** 3 * grav / nu ** 2
 
 
-def _solve_stationary(problem, theta, t=0.0, verbose=True, mode='lu'):
-    '''Solve the stationary heat equation.
-    '''
-    A, b = problem.get_system(t=t)
-    for bc in problem.get_bcs(t=t):
-        bc.apply(A, b)
-
-    if mode == 'lu':
-        from dolfin import solve
-        solve(A, theta.vector(), b, 'lu')
-
-    elif mode == 'krylov':
-        # AMG won't work well if the convection is too strong.
-        solver = KrylovSolver('gmres', 'hypre_amg')
-        solver.parameters['relative_tolerance'] = 1.0e-12
-        solver.parameters['absolute_tolerance'] = 0.0
-        solver.parameters['maximum_iterations'] = 142
-        solver.parameters['monitor_convergence'] = verbose
-        solver.solve(A, theta.vector(), b)
-    else:
-        raise ValueError('Illegal mode \'%s\'.' % mode)
-    return theta
-
-
 def _parse_args():
     import argparse
     default_dir = '.'
