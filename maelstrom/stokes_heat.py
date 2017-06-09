@@ -9,6 +9,13 @@ from dolfin import (
 from . import heat
 
 
+def _average(u):
+    '''Computes the average value of a function u over its domain.
+    '''
+    return assemble(u * dx) \
+        / assemble(1.0 * dx(u.function_space().mesh()))
+
+
 class Stokes(object):
 
     def __init__(self, u, p, v, q, f):
@@ -65,24 +72,25 @@ def dbcs_to_productspace(W, bcs_list):
 
 class StokesHeat(NonlinearProblem):
 
-    def __init__(self, WPQ,
-                 kappa, rho, mu, cp,
-                 g, extra_force,
-                 heat_source,
-                 u_bcs, p_bcs,
-                 theta_dirichlet_bcs=None,
-                 theta_neumann_bcs=None,
-                 theta_robin_bcs=None,
-                 my_dx=dx,
-                 my_ds=ds
-                 ):
+    def __init__(
+            self, WPQ,
+            kappa, rho, rho_const, mu, cp,
+            g, extra_force,
+            heat_source,
+            u_bcs, p_bcs,
+            theta_dirichlet_bcs=None,
+            theta_neumann_bcs=None,
+            theta_robin_bcs=None,
+            my_dx=dx,
+            my_ds=ds
+            ):
+        super(StokesHeat, self).__init__()
 
         theta_dirichlet_bcs = theta_dirichlet_bcs or {}
         theta_neumann_bcs = theta_neumann_bcs or {}
         theta_robin_bcs = theta_robin_bcs or {}
 
-        super(StokesHeat, self).__init__()
-        # Translate the boundary conditions into the product space.
+        # Translate the Dirichlet boundary conditions into the product space.
         self.bcs = dbcs_to_productspace(
             WPQ,
             [u_bcs, p_bcs, theta_dirichlet_bcs]
@@ -99,10 +107,10 @@ class StokesHeat(NonlinearProblem):
 
         self.stokes = Stokes(u, p, v, q, f)
 
-        self.heat = heat.HeatCylindrical(
+        self.heat = heat.Heat(
             WPQ.sub(2), theta, zeta,
             u,
-            kappa, rho, cp,
+            kappa, rho_const, cp,
             source=heat_source,
             dirichlet_bcs=theta_dirichlet_bcs,
             neumann_bcs=theta_neumann_bcs,
@@ -163,9 +171,11 @@ def solve(
     assign(uptheta0.sub(1), p0)
     assign(uptheta0.sub(2), theta0)
 
+    rho_const = rho(_average(theta0))
+
     stokes_heat_problem = StokesHeat(
         WPQ,
-        kappa, rho, mu, cp,
+        kappa, rho, rho_const, mu, cp,
         g, extra_force,
         heat_source,
         u_bcs, p_bcs,
@@ -285,7 +295,7 @@ def solve(
 #
 #     theta1 = Function(Q)
 #     while True:
-#         heat_problem = heat.HeatCylindrical(
+#         heat_problem = heat.Heat(
 #             Q, TrialFunction(Q), TestFunction(Q),
 #             b=u0,
 #             kappa=kappa,

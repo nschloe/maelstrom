@@ -57,10 +57,10 @@ def _construct_initial_state(
 
     theta_average = 1530.0
 
-    rho_wpi_const = \
-        rho_wpi if isinstance(rho_wpi, float) else rho_wpi(theta_average)
-    k_wpi_const = \
+    kappa_wpi_const = \
         k_wpi if isinstance(k_wpi, float) else k_wpi(theta_average)
+    mu_wpi_const = \
+        mu_wpi if isinstance(mu_wpi, float) else mu_wpi(theta_average)
     cp_wpi_const = \
         cp_wpi if isinstance(cp_wpi, float) else cp_wpi(theta_average)
 
@@ -70,7 +70,17 @@ def _construct_initial_state(
     theta0 = interpolate(Constant(theta_average), Q)
     theta0.name = 'temperature'
 
-    u0, p0, theta0 = stokes_heat.solve()
+    u0, p0, theta0 = stokes_heat.solve(
+        mesh, W_element, P_element, Q_element,
+        u0, p0, theta0,
+        kappa_wpi_const, rho_wpi, mu_wpi_const, cp_wpi_const,
+        g, extra_force,
+        joule_wpi,
+        u_bcs, p_bcs,
+        theta_bcs_d,
+        theta_bcs_n,
+        dx_submesh, ds_submesh
+        )
 
     plot(u0, title='u')
     plot(p0, title='p')
@@ -239,7 +249,7 @@ def _compute(
     mu_wpi = m.dynamic_viscosity
 
     # Redefine the heat problem with the new u0.
-    heat_problem = cyl_heat.HeatCylindrical(
+    heat_problem = cyl_heat.Heat(
         problem.Q, TrialFunction(problem.Q), TestFunction(problem.Q),
         b=u0,
         kappa=k_wpi,

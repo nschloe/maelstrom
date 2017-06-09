@@ -5,7 +5,7 @@ from dolfin import (
     )
 
 
-class HeatCylindrical(object):
+class Heat(object):
 
     def __init__(self, V, u, v, b,
                  kappa, rho, cp,
@@ -16,7 +16,7 @@ class HeatCylindrical(object):
                  my_dx=dx,
                  my_ds=ds
                  ):
-        super(HeatCylindrical, self).__init__()
+        super(Heat, self).__init__()
 
         dirichlet_bcs = [] if dirichlet_bcs is None else dirichlet_bcs
         neumann_bcs = {} if neumann_bcs is None else neumann_bcs

@@ -372,7 +372,7 @@ class Crucible():
         else:
             k = wp_material.thermal_conductivity(theta_reference)
 
-        reference_problem = cyl_heat.HeatCylindrical(
+        reference_problem = cyl_heat.Heat(
             self.Q, theta_reference,
             zeta,
             b=Constant((0.0, 0.0, 0.0)),
@@ -413,7 +413,7 @@ class Crucible():
                 )
             from dolfin import Measure
             ds_workpiece = Measure('ds')[self.wp_boundaries]
-            problem_new = cyl_heat.HeatCylindrical(
+            problem_new = cyl_heat.Heat(
                 self.Q, theta_new,
                 zeta,
                 b=Constant((0.0, 0.0, 0.0)),
