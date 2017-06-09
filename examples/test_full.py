@@ -99,7 +99,7 @@ def _construct_initial_state(
 def _compute_lorentz_joule(
         mesh, coils, mu, sigma, omega,
         wpi, submesh_workpiece,
-        output_folder, subdomain_indices, subdomains
+        subdomain_indices, subdomains
         ):
     # Function space for magnetic scalar potential, Lorentz force etc.
     V = FunctionSpace(mesh, 'CG', 1)
@@ -126,8 +126,7 @@ def _compute_lorentz_joule(
         V_submesh = FunctionSpace(submesh_workpiece, 'CG', 1)
         pl = project(lorentz_wpi, V_submesh * V_submesh)
         pl.rename('Lorentz force', 'Lorentz force')
-        filename = os.path.join(output_folder, 'lorentz.xdmf')
-        with XDMFFile(submesh_workpiece.mpi_comm(), filename) as f:
+        with XDMFFile(submesh_workpiece.mpi_comm(), 'lorentz.xdmf') as f:
             f.parameters['flush_output'] = True
             f.write(pl)
 
@@ -168,8 +167,7 @@ def _store_and_plot(outfile, u, p, theta, t):
 
 
 def _compute(
-        u0, p0, theta0, problem, voltages, T,
-        output_folder
+        u0, p0, theta0, problem, voltages, T
         ):
     submesh_workpiece = problem.W.mesh()
 
@@ -239,7 +237,6 @@ def _compute(
             _compute_lorentz_joule(problem.mesh, coils,
                                    mu, sigma, problem.omega,
                                    problem.wpi, submesh_workpiece,
-                                   output_folder,
                                    subdomain_indices,
                                    problem.subdomains
                                    )
@@ -483,20 +480,6 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
     return volume_expansion * deltaT * char_length ** 3 * grav / nu ** 2
 
 
-def _parse_args():
-    import argparse
-    default_dir = '.'
-    parser = argparse.ArgumentParser(description='Full simulation.')
-    parser.add_argument('directory',
-                        type=str,
-                        help='directory for storing the output (default: %s)'
-                             % default_dir,
-                        default=default_dir,
-                        nargs='?'
-                        )
-    return parser.parse_args()
-
-
 def _gravitational_force(num_subspaces):
     grav = 9.80665
     if num_subspaces == 2:
@@ -574,15 +557,10 @@ def test_optimize(num_steps=1, target_time=0.1):
     p0.rename('pressure', 'pressure')
     theta0.rename('temperature', 'temperature')
 
-    args = _parse_args()
-    output_folder = args.directory
     for k, alpha in enumerate(Alpha):
         # Scale the voltages
         v = alpha * numpy.array(voltages)
-        of = os.path.join(output_folder, 'step%02d' % k)
-        if not os.path.exists(of):
-            os.makedirs(of)
-        _compute(u0, p0, theta0, problem, v, target_time, of)
+        _compute(u0, p0, theta0, problem, v, target_time)
 
         # From the second iteration on, only go for at most 60 secs
         target_time = min(60.0, target_time)
