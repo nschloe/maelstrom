@@ -68,7 +68,7 @@ def _construct_initial_state(
     u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
     p0 = interpolate(Constant(0.0), P)
     theta0 = interpolate(Constant(theta_average), Q)
-    theta0.name = 'temperature'
+    theta0.rename('temperature', 'temperature')
 
     u0, p0, theta0 = stokes_heat.solve(
         mesh, W_element, P_element, Q_element,
