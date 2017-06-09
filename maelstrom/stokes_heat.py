@@ -62,12 +62,15 @@ def dbcs_to_productspace(W, bcs_list):
                 new_bcs.append(DirichletBC(W.sub(k),
                                            bc.value(),
                                            bc.domain_args[0]))
-            elif len(C) == 1:
-                new_bcs.append(DirichletBC(W.sub(k).sub(int(C[0])),
-                                           bc.value(),
-                                           bc.domain_args[0]))
             else:
-                raise RuntimeError('Illegal number of subspace components.')
+                assert len(C) == 1, 'Illegal number of subspace components.'
+                new_bcs.append(
+                        DirichletBC(
+                            W.sub(k).sub(int(C[0])),
+                            bc.value(),
+                            bc.domain_args[0]
+                            ))
+
     return new_bcs
 
 
@@ -191,7 +194,8 @@ def solve(
     # Use LU for now.
     solver.parameters['linear_solver'] = 'lu'
     solver.parameters['maximum_iterations'] = 5
-    solver.parameters['absolute_tolerance'] = 1.0e-10
+    # TODO tighten tolerance. might not always work though...
+    solver.parameters['absolute_tolerance'] = 1.0e-3
     solver.parameters['relative_tolerance'] = 0.0
     solver.parameters['report'] = True
 
