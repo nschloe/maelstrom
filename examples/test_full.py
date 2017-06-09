@@ -55,24 +55,19 @@ def _construct_initial_state(
     P = FunctionSpace(mesh, P_element)
     Q = FunctionSpace(mesh, Q_element)
 
+    rho_wpi_const = \
+        rho_wpi if isinstance(rho_wpi, float) else rho_wpi(theta_average)
+    k_wpi_const = \
+        k_wpi if isinstance(k_wpi, float) else k_wpi(theta_average)
+    cp_wpi_const = \
+        cp_wpi if isinstance(cp_wpi, float) else cp_wpi(theta_average)
+
+    # initial guess
     u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
     p0 = interpolate(Constant(0.0), P)
     theta0 = interpolate(Constant(1530.0), Q)
     theta0.name = 'temperature'
     theta_average = 1530.0
-
-    if isinstance(rho_wpi, float):
-        rho_wpi_const = rho_wpi
-    else:
-        rho_wpi_const = rho_wpi(theta_average)
-    if isinstance(k_wpi, float):
-        k_wpi_const = k_wpi
-    else:
-        k_wpi_const = k_wpi(theta_average)
-    if isinstance(cp_wpi, float):
-        cp_wpi_const = cp_wpi
-    else:
-        cp_wpi_const = cp_wpi(theta_average)
 
     u0, p0, theta0 = stokes_heat.solve()
 
@@ -189,23 +184,25 @@ def _compute(
             for coil_domain, voltage in zip(problem.coil_domains, voltages)
             ]
         # Build subdomain parameter dictionaries for Maxwell
-        mu = {
+        mu_const = {
             i: problem.subdomain_materials[i].magnetic_permeability
             for i in subdomain_indices
             }
-        sigma = {
+        sigma_const = {
             i: problem.subdomain_materials[i].electrical_conductivity
             for i in subdomain_indices
             }
         for i in subdomain_indices:
-            if not isinstance(mu[i], float):
-                mu[i] = mu[i](theta_average)
-            if not isinstance(sigma[i], float):
-                sigma[i] = sigma[i](theta_average)
+            mu_const[i] = \
+                mu_const[i] if isinstance(mu_const[i], float) \
+                else mu_const[i](theta_average)
+            sigma_const[i] = \
+                sigma_const[i] if isinstance(sigma_const[i], float) \
+                else sigma_const[i](theta_average)
         # Do the Maxwell dance
         lorentz_wpi, joule_wpi = _compute_lorentz_joule(
                 problem.mesh, coils,
-                mu, sigma, problem.omega,
+                mu_const, sigma_const, problem.omega,
                 problem.wpi, submesh_workpiece,
                 subdomain_indices,
                 problem.subdomains
