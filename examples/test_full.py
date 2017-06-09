@@ -12,12 +12,10 @@ Full* simulation of the melt problem.
 
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
-import os
-
 from dolfin import (
     parameters, Measure, Function, FunctionSpace, Constant, SubMesh, plot,
     interactive, project, XDMFFile, DOLFIN_EPS, as_vector, info, norm,
-    assemble, TestFunction, TrialFunction, KrylovSolver, MPI, dx, interpolate
+    assemble, TestFunction, TrialFunction, MPI, dx, interpolate
     )
 
 import numpy
@@ -38,13 +36,6 @@ import problems
 # Cf. <https://answers.launchpad.net/dolfin/+question/210508>.
 parameters['allow_extrapolation'] = True
 parameters['std_out_all_processes'] = False
-
-
-def _average(u):
-    '''Computes the average value of a function u over its domain.
-    '''
-    return assemble(u * dx) \
-        / assemble(1.0 * dx(u.function_space().mesh()))
 
 
 def _construct_initial_state(
@@ -166,8 +157,15 @@ def _store_and_plot(outfile, u, p, theta, t):
     return
 
 
+def _average(u):
+    '''Computes the average value of a function u over its domain.
+    '''
+    return assemble(u * dx) \
+        / assemble(1.0 * dx(u.function_space().mesh()))
+
+
 def _compute(
-        u0, p0, theta0, problem, voltages, T
+        u0, p0, theta0, problem, voltages, target_time
         ):
     submesh_workpiece = problem.W.mesh()
 
@@ -175,21 +173,43 @@ def _compute(
     # <https://bitbucket.org/fenics-project/dolfin/issue/249/facet-specification-doesnt-work-on-ds>.
     ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
 
+    subdomain_indices = problem.subdomain_materials.keys()
+    theta_average = _average(theta0)
+
     info('Input voltages:')
     info(repr(voltages))
-    coils = []
-    if voltages is not None:
+
+    if voltages is None:
+        lorentz_wpi = None
+        joule_wpi = Constant(0.0)
+    else:
         # Merge coil rings with voltages.
-        for coil_domain, voltage in zip(problem.coil_domains, voltages):
-            coils.append({
-                'rings': coil_domain,
-                'c_type': 'voltage',
-                'c_value': voltage
-                })
-
-    subdomain_indices = problem.subdomain_materials.keys()
-
-    theta_average = _average(theta0)
+        coils = [
+            {'rings': coil_domain, 'c_type': 'voltage', 'c_value': voltage}
+            for coil_domain, voltage in zip(problem.coil_domains, voltages)
+            ]
+        # Build subdomain parameter dictionaries for Maxwell
+        mu = {
+            i: problem.subdomain_materials[i].magnetic_permeability
+            for i in subdomain_indices
+            }
+        sigma = {
+            i: problem.subdomain_materials[i].electrical_conductivity
+            for i in subdomain_indices
+            }
+        for i in subdomain_indices:
+            if not isinstance(mu[i], float):
+                mu[i] = mu[i](theta_average)
+            if not isinstance(sigma[i], float):
+                sigma[i] = sigma[i](theta_average)
+        # Do the Maxwell dance
+        lorentz_wpi, joule_wpi = _compute_lorentz_joule(
+                problem.mesh, coils,
+                mu, sigma, problem.omega,
+                problem.wpi, submesh_workpiece,
+                subdomain_indices,
+                problem.subdomains
+                )
 
     # Start time, end time, time step.
     t = 0.0
@@ -198,48 +218,20 @@ def _compute(
 
     # Standard gravity, <https://en.wikipedia.org/wiki/Standard_gravity>.
     grav = 9.80665
-    num_subspaces = problem.W.num_sub_spaces()
-    if num_subspaces == 2:
-        g = Constant((0.0, -grav))
-    elif num_subspaces == 3:
-        g = Constant((0.0, -grav, 0.0))
-    else:
-        raise RuntimeError('Illegal number of subspaces (%d).' % num_subspaces)
+    assert problem.W.num_sub_spaces() == 3
+    g = Constant((0.0, -grav, 0.0))
 
     # Compute a few mesh characteristics.
     wpi_area = assemble(1.0 * dx(submesh_workpiece))
     # mesh.hmax() is a local function; get the global hmax.
-    hmax_workpiece = MPI.max(submesh_workpiece.mpi_comm(),
-                             submesh_workpiece.hmax()
-                             )
+    hmax_workpiece = MPI.max(
+            submesh_workpiece.mpi_comm(), submesh_workpiece.hmax()
+            )
+
     # Take the maximum length in x-direction as characteristic length of the
     # domain.
     coords = submesh_workpiece.coordinates()
     char_length = max(coords[:, 0]) - min(coords[:, 0])
-
-    if voltages is None:
-        lorentz_wpi = None
-        joule_wpi = Constant(0.0)
-    else:
-        # Build subdomain parameter dictionaries for Maxwell
-        mu = {}
-        sigma = {}
-        for i in subdomain_indices:
-            material = problem.subdomain_materials[i]
-            mu[i] = material.magnetic_permeability
-            if not isinstance(mu[i], float):
-                mu[i] = mu[i](theta_average)
-            sigma[i] = material.electrical_conductivity
-            if not isinstance(sigma[i], float):
-                sigma[i] = sigma[i](theta_average)
-        # Do the Maxwell dance
-        lorentz_wpi, joule_wpi = \
-            _compute_lorentz_joule(problem.mesh, coils,
-                                   mu, sigma, problem.omega,
-                                   problem.wpi, submesh_workpiece,
-                                   subdomain_indices,
-                                   problem.subdomains
-                                   )
 
     # Prepare some parameters for the Navier-Stokes simulation in the workpiece
     m = problem.subdomain_materials[problem.wpi]
@@ -303,7 +295,7 @@ def _compute(
 
         successful_steps = 0
         failed_steps = 0
-        while t < T + DOLFIN_EPS:
+        while t < target_time + DOLFIN_EPS:
             info('Successful steps: {}    (failed: {}, total: {})'.format(
                     successful_steps,
                     failed_steps,
@@ -328,7 +320,7 @@ def _compute(
                     # Do one Navier-Stokes time step.
                     with Message('Computing flux and pressure...'):
                         # Include proper temperature-dependence here to account
-                        # for Boussinesq effect.
+                        # for the Boussinesq effect.
                         f0 = rho_wpi(theta0) * g
                         f1 = rho_wpi(theta1) * g
                         if lorentz_wpi is not None:
