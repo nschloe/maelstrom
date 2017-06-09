@@ -3,51 +3,10 @@
 from dolfin import (
     NonlinearProblem, dx, ds, Function, split, TestFunctions, as_vector,
     assemble, derivative, Constant, Expression, inner, triangle, grad, pi, dot,
-    DirichletBC, FunctionSpace, info, TrialFunction, norm
+    DirichletBC, FunctionSpace, MixedElement, assign
     )
 
 from . import heat
-
-
-class FixedPointSolver(object):
-    '''
-    Fixed-point iteration for
-        F(x) + x = x
-    '''
-    def __init__(self):
-        self.parameters = {
-                'maximum_iterations': 0,
-                'absolute_tolerance': 0.0,
-                'relative_tolerance': 0.0,
-                'report': True
-                }
-        return
-
-    def _report(self, k, nrm, nrm0):
-        if self.parameters['report']:
-            print(('Fixed-point iteration %d:' % k) +
-                  (' r (abs) = %e (tol = %e)'
-                   % (nrm, self.parameters['absolute_tolerance'])) +
-                  (' r (rel) = %e (tol = %e)'
-                   % (nrm/nrm0, self.parameters['relative_tolerance']))
-                  )
-        return
-
-    def solve(self, problem, vector):
-        res = vector.copy()
-        problem.F(res, vector)
-        nrm = norm(res)
-        nrm0 = nrm
-        k = 0
-        self._report(k, nrm, nrm0)
-        while nrm > self.parameters['absolute_tolerance'] \
-                or nrm / nrm0 > self.parameters['relative_tolerance']:
-            problem.F(res, vector)
-            vector[:] += res
-            nrm = norm(res)
-            k += 1
-            self._report(k, nrm, nrm0)
-        return
 
 
 class Stokes(object):
@@ -108,7 +67,6 @@ class StokesHeat(NonlinearProblem):
 
     def __init__(self, WPQ,
                  kappa, rho, mu, cp,
-                 theta_average,
                  g, extra_force,
                  heat_source,
                  u_bcs, p_bcs,
@@ -144,7 +102,7 @@ class StokesHeat(NonlinearProblem):
         self.heat = heat.HeatCylindrical(
             WPQ.sub(2), theta, zeta,
             u,
-            kappa, rho(theta_average), cp,
+            kappa, rho, cp,
             source=heat_source,
             dirichlet_bcs=theta_dirichlet_bcs,
             neumann_bcs=theta_neumann_bcs,
@@ -183,10 +141,18 @@ class StokesHeat(NonlinearProblem):
         return
 
 
-def solve():
-    return _solve_newton()
-
-def _solve_newton():
+def solve(
+        mesh,
+        W_element, P_element, Q_element,
+        u0, p0, theta0,
+        kappa, rho, mu, cp,
+        g, extra_force,
+        heat_source,
+        u_bcs, p_bcs,
+        theta_dirichlet_bcs,
+        theta_neumann_bcs,
+        dx_submesh, ds_submesh
+        ):
     WPQ = FunctionSpace(
         mesh, MixedElement([W_element, P_element, Q_element])
         )
@@ -199,19 +165,16 @@ def _solve_newton():
 
     stokes_heat_problem = StokesHeat(
         WPQ,
-        k_wpi_const,
-        rho_wpi,
-        mu_wpi(theta_average),
-        cp_wpi_const,
-        theta_average,
+        kappa, rho, mu, cp,
         g, extra_force,
-        joule_wpi,
+        heat_source,
         u_bcs, p_bcs,
-        theta_dirichlet_bcs=theta_bcs_d,
-        theta_neumann_bcs=theta_bcs_n,
+        theta_dirichlet_bcs=theta_dirichlet_bcs,
+        theta_neumann_bcs=theta_neumann_bcs,
         my_dx=dx_submesh,
         my_ds=ds_submesh
         )
+
     # solver = FixedPointSolver()
     from dolfin import PETScSNESSolver
     solver = PETScSNESSolver()
@@ -234,71 +197,148 @@ def _solve_newton():
     return u0, p0, theta0
 
 
-def _solve_fixed_point():
-    # Solve the coupled heat-Stokes equation approximately. Do this
-    # iteratively by solving the heat equation, then solving Stokes with
-    # the updated heat, the heat equation with the updated velocity and so
-    # forth until the change is 'small'.
-    WP = FunctionSpace(mesh, MixedElement([W_element, P_element]))
-    # Initialize functions.
-    up0 = Function(WP)
-    u0, p0 = up0.split()
-
-    theta1 = Function(Q)
-    while True:
-        heat_problem = cyl_heat.HeatCylindrical(
-            Q, TrialFunction(Q), TestFunction(Q),
-            b=u0,
-            kappa=k_wpi_const,
-            rho=rho_wpi_const,
-            cp=cp_wpi_const,
-            source=joule_wpi,
-            dirichlet_bcs=theta_bcs_d,
-            neumann_bcs=theta_bcs_n,
-            my_dx=dx_submesh,
-            my_ds=ds_submesh
-            )
-        _solve_stationary(heat_problem, theta1, verbose=False)
-
-        f = rho_wpi(theta0) * g
-        if extra_force:
-            f += as_vector((extra_force[0], extra_force[1], 0.0))
-
-        # Solve problem for velocity, pressure.
-        # up1 = up0.copy()
-        cyl_stokes.stokes_solve(
-            up0,
-            mu_wpi(theta_average),
-            u_bcs, p_bcs,
-            f=f,
-            dx=dx_submesh,
-            tol=1.0e-10,
-            verbose=False,
-            maxiter=1000
-            )
-
-        plot(u0)
-        plot(theta0)
-
-        theta_diff = errornorm(theta0, theta1)
-        info('||theta - theta0|| = %e' % theta_diff)
-        # info('||u - u0||         = %e' % u_diff)
-        # info('||p - p0||         = %e' % p_diff)
-        # diff = theta_diff + u_diff + p_diff
-        diff = theta_diff
-        info('sum = %e' % diff)
-
-        # # Show the iterates.
-        # plot(theta0, title='theta0')
-        # plot(u0, title='u0')
-        # interactive()
-        # #exit()
-        if diff < 1.0e-10:
-            break
-
-        theta0.assign(theta1)
-
-    # Create a *deep* copy of u0, p0, to be able to deal with them as actually
-    # separate entities.
-    # u0, p0 = up0.split(deepcopy=True)
-    return u0, p0, theta0
+# class FixedPointSolver(object):
+#     '''
+#     Fixed-point iteration for
+#         F(x) + x = x
+#     '''
+#     def __init__(self):
+#         self.parameters = {
+#                 'maximum_iterations': 0,
+#                 'absolute_tolerance': 0.0,
+#                 'relative_tolerance': 0.0,
+#                 'report': True
+#                 }
+#         return
+#
+#     def _report(self, k, nrm, nrm0):
+#         if self.parameters['report']:
+#             print(('Fixed-point iteration %d:' % k) +
+#                   (' r (abs) = %e (tol = %e)'
+#                    % (nrm, self.parameters['absolute_tolerance'])) +
+#                   (' r (rel) = %e (tol = %e)'
+#                    % (nrm/nrm0, self.parameters['relative_tolerance']))
+#                   )
+#         return
+#
+#     def solve(self, problem, vector):
+#         res = vector.copy()
+#         problem.F(res, vector)
+#         nrm = norm(res)
+#         nrm0 = nrm
+#         k = 0
+#         self._report(k, nrm, nrm0)
+#         while nrm > self.parameters['absolute_tolerance'] \
+#                 or nrm / nrm0 > self.parameters['relative_tolerance']:
+#             problem.F(res, vector)
+#             vector[:] += res
+#             nrm = norm(res)
+#             k += 1
+#             self._report(k, nrm, nrm0)
+#         return
+#
+#
+# def _solve_stationary(problem, theta, t=0.0, verbose=True, mode='lu'):
+#     '''Solve the stationary heat equation.
+#     '''
+#     A, b = problem.get_system(t=t)
+#     for bc in problem.get_bcs(t=t):
+#         bc.apply(A, b)
+#
+#     if mode == 'lu':
+#         from dolfin import solve
+#         solve(A, theta.vector(), b, 'lu')
+#     else:
+#         assert mode == 'krylov', 'Illegal mode \'%s\'.'.format(mode)
+#         # AMG won't work well if the convection is too strong.
+#         solver = KrylovSolver('gmres', 'hypre_amg')
+#         solver.parameters['relative_tolerance'] = 1.0e-12
+#         solver.parameters['absolute_tolerance'] = 0.0
+#         solver.parameters['maximum_iterations'] = 142
+#         solver.parameters['monitor_convergence'] = verbose
+#         solver.solve(A, theta.vector(), b)
+#
+#     return theta
+#
+#
+# def _solve_fixed_point(
+#         mesh,
+#         W_element, P_element, Q_element,
+#         u0, p0, theta0,
+#         kappa, rho, mu, cp,
+#         g, extra_force,
+#         joule,
+#         u_bcs, p_bcs,
+#         theta_dirichlet_bcs,
+#         theta_neumann_bcs,
+#         dx_submesh, ds_submesh
+#         ):
+#     # Solve the coupled heat-Stokes equation approximately. Do this
+#     # iteratively by solving the heat equation, then solving Stokes with the
+#     # updated heat, the heat equation with the updated velocity and so forth
+#     # until the change is 'small'.
+#     WP = FunctionSpace(mesh, MixedElement([W_element, P_element]))
+#     Q = FunctionSpace(mesh, Q_element)
+#     # Initialize functions.
+#     up0 = Function(WP)
+#     u0, p0 = up0.split()
+#
+#     theta1 = Function(Q)
+#     while True:
+#         heat_problem = heat.HeatCylindrical(
+#             Q, TrialFunction(Q), TestFunction(Q),
+#             b=u0,
+#             kappa=kappa,
+#             rho=rho,
+#             cp=cp,
+#             source=joule,
+#             dirichlet_bcs=theta_dirichlet_bcs,
+#             neumann_bcs=theta_neumann_bcs,
+#             my_dx=dx_submesh,
+#             my_ds=ds_submesh
+#             )
+#         _solve_stationary(heat_problem, theta1, verbose=False)
+#
+#         f = rho(theta0) * g
+#         if extra_force:
+#             f += as_vector((extra_force[0], extra_force[1], 0.0))
+#
+#         # Solve problem for velocity, pressure.
+#         # up1 = up0.copy()
+#         stokes.stokes_solve(
+#             up0,
+#             # mu_wpi(theta_average),
+#             u_bcs, p_bcs,
+#             f=f,
+#             dx=dx_submesh,
+#             tol=1.0e-10,
+#             verbose=False,
+#             maxiter=1000
+#             )
+#
+#         from dolfin import plot
+#         plot(u0)
+#         plot(theta0)
+#
+#         theta_diff = errornorm(theta0, theta1)
+#         info('||theta - theta0|| = %e' % theta_diff)
+#         # info('||u - u0||         = %e' % u_diff)
+#         # info('||p - p0||         = %e' % p_diff)
+#         # diff = theta_diff + u_diff + p_diff
+#         diff = theta_diff
+#         info('sum = %e' % diff)
+#
+#         # # Show the iterates.
+#         # plot(theta0, title='theta0')
+#         # plot(u0, title='u0')
+#         # interactive()
+#         # #exit()
+#         if diff < 1.0e-10:
+#             break
+#
+#         theta0.assign(theta1)
+#
+#     # Create a *deep* copy of u0, p0, to be able to deal with them as
+#     # actually separate entities.
+#     # u0, p0 = up0.split(deepcopy=True)
+#     return u0, p0, theta0

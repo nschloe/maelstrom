@@ -55,6 +55,8 @@ def _construct_initial_state(
     P = FunctionSpace(mesh, P_element)
     Q = FunctionSpace(mesh, Q_element)
 
+    theta_average = 1530.0
+
     rho_wpi_const = \
         rho_wpi if isinstance(rho_wpi, float) else rho_wpi(theta_average)
     k_wpi_const = \
@@ -65,9 +67,8 @@ def _construct_initial_state(
     # initial guess
     u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
     p0 = interpolate(Constant(0.0), P)
-    theta0 = interpolate(Constant(1530.0), Q)
+    theta0 = interpolate(Constant(theta_average), Q)
     theta0.name = 'temperature'
-    theta_average = 1530.0
 
     u0, p0, theta0 = stokes_heat.solve()
 
