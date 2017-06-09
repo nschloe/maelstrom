@@ -211,7 +211,7 @@ def _compute(
                 problem.subdomains
                 )
 
-    # Start time, end time, time step.
+    # Start time, time step.
     t = 0.0
     dt = 1.0e-3
     dt_max = 1.0e-1
@@ -239,10 +239,6 @@ def _compute(
     cp_wpi = m.specific_heat_capacity
     rho_wpi = m.density
     mu_wpi = m.dynamic_viscosity
-
-    u1 = Function(problem.W)
-    p1 = Function(problem.P)
-    theta1 = Function(problem.Q)
 
     # Redefine the heat problem with the new u0.
     heat_problem = cyl_heat.HeatCylindrical(
@@ -272,27 +268,6 @@ def _compute(
 
         _store_and_plot(outfile, u0, p0, theta0, t)
 
-        # For time-stepping in buoyancy-driven flows, see
-        #
-        #     Numerical solution of buoyancy-driven flows;
-        #     Einar Rossebø Christensen;
-        #     Master's thesis;
-        #     <http://www.diva-portal.org/smash/get/diva2:348831/FULLTEXT01.pdf>.
-        #
-        # Similar to the present approach, one first solves for velocity and
-        # pressure, then for temperature.
-        #
-        heat_stepper = ts.ImplicitEuler(heat_problem)
-        ns_stepper = cyl_ns.IPCS(
-                problem.W, problem.P,
-                rho=rho_wpi(theta_average),
-                mu=mu_wpi(theta_average),
-                theta=1.0,
-                stabilization=None,
-                dx=dx(submesh_workpiece)
-                # stabilization='SUPG'
-                )
-
         successful_steps = 0
         failed_steps = 0
         while t < target_time + DOLFIN_EPS:
@@ -302,21 +277,39 @@ def _compute(
                     successful_steps + failed_steps
                  ))
             with Message('Time step {:e} -> {:e}...'.format(t, t + dt)):
+                # Do one heat time step.
+                with Message('Computing heat...'):
+                    # For time-stepping in buoyancy-driven flows, see
+                    #
+                    # Numerical solution of buoyancy-driven flows;
+                    # Einar Rossebø Christensen;
+                    # Master's thesis;
+                    # <http://www.diva-portal.org/smash/get/diva2:348831/FULLTEXT01.pdf>.
+                    #
+                    # Similar to the present approach, one first solves for
+                    # velocity and pressure, then for temperature.
+                    #
+                    heat_stepper = ts.ImplicitEuler(heat_problem)
+                    ns_stepper = cyl_ns.IPCS(
+                            problem.W, problem.P,
+                            rho=rho_wpi(theta_average),
+                            mu=mu_wpi(theta_average),
+                            theta=1.0,
+                            stabilization=None,
+                            dx=dx(submesh_workpiece)
+                            # stabilization='SUPG'
+                            )
+                    # Use HYPRE-Euclid instead of ILU for parallel computation.
+                    theta1 = heat_stepper.step(
+                            theta0,
+                            t, dt,
+                            tol=1.0e-12,
+                            maxiter=1000,
+                            krylov='gmres',
+                            preconditioner='hypre_euclid',
+                            verbose=False
+                            )
                 try:
-                    # Do one heat time step.
-                    with Message('Computing heat...'):
-                        # Use HYPRE-Euclid instead of ILU for parallel
-                        # computation.
-                        heat_stepper.step(
-                                theta1,
-                                theta0,
-                                t, dt,
-                                tol=1.0e-12,
-                                maxiter=1000,
-                                krylov='gmres',
-                                preconditioner='hypre_euclid',
-                                verbose=False
-                                )
                     # Do one Navier-Stokes time step.
                     with Message('Computing flux and pressure...'):
                         # Include proper temperature-dependence here to account
@@ -329,9 +322,8 @@ def _compute(
                                 )
                             f0 += f
                             f1 += f
-                        ns_stepper.step(
+                        u1, p1 = ns_stepper.step(
                                 dt,
-                                u1, p1,
                                 [u0], p0,
                                 u_bcs=problem.u_bcs, p_bcs=problem.p_bcs,
                                 f0=f0, f1=f1,
@@ -340,10 +332,11 @@ def _compute(
                                 )
                 except RuntimeError as e:
                     info(e.message)
-                    info('Navier--Stokes solver failed to converge. '
-                         'Decrease time step from %e to %e and try again.' %
-                         (dt, 0.5 * dt)
-                         )
+                    info(
+                        'Navier--Stokes solver failed to converge. '
+                        'Decrease time step from {:e} to {:e} and try again.'
+                        .format(dt, 0.5 * dt)
+                        )
                     dt *= 0.5
                     failed_steps += 1
                     continue
@@ -372,8 +365,8 @@ def _compute(
                 with Message('Step size adaptation...'):
                     # Some smooth step-size adaption.
                     target_dt = 0.2 * hmax_workpiece / umax
-                    info('previous dt: %e' % dt)
-                    info('target dt: %e' % target_dt)
+                    info('previous dt: {:e}'.format(dt))
+                    info('target dt: {:e}'.format(target_dt))
                     # agg is the aggressiveness factor. The distance between
                     # the current step size and the target step size is reduced
                     # by |1-agg|. Hence, if agg==1 then dt_next==target_dt.
@@ -383,7 +376,7 @@ def _compute(
                              # At most double the step size from step to step.
                              dt * min(2.0, 1.0 + agg * (target_dt - dt) / dt)
                              )
-                    info('new dt:    %e' % dt)
+                    info('new dt:    {:e}'.format(dt))
                     info('')
                 info('')
     return
@@ -416,11 +409,11 @@ def _print_diagnostics(
     av_temperature = assemble(theta0 * dx(submesh_workpiece)) / wpi_area
     vec = theta0.vector()
     temperature_difference = vec.max() - vec.min()
-    info('Max temperature: %e' % vec.max())
-    info('Min temperature: %e' % vec.min())
-    info('Av  temperature: %e' % av_temperature)
+    info('Max temperature: {:e}'.format(vec.max()))
+    info('Min temperature: {:e}'.format(vec.min()))
+    info('Av  temperature: {:e}'.format(av_temperature))
     info('')
-    info('Max velocity: %e' % umax)
+    info('Max velocity: {:e}'.format(umax))
     info('')
     char_velocity = umax
     melt_material = subdomain_materials[wpi]
@@ -435,15 +428,18 @@ def _print_diagnostics(
 
     mu_const = mu(av_temperature)
     #
-    info('Prandtl number: %e'
-         % _get_prandtl(mu_const, rho_const, cp, k))
-    info('Reynolds number: %e'
-         % _get_reynolds(rho_const, mu_const, char_length, char_velocity))
-    info('Grashof number: %e'
-         % _get_grashof(rho, mu_const, grav,
-                        av_temperature,
-                        char_length,
-                        temperature_difference))
+    info('Prandtl number: {:e}'.format(
+        _get_prandtl(mu_const, rho_const, cp, k)
+        ))
+    info('Reynolds number: {:e}'.format(
+        _get_reynolds(rho_const, mu_const, char_length, char_velocity)
+        ))
+    info('Grashof number: {:e}'.format(
+         _get_grashof(
+             rho, mu_const, grav,
+             av_temperature, char_length, temperature_difference
+             )
+         ))
     return
 
 
@@ -470,16 +466,6 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
     volume_expansion = -vpt / rho(theta_average)
     nu = mu / rho(theta_average)
     return volume_expansion * deltaT * char_length ** 3 * grav / nu ** 2
-
-
-def _gravitational_force(num_subspaces):
-    grav = 9.80665
-    if num_subspaces == 2:
-        return Constant((0.0, -grav))
-    elif num_subspaces == 3:
-        return Constant((0.0, -grav, 0.0))
-    else:
-        raise RuntimeError('Illegal number of subspaces (%d).' % num_subspaces)
 
 
 def test_optimize(num_steps=1, target_time=0.1):
@@ -528,7 +514,7 @@ def test_optimize(num_steps=1, target_time=0.1):
     rho_wpi = m.density
     mu_wpi = m.dynamic_viscosity
 
-    g = _gravitational_force(problem.W.num_sub_spaces())
+    g = Constant((0.0, -9.80665, 0.0))
     submesh_workpiece = problem.W.mesh()
     ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
     u0, p0, theta0 = _construct_initial_state(
