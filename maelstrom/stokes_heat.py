@@ -2,8 +2,8 @@
 #
 from dolfin import (
     NonlinearProblem, dx, ds, Function, split, TestFunctions, as_vector,
-    assemble, derivative, Constant, Expression, inner, triangle, grad, pi, dot,
-    DirichletBC, FunctionSpace, MixedElement, assign
+    assemble, derivative, Constant, inner, grad, pi, dot, DirichletBC,
+    FunctionSpace, MixedElement, assign, SpatialCoordinate
     )
 
 from . import heat
@@ -18,8 +18,9 @@ def _average(u):
 
 class Stokes(object):
 
-    def __init__(self, u, p, v, q, f):
+    def __init__(self, mesh, u, p, v, q, f):
         super(Stokes, self).__init__()
+        self.mesh = mesh
         self.u = u
         self.p = p
         self.v = v
@@ -35,7 +36,7 @@ class Stokes(object):
         f = self.f
         mu = Constant(mu)
         # Momentum equation (without the nonlinear term).
-        r = Expression('x[0]', degree=1, cell=triangle)
+        r = SpatialCoordinate(self.mesh)[0]
         F0 = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
             + mu * u[0] / r * v[0] * 2 * pi * dx \
             - dot(f, v) * 2 * pi * r * dx
@@ -105,7 +106,8 @@ class StokesHeat(NonlinearProblem):
         if extra_force is not None:
             f += as_vector((extra_force[0], extra_force[1], 0.0))
 
-        self.stokes = Stokes(u, p, v, q, f)
+        mesh = self.uptheta.function_space().mesh()
+        self.stokes = Stokes(mesh, u, p, v, q, f)
 
         self.heat = heat.Heat(
             WPQ.sub(2), theta, zeta,
@@ -119,12 +121,7 @@ class StokesHeat(NonlinearProblem):
             my_ds=my_ds
             )
 
-        self.F0 = self.stokes.F0(mu) + self.heat.F0
-        self.jacobian = derivative(self.F0, self.uptheta)
-        return
-
-    def set_parameter(self, mu):
-        self.F0 = self.stokes.F0(mu) + self.heat.F0
+        self.F0 = self.stokes.F0(mu) + self.heat.F0  # fail
         self.jacobian = derivative(self.F0, self.uptheta)
         return
 
