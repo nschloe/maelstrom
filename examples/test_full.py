@@ -15,7 +15,8 @@ A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 from dolfin import (
     parameters, Measure, Function, FunctionSpace, Constant, SubMesh, plot,
     interactive, project, XDMFFile, DOLFIN_EPS, as_vector, info, norm,
-    assemble, TestFunction, TrialFunction, MPI, dx, interpolate
+    assemble, TestFunction, TrialFunction, MPI, dx, interpolate,
+    VectorFunctionSpace
     )
 
 import numpy
@@ -82,11 +83,6 @@ def _construct_initial_state(
         dx_submesh, ds_submesh
         )
 
-    plot(u0, title='u')
-    plot(p0, title='p')
-    plot(theta0, title='theta')
-    interactive()
-
     # Create a *deep* copy of u0, p0, to be able to deal with them as actually
     # separate entities.
     # u0, p0 = up0.split(deepcopy=True)
@@ -120,8 +116,13 @@ def _compute_lorentz_joule(
         lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[wpi])
 
         # Show the Lorentz force in the workpiece.
-        V_submesh = FunctionSpace(submesh_workpiece, 'CG', 1)
-        pl = project(lorentz_wpi, V_submesh * V_submesh)
+        # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
+        # First project onto the entire mesh, then onto the submesh; see bug
+        # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+        W = VectorFunctionSpace(mesh, 'CG', 1)
+        pl = project(lorentz_wpi, W)
+        W2 = VectorFunctionSpace(submesh_workpiece, 'CG', 1)
+        pl = project(pl, W2)
         pl.rename('Lorentz force', 'Lorentz force')
         with XDMFFile(submesh_workpiece.mpi_comm(), 'lorentz.xdmf') as f:
             f.parameters['flush_output'] = True
@@ -537,6 +538,12 @@ def test_optimize(num_steps=1, target_time=0.1):
         g,
         extra_force=None
         )
+
+    if False:
+        plot(u0, title='u')
+        plot(p0, title='p')
+        plot(theta0, title='theta')
+        interactive()
 
     # Rename the states for plotting and such.
     u0.rename('velocity', 'velocity')
