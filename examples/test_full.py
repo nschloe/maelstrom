@@ -138,7 +138,7 @@ def _compute_lorentz_joule(
                 Phi, voltages, omega, sigma, mu, subdomain_indices
                 )
 
-        if show:
+        if False:
             show_joule = subdomain_indices
             for ii in show_joule:
                 # Show Joule heat source.
@@ -485,7 +485,7 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
     return volume_expansion * deltaT * char_length ** 3 * grav / nu ** 2
 
 
-def test_optimize(num_steps=1, target_time=0.1, show=False):
+def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
     # The voltage is defined as
     #
     #     v(t) = Im(exp(i omega t) v)
