@@ -27,6 +27,8 @@ class Heat(object):
 
         r = SpatialCoordinate(V.mesh())[0]
         self.dx_multiplier = 2*pi*r
+        self.dx = my_dx
+        self.ds = my_ds
 
         self.F0 = kappa * r * dot(grad(u), grad(v / (rho * cp))) \
             * 2*pi * my_dx
@@ -52,6 +54,9 @@ class Heat(object):
         # <https://bitbucket.org/fenics-project/dolfin/issue/257/system_assembler-bilinear-and-linear-forms>,
         # <https://bitbucket.org/fenics-project/dolfin/issue/78/systemassembler-problem-with-subdomains-on>.
         return assemble(lhs(self.F0)), assemble(rhs(self.F0))
+
+    def get_preconditioner(self, t):
+        return None
 
     # pylint: disable=unused-argument
     def get_bcs(self, t):

@@ -37,7 +37,7 @@ from . import stabilization as stab
 from .message import Message
 
 
-def _momentum_equation(u, v, p, f, rho, mu, stabilization):
+def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
     '''Weak form of the momentum equation.
     '''
     assert rho > 0.0
@@ -66,15 +66,16 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization):
     # TODO some more explanation for the following lines of code
     mesh = v.function_space().mesh()
     r = SpatialCoordinate(mesh)[0]
-    F = rho * 0.5 * (dot(grad(u) * u, v) - dot(grad(v) * u, u)) * 2*pi*r*dx \
-        + mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
-        + mu * u[0] / r * v[0] * 2 * pi * dx \
-        - dot(f, v) * 2 * pi * r * dx
+    F = rho * 0.5 * (dot(grad(u) * u, v) - dot(grad(v) * u, u)) \
+            * 2*pi*r*my_dx \
+        + mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx  \
+        + mu * u[0] / r * v[0] * 2 * pi * my_dx  \
+        - dot(f, v) * 2*pi*r * my_dx
     if p:
-        F += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * dx
+        F += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * my_dx
     if len(u) == 3:
-        F += rho * (-u[2] * u[2] * v[0] + u[0] * u[2] * v[2]) * 2*pi * dx
-        F += mu * u[2] / r * v[2] * 2 * pi * dx
+        F += rho * (-u[2] * u[2] * v[0] + u[0] * u[2] * v[2]) * 2*pi * my_dx
+        F += mu * u[2] / r * v[2] * 2 * pi * my_dx
 
     if stabilization == 'SUPG':
         # TODO check this part of the code
@@ -102,17 +103,18 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization):
             - mu * div(r * grad(u)) * 2 * pi \
             - f * 2 * pi * r
         if p:
-            R += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * dx
+            R += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * my_dx
 
         gv = tau * grad(v) * u
-        F += dot(R, gv) * dx
+        F += dot(R, gv) * my_dx
 
         # Manually add the parts of the residual which couldn't be cleanly
         # implemented above.
-        F += mu * u[0] / r * 2 * pi * gv[0] * dx
+        F += mu * u[0] / r * 2 * pi * gv[0] * my_dx
         if u.function_space().num_sub_spaces() == 3:
-            F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) * 2*pi*dx
-            F += mu * u[2] / r * gv[2] * 2*pi * dx
+            F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) \
+                    * 2*pi*my_dx
+            F += mu * u[2] / r * gv[2] * 2*pi * my_dx
     else:
         assert stabilization is None
 
@@ -122,6 +124,7 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization):
 def _compute_tentative_velocity(
         time_step_method, rho, mu,
         u, p0, dt, u_bcs, f, W,
+        my_dx,
         stabilization,
         verbose, tol
         ):
@@ -130,6 +133,7 @@ def _compute_tentative_velocity(
     .. math::
         \\rho (u[0] + (u\\cdot\\nabla)u) = \\mu 1/r div(r \\nabla u) + \\rho g.
     '''
+
     class TentativeVelocityProblem(NonlinearProblem):
         def __init__(
                 self, ui, time_step_method,
@@ -137,6 +141,7 @@ def _compute_tentative_velocity(
                 u, p0, dt,
                 bcs,
                 f,
+                my_dx,
                 stabilization=False
                 ):
             super(TentativeVelocityProblem, self).__init__()
@@ -150,10 +155,10 @@ def _compute_tentative_velocity(
 
             def me(uu, ff):
                 return _momentum_equation(
-                    uu, v, p0, ff, rho, mu, stabilization
+                    uu, v, p0, ff, rho, mu, stabilization, my_dx
                     )
 
-            self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*dx
+            self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*my_dx
             if time_step_method == 'forward euler':
                 self.F0 += me(u[0], f[0])
             elif time_step_method == 'backward euler':
@@ -221,6 +226,7 @@ def _compute_tentative_velocity(
             u, p0, dt,
             u_bcs,
             f,
+            my_dx,
             stabilization
             )
 
@@ -235,6 +241,7 @@ def _compute_pressure(
         P, p0,
         mu, ui,
         u,
+        my_dx,
         p_bcs=None,
         rotational_form=False,
         tol=1.0e-10,
@@ -294,16 +301,16 @@ def _compute_pressure(
 
     p = TrialFunction(P)
     q = TestFunction(P)
-    a2 = dot(r * grad(p), grad(q)) * 2 * pi * dx
+    a2 = dot(r * grad(p), grad(q)) * 2 * pi * my_dx
     # The boundary conditions
     #     n.(p1-p0) = 0
     # are implicitly included.
     #
-    # L2 = -div(r*u) * q * 2*pi*dx
+    # L2 = -div(r*u) * q * 2*pi*my_dx
     div_u = 1/r * (r * u[0]).dx(0) + u[1].dx(1)
-    L2 = -div_u * q * 2*pi*r*dx
+    L2 = -div_u * q * 2*pi*r*my_dx
     if p0:
-        L2 += r * dot(grad(p0), grad(q)) * 2*pi*dx
+        L2 += r * dot(grad(p0), grad(q)) * 2*pi*my_dx
 
     # In the Cartesian variant of the rotational form, one makes use of the
     # fact that
@@ -326,7 +333,7 @@ def _compute_pressure(
         # When using P2 elements, this value will be 0 anyways.
         div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
         grad_div_ui = as_vector((div_ui.dx(0), div_ui.dx(1)))
-        L2 -= r * mu * dot(grad_div_ui, grad(q)) * 2*pi*dx
+        L2 -= r * mu * dot(grad_div_ui, grad(q)) * 2*pi*my_dx
         # div_grad_div_ui = 1/r * (r * grad_div_ui[0]).dx(0) \
         #     + (grad_div_ui[1]).dx(1)
         # L2 += mu * div_grad_div_ui * q * 2*pi*r*dx
@@ -385,7 +392,7 @@ def _compute_pressure(
         # if abs(alpha) > normB * DOLFIN_EPS:
         if abs(alpha) > normB * 1.0e-12:
             # divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
-            adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * dx)
+            adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * my_dx)
             info('\\int 1/r * div(r*u) * 2*pi*r  =  %e' % adivu)
             n = FacetNormal(P.mesh())
             boundary_integral = assemble((n[0] * u[0] + n[1] * u[1])
@@ -450,7 +457,8 @@ def _compute_pressure(
 
 def _compute_velocity_correction(
         ui, p0, p1, u_bcs, rho, mu, dt,
-        rotational_form, tol, verbose
+        rotational_form, my_dx,
+        tol, verbose
         ):
     '''Compute the velocity correction according to
 
@@ -463,7 +471,7 @@ def _compute_velocity_correction(
 
     u = TrialFunction(W)
     v = TestFunction(W)
-    a3 = dot(u, v) * dx
+    a3 = dot(u, v) * my_dx
     phi = Function(P)
     phi.assign(p1)
     if p0:
@@ -472,9 +480,13 @@ def _compute_velocity_correction(
         r = SpatialCoordinate(W.mesh())[0]
         div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
         phi += mu * div_ui
-    L3 = dot(ui, v) * dx \
-        - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * dx
+    L3 = dot(ui, v) * my_dx \
+        - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * my_dx
     u1 = Function(W)
+    print(W)
+    print(len(u_bcs))
+    for b in u_bcs:
+        print(b.function_space())
     solve(
         a3 == L3, u1,
         bcs=u_bcs,
@@ -490,11 +502,12 @@ def _compute_velocity_correction(
                 }
             }
         )
+    exit(1)
     # u = project(ui - k/rho * grad(phi), V)
     # div_u = 1/r * div(r*u)
     r = SpatialCoordinate(W.mesh())[0]
     div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
-    info('||u||_div = %e' % sqrt(assemble(div_u1 * div_u1 * dx)))
+    info('||u||_div = {!e}'.format(sqrt(assemble(div_u1 * div_u1 * my_dx))))
     return u1
 
 
@@ -507,9 +520,10 @@ def _step(
         stabilization,
         time_step_method,
         f,
+        my_dx,
         rotational_form=False,
         verbose=True,
-        tol=1.0e-10
+        tol=1.0e-10,
         ):
     '''General pressure projection scheme as described in section 3.4 of
     :cite:`GMS06`.
@@ -518,29 +532,38 @@ def _step(
     assert dt > 0.0
 
     with Message('Computing tentative velocity'):
+        print('compute_tentative')
         ui = _compute_tentative_velocity(
                 time_step_method, rho, mu,
                 u, p0, dt, u_bcs, f, W,
+                my_dx,
                 stabilization,
                 verbose, tol
                 )
+        print('compute_tentative done')
 
     with Message('Computing pressure correction'):
+        print('compute pressure')
         p1 = _compute_pressure(
                 P, p0,
                 mu, ui,
                 rho * ui / dt,
+                my_dx,
                 p_bcs=p_bcs,
                 rotational_form=rotational_form,
                 tol=tol,
                 verbose=verbose
                 )
+        print('compute pressure done')
 
     with Message('Computing velocity correction'):
+        print('compute velocity correction')
         u1 = _compute_velocity_correction(
             ui, p0, p1, u_bcs, rho, mu, dt,
-            rotational_form, tol, verbose
+            rotational_form, my_dx,
+            tol, verbose
             )
+        print('compute velocity correction done')
 
     return u1, p1
 
@@ -569,7 +592,8 @@ class IPCS(object):
             rho, mu,
             f,
             verbose=True,
-            tol=1.0e-10
+            tol=1.0e-10,
+            my_dx=dx
             ):
         return _step(
             dt,
@@ -581,5 +605,6 @@ class IPCS(object):
             self.time_step_method,
             f,
             verbose=verbose,
-            tol=tol
+            tol=tol,
+            my_dx=my_dx
             )

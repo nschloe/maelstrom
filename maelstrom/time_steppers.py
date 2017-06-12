@@ -78,7 +78,7 @@ class ExplicitEuler(object):
         self.M = assemble(u * v * problem.dx_multiplier * problem.dx)
         return
 
-    def step(self, u1, u0, t, dt,
+    def step(self, u0, t, dt,
              tol=1.0e-10,
              maxiter=100,
              verbose=True
@@ -106,8 +106,9 @@ class ExplicitEuler(object):
         solver.parameters['monitor_convergence'] = verbose
         solver.set_operator(A)
 
+        u1 = Function(u0.function_space())
         solver.solve(u1.vector(), rhs)
-        return
+        return u1
 
 
 class ImplicitEuler(object):
@@ -127,7 +128,7 @@ class ImplicitEuler(object):
         self.M = assemble(u * v * problem.dx_multiplier * problem.dx)
         return
 
-    def step(self, u1, u0, t, dt,
+    def step(self, u0, t, dt,
              tol=1.0e-10,
              maxiter=1000,
              verbose=True,
@@ -157,8 +158,9 @@ class ImplicitEuler(object):
         else:
             solver.set_operator(A)
 
+        u1 = Function(u0.function_space())
         solver.solve(u1.vector(), rhs)
-        return
+        return u1
 
 
 class Trapezoidal(object):
@@ -179,7 +181,7 @@ class Trapezoidal(object):
         self.M = assemble(u * v * problem.dx_multiplier * problem.dx)
         return
 
-    def step(self, u1, u0,
+    def step(self, u0,
              t, dt,
              tol=1.0e-10,
              verbose=True,
@@ -212,8 +214,9 @@ class Trapezoidal(object):
         solver.parameters['monitor_convergence'] = verbose
         solver.set_operator(A)
 
+        u1 = Function(u0.function_space())
         solver.solve(u1.vector(), rhs)
-        return
+        return u1
 
 
 def heun_step(V,

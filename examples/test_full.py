@@ -114,14 +114,14 @@ def _compute_lorentz_joule(
                 # io_submesh=submesh_workpiece
                 )
         # Get resulting Lorentz force.
-        lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[wpi])
+        lorentz = cmx.compute_lorentz(Phi, omega, sigma[wpi])
 
         # Show the Lorentz force in the workpiece.
         # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
         # First project onto the entire mesh, then onto the submesh; see bug
         # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
         W = VectorFunctionSpace(mesh, 'CG', 1)
-        pl = project(lorentz_wpi, W)
+        pl = project(lorentz, W)
         W2 = VectorFunctionSpace(submesh_workpiece, 'CG', 1)
         pl = project(pl, W2)
         pl.rename('Lorentz force', 'Lorentz force')
@@ -151,7 +151,12 @@ def _compute_lorentz_joule(
                 interactive()
 
         joule_wpi = joule[wpi]
-    return lorentz_wpi, joule_wpi
+
+    # To work around bug
+    # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+    # return the projection `pl` and not `lorentz` itself.
+    # TODO remove this workaround
+    return pl, joule_wpi
 
 
 def _store_and_plot(outfile, u, p, theta, t):
@@ -316,6 +321,7 @@ def _compute(
                             preconditioner='hypre_euclid',
                             verbose=False
                             )
+                theta0_average = _average(theta0)
                 try:
                     # Do one Navier-Stokes time step.
                     with Message('Computing flux and pressure...'):
@@ -329,18 +335,26 @@ def _compute(
                                 )
                             f0 += f
                             f1 += f
+                        for b in problem.u_bcs:
+                            print(b.function_space())
+                        exit(1)
                         u1, p1 = ns_stepper.step(
                                 dt,
                                 {0: u0}, p0,
                                 problem.W, problem.P,
                                 problem.u_bcs, problem.p_bcs,
-                                rho_wpi(theta_average),
-                                mu_wpi(theta_average),
+                                rho_wpi(theta0_average),
+                                mu_wpi(theta0_average),
                                 f={0: f0, 1: f1},
                                 tol=1.0e-10,
                                 my_dx=dx(submesh_workpiece)
                                 )
+                        exit(1)
                 except RuntimeError as e:
+                    print('>>>>>>>>>>>>>>>>>>>>>>>>>')
+                    print(e)
+                    print('<<<<<<<<<<<<<<<<<<<<<<<<<')
+                    exit(1)
                     info(e.message)
                     info(
                         'Navier--Stokes solver failed to converge. '
@@ -540,6 +554,8 @@ def test_optimize(num_steps=1, target_time=0.1, show=False):
         g,
         extra_force=None
         )
+
+    project(u0, problem.W)
 
     if show:
         plot(u0, title='u')
