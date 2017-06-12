@@ -408,7 +408,6 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
     for k, mesh_size in enumerate(mesh_sizes):
         mesh = mesh_generator(mesh_size)
         V = FunctionSpace(mesh, 'CG', 1)
-        theta_approx = Function(V)
         theta0p = project(theta0, V)
         stepper = method(ProblemClass(V))
         if plot_error:
@@ -420,8 +419,8 @@ def _compute_time_errors(problem, method, mesh_sizes, Dt, plot_error=False):
             # could allow for arbitrary expressions here, but then the API
             # would need changing for problem.lhs(t, u).
             # Think about this.
-            stepper.step(
-                    theta_approx, theta0p,
+            theta_approx = stepper.step(
+                    theta0p,
                     0.0, dt,
                     tol=1.0e-12,
                     verbose=False
