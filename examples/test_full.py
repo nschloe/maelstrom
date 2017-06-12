@@ -92,7 +92,8 @@ def _construct_initial_state(
 def _compute_lorentz_joule(
         mesh, coils, mu, sigma, omega,
         wpi, submesh_workpiece,
-        subdomain_indices, subdomains
+        subdomain_indices, subdomains,
+        show=False
         ):
     # Function space for magnetic scalar potential, Lorentz force etc.
     V = FunctionSpace(mesh, 'CG', 1)
@@ -128,8 +129,7 @@ def _compute_lorentz_joule(
             f.parameters['flush_output'] = True
             f.write(pl)
 
-        show_lorentz = False
-        if show_lorentz:
+        if show:
             plot(pl, title='Lorentz force')
             interactive()
 
@@ -137,17 +137,18 @@ def _compute_lorentz_joule(
         joule = cmx.compute_joule(
                 Phi, voltages, omega, sigma, mu, subdomain_indices
                 )
-        show_joule = []
-        # show_joule = subdomain_indices
-        for ii in show_joule:
-            # Show Joule heat source.
-            submesh = SubMesh(mesh, subdomains, ii)
-            W_submesh = FunctionSpace(submesh, 'CG', 1)
-            jp = Function(W_submesh, name='Joule heat source')
-            jp.assign(project(joule[ii], W_submesh))
-            # jp.interpolate(joule[ii])
-            plot(jp)
-            interactive()
+
+        if show:
+            show_joule = subdomain_indices
+            for ii in show_joule:
+                # Show Joule heat source.
+                submesh = SubMesh(mesh, subdomains, ii)
+                W_submesh = FunctionSpace(submesh, 'CG', 1)
+                jp = Function(W_submesh, name='Joule heat source')
+                jp.assign(project(joule[ii], W_submesh))
+                # jp.interpolate(joule[ii])
+                plot(jp)
+                interactive()
 
         joule_wpi = joule[wpi]
     return lorentz_wpi, joule_wpi
@@ -172,7 +173,7 @@ def _average(u):
 
 
 def _compute(
-        u0, p0, theta0, problem, voltages, target_time
+        u0, p0, theta0, problem, voltages, target_time, show=False
         ):
     submesh_workpiece = problem.W.mesh()
 
@@ -217,7 +218,8 @@ def _compute(
                 mu_const, sigma_const, problem.omega,
                 problem.wpi, submesh_workpiece,
                 subdomain_indices,
-                problem.subdomains
+                problem.subdomains,
+                show=show
                 )
 
     # Start time, time step.
@@ -275,7 +277,8 @@ def _compute(
         outfile.parameters['flush_output'] = True
         outfile.parameters['rewrite_function_mesh'] = False
 
-        _store_and_plot(outfile, u0, p0, theta0, t)
+        if show:
+            _store_and_plot(outfile, u0, p0, theta0, t)
 
         successful_steps = 0
         failed_steps = 0
@@ -300,13 +303,8 @@ def _compute(
                     #
                     heat_stepper = ts.ImplicitEuler(heat_problem)
                     ns_stepper = cyl_ns.IPCS(
-                            problem.W, problem.P,
-                            rho=rho_wpi(theta_average),
-                            mu=mu_wpi(theta_average),
-                            theta=1.0,
-                            stabilization=None,
-                            dx=dx(submesh_workpiece)
-                            # stabilization='SUPG'
+                            time_step_method='backward euler',
+                            stabilization=None
                             )
                     # Use HYPRE-Euclid instead of ILU for parallel computation.
                     theta1 = heat_stepper.step(
@@ -333,11 +331,14 @@ def _compute(
                             f1 += f
                         u1, p1 = ns_stepper.step(
                                 dt,
-                                [u0], p0,
-                                u_bcs=problem.u_bcs, p_bcs=problem.p_bcs,
-                                f0=f0, f1=f1,
-                                verbose=False,
-                                tol=1.0e-10
+                                {0: u0}, p0,
+                                problem.W, problem.P,
+                                problem.u_bcs, problem.p_bcs,
+                                rho_wpi(theta_average),
+                                mu_wpi(theta_average),
+                                f={0: f0, 1: f1},
+                                tol=1.0e-10,
+                                my_dx=dx(submesh_workpiece)
                                 )
                 except RuntimeError as e:
                     info(e.message)
@@ -356,7 +357,8 @@ def _compute(
                 u0.assign(u1)
                 p0.assign(p1)
 
-                _store_and_plot(outfile, u0, p0, theta0, t + dt)
+                if show:
+                    _store_and_plot(outfile, u0, p0, theta0, t + dt)
 
                 t += dt
                 with Message('Diagnostics...'):
@@ -477,7 +479,7 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
     return volume_expansion * deltaT * char_length ** 3 * grav / nu ** 2
 
 
-def test_optimize(num_steps=1, target_time=0.1):
+def test_optimize(num_steps=1, target_time=0.1, show=False):
     # The voltage is defined as
     #
     #     v(t) = Im(exp(i omega t) v)
@@ -539,7 +541,7 @@ def test_optimize(num_steps=1, target_time=0.1):
         extra_force=None
         )
 
-    if False:
+    if show:
         plot(u0, title='u')
         plot(p0, title='p')
         plot(theta0, title='theta')
@@ -553,7 +555,7 @@ def test_optimize(num_steps=1, target_time=0.1):
     for k, alpha in enumerate(Alpha):
         # Scale the voltages
         v = alpha * numpy.array(voltages)
-        _compute(u0, p0, theta0, problem, v, target_time)
+        _compute(u0, p0, theta0, problem, v, target_time, show=show)
 
         # From the second iteration on, only go for at most 60 secs
         target_time = min(60.0, target_time)
@@ -561,4 +563,4 @@ def test_optimize(num_steps=1, target_time=0.1):
 
 
 if __name__ == '__main__':
-    test_optimize(num_steps=51, target_time=600.0)
+    test_optimize(num_steps=51, target_time=600.0, show=True)
