@@ -335,9 +335,6 @@ def _compute(
                                 )
                             f0 += f
                             f1 += f
-                        for b in problem.u_bcs:
-                            print(b.function_space())
-                        exit(1)
                         u1, p1 = ns_stepper.step(
                                 dt,
                                 {0: u0}, p0,
@@ -349,12 +346,7 @@ def _compute(
                                 tol=1.0e-10,
                                 my_dx=dx(submesh_workpiece)
                                 )
-                        exit(1)
                 except RuntimeError as e:
-                    print('>>>>>>>>>>>>>>>>>>>>>>>>>')
-                    print(e)
-                    print('<<<<<<<<<<<<<<<<<<<<<<<<<')
-                    exit(1)
                     info(e.message)
                     info(
                         'Navier--Stokes solver failed to converge. '

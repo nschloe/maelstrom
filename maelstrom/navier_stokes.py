@@ -30,7 +30,7 @@ from dolfin import (
     TestFunction, Function, Constant, dot, grad, inner, pi, dx, div, solve,
     derivative, TrialFunction, PETScPreconditioner, PETScKrylovSolver,
     as_backend_type, info, assemble, norm, FacetNormal, sqrt, ds, as_vector,
-    NonlinearProblem, NewtonSolver, SpatialCoordinate
+    NonlinearProblem, NewtonSolver, SpatialCoordinate, project
     )
 
 from . import stabilization as stab
@@ -233,6 +233,10 @@ def _compute_tentative_velocity(
     # Take u[0] as initial guess.
     ui.assign(u[0])
     solver.solve(step_problem, ui.vector())
+
+    # Make sure ui is from W. This should happen anyways, but somehow doesn't.
+    # TODO find out why not
+    ui = project(ui, W)
     # div_u = 1/r * div(r*ui)
     return ui
 
@@ -483,10 +487,6 @@ def _compute_velocity_correction(
     L3 = dot(ui, v) * my_dx \
         - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * my_dx
     u1 = Function(W)
-    print(W)
-    print(len(u_bcs))
-    for b in u_bcs:
-        print(b.function_space())
     solve(
         a3 == L3, u1,
         bcs=u_bcs,
@@ -502,12 +502,11 @@ def _compute_velocity_correction(
                 }
             }
         )
-    exit(1)
     # u = project(ui - k/rho * grad(phi), V)
     # div_u = 1/r * div(r*u)
     r = SpatialCoordinate(W.mesh())[0]
     div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
-    info('||u||_div = {!e}'.format(sqrt(assemble(div_u1 * div_u1 * my_dx))))
+    info('||u||_div = {:e}'.format(sqrt(assemble(div_u1 * div_u1 * my_dx))))
     return u1
 
 
@@ -532,7 +531,6 @@ def _step(
     assert dt > 0.0
 
     with Message('Computing tentative velocity'):
-        print('compute_tentative')
         ui = _compute_tentative_velocity(
                 time_step_method, rho, mu,
                 u, p0, dt, u_bcs, f, W,
@@ -540,10 +538,8 @@ def _step(
                 stabilization,
                 verbose, tol
                 )
-        print('compute_tentative done')
 
     with Message('Computing pressure correction'):
-        print('compute pressure')
         p1 = _compute_pressure(
                 P, p0,
                 mu, ui,
@@ -554,16 +550,13 @@ def _step(
                 tol=tol,
                 verbose=verbose
                 )
-        print('compute pressure done')
 
     with Message('Computing velocity correction'):
-        print('compute velocity correction')
         u1 = _compute_velocity_correction(
             ui, p0, p1, u_bcs, rho, mu, dt,
             rotational_form, my_dx,
             tol, verbose
             )
-        print('compute velocity correction done')
 
     return u1, p1
 
