@@ -55,6 +55,7 @@ class Heat(object):
         # <https://bitbucket.org/fenics-project/dolfin/issue/78/systemassembler-problem-with-subdomains-on>.
         return assemble(lhs(self.F0)), assemble(rhs(self.F0))
 
+    # pylint: disable=no-self-use
     def get_preconditioner(self, t):
         return None
 
