@@ -193,7 +193,7 @@ def solve(
     # The Jacobian system for Stokes (+heat) are hard to solve.
     # Use LU for now.
     solver.parameters['linear_solver'] = 'lu'
-    solver.parameters['maximum_iterations'] = 5
+    solver.parameters['maximum_iterations'] = 100
     # TODO tighten tolerance. might not always work though...
     solver.parameters['absolute_tolerance'] = 1.0e-3
     solver.parameters['relative_tolerance'] = 0.0
