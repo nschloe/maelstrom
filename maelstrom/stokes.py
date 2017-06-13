@@ -6,9 +6,11 @@ Numerical solution schemes for the Stokes equation in cylindrical coordinates.
 from __future__ import print_function
 
 from dolfin import (
-    DirichletBC, TrialFunctions, TestFunctions, grad, pi, dx, assemble_system,
-    KrylovSolver, inner, solve, SpatialCoordinate
+    TrialFunctions, TestFunctions, grad, pi, dx, assemble_system, KrylovSolver,
+    inner, solve, SpatialCoordinate
     )
+
+from . import helpers
 
 
 def stokes_solve(
@@ -27,22 +29,7 @@ def stokes_solve(
     WP = up_out.function_space()
 
     # Translate the boundary conditions into the product space.
-    new_bcs = []
-    for k, bcs in enumerate([u_bcs, p_bcs]):
-        for bc in bcs:
-            space = bc.function_space()
-            C = space.component()
-            # pylint: disable=len-as-condition
-            if len(C) == 0:
-                new_bcs.append(
-                    DirichletBC(WP.sub(k), bc.value(), bc.domain_args[0])
-                    )
-            else:
-                assert len(C) == 1, 'Illegal number of subspace components.'
-                space = WP.sub(k).sub(int(C[0]))
-                new_bcs.append(
-                    DirichletBC(space, bc.value(), bc.domain_args[0])
-                    )
+    new_bcs = helpers.dbcs_to_productspace(WP, [u_bcs, p_bcs])
 
     # TODO define p*=-1 and reverse sign in the end to get symmetric system?
 

@@ -2,12 +2,13 @@
 #
 from dolfin import (
     NonlinearProblem, dx, ds, Function, split, TestFunctions, as_vector,
-    assemble, derivative, Constant, inner, grad, pi, dot, DirichletBC,
-    FunctionSpace, MixedElement, assign, SpatialCoordinate, norm, KrylovSolver,
-    TrialFunction, TestFunction, info, errornorm
+    assemble, derivative, Constant, inner, grad, pi, dot, FunctionSpace,
+    MixedElement, assign, SpatialCoordinate, norm, KrylovSolver, TrialFunction,
+    TestFunction, info, errornorm
     )
 
 from . import heat
+from . import helpers
 from . import stokes
 
 
@@ -54,28 +55,6 @@ class Stokes(object):
         return F0
 
 
-def dbcs_to_productspace(W, bcs_list):
-    new_bcs = []
-    for k, bcs in enumerate(bcs_list):
-        for bc in bcs:
-            C = bc.function_space().component()
-            # pylint: disable=len-as-condition
-            if len(C) == 0:
-                new_bcs.append(DirichletBC(W.sub(k),
-                                           bc.value(),
-                                           bc.domain_args[0]))
-            else:
-                assert len(C) == 1, 'Illegal number of subspace components.'
-                new_bcs.append(
-                        DirichletBC(
-                            W.sub(k).sub(int(C[0])),
-                            bc.value(),
-                            bc.domain_args[0]
-                            ))
-
-    return new_bcs
-
-
 class StokesHeat(NonlinearProblem):
 
     def __init__(
@@ -97,7 +76,7 @@ class StokesHeat(NonlinearProblem):
         theta_robin_bcs = theta_robin_bcs or {}
 
         # Translate the Dirichlet boundary conditions into the product space.
-        self.bcs = dbcs_to_productspace(
+        self.bcs = helpers.dbcs_to_productspace(
             WPQ,
             [u_bcs, p_bcs, theta_dirichlet_bcs]
             )
@@ -176,7 +155,8 @@ def solve(
         u_bcs, p_bcs,
         theta_dirichlet_bcs,
         theta_neumann_bcs,
-        dx_submesh, ds_submesh
+        dx_submesh, ds_submesh,
+        tol=1.0e-2
         )
 
     WPQ = FunctionSpace(
@@ -211,9 +191,9 @@ def solve(
     # The Jacobian system for Stokes (+heat) are hard to solve.
     # Use LU for now.
     solver.parameters['linear_solver'] = 'lu'
-    solver.parameters['maximum_iterations'] = 5
+    solver.parameters['maximum_iterations'] = 100
     # TODO tighten tolerance. might not always work though...
-    solver.parameters['absolute_tolerance'] = 1.0e-10
+    solver.parameters['absolute_tolerance'] = 1.0e-3
     solver.parameters['relative_tolerance'] = 0.0
     solver.parameters['report'] = True
 
@@ -301,7 +281,8 @@ def _solve_fixed_point(
         u_bcs, p_bcs,
         theta_dirichlet_bcs,
         theta_neumann_bcs,
-        dx_submesh, ds_submesh
+        dx_submesh, ds_submesh,
+        tol=1.0e-10
         ):
     # Solve the coupled heat-Stokes equation approximately. Do this
     # iteratively by solving the heat equation, then solving Stokes with the
@@ -363,7 +344,7 @@ def _solve_fixed_point(
         # plot(u0, title='u0')
         # interactive()
         # #exit()
-        if diff < 1.0e-10:
+        if diff < tol:
             break
 
         theta0.assign(theta1)
