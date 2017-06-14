@@ -138,7 +138,7 @@ def _compute_lorentz_joule(
                 Phi, voltages, omega, sigma, mu, subdomain_indices
                 )
 
-        if False:
+        if show:
             show_joule = subdomain_indices
             for ii in show_joule:
                 # Show Joule heat source.
@@ -560,7 +560,7 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
     p0.rename('pressure', 'pressure')
     theta0.rename('temperature', 'temperature')
 
-    for k, alpha in enumerate(Alpha):
+    for alpha in Alpha:
         # Scale the voltages
         v = alpha * numpy.array(voltages)
         _compute(u0, p0, theta0, problem, v, target_time, show=show)

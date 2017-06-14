@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
+from __future__ import print_function
+
 from dolfin import (
     plot, interactive, FacetNormal, dot, grad, pi, dx, ds, Constant, Measure,
     XDMFFile, solve, Function, DirichletBC, TrialFunction, TestFunction, lhs,
@@ -79,7 +81,7 @@ def _parameter_quest():
             for c in control_values:
                 print('(%e, %e):  %e   (%e)'
                       % (c[0][0], c[0][1], theta(c[0]), c[1]))
-        print
+        print()
 
         if first:
             theta_1 = theta
@@ -99,6 +101,7 @@ def _get_weak_F(mesh, f, kappa, rho_cp, b,
     r = SpatialCoordinate(mesh)[0]
     n = FacetNormal(mesh)
 
+    # pylint: disable=unused-argument
     def weak_F(t, u_t, u, v):
         f.t = t
         F = - r * kappa * dot(grad(u), grad(v/rho_cp)) * 2*pi*dx \
@@ -139,7 +142,7 @@ def test_solve(stationary):
     dt = 1.0e1
     end_time = 1000.0
 
-    ds = Measure('ds')(subdomain_data=boundaries)
+    my_ds = Measure('ds')(subdomain_data=boundaries)
 
     b = Constant((0.0, 0.0))
 
@@ -152,6 +155,7 @@ def test_solve(stationary):
     rho_cp = rho*cp
     r = SpatialCoordinate(mesh)[0]
 
+    # pylint: disable=unused-argument
     def weak_F(t, u_t, u, v):
         f.t = t
         F = - r * kappa * dot(grad(u), grad(v/rho_cp)) * 2*pi*dx \
@@ -159,11 +163,11 @@ def test_solve(stationary):
             + f * v/rho_cp * 2*pi*r*dx
         # Neumann boundary conditions
         for k, n_grad_T in problem.theta_bcs_n.items():
-            F += r * kappa * n_grad_T * v/rho_cp * 2*pi*ds(k)
+            F += r * kappa * n_grad_T * v/rho_cp * 2*pi*my_ds(k)
         # Robin boundary conditions
         for k, value in problem.theta_bcs_r.items():
             alpha, u0 = value
-            F -= r * kappa * alpha * (u - u0) * v/rho_cp * 2*pi*ds(k)
+            F -= r * kappa * alpha * (u - u0) * v/rho_cp * 2*pi*my_ds(k)
         return F
 
     if stationary:
@@ -186,10 +190,12 @@ def test_solve(stationary):
                   'symmetric': False,
                   # AMG won't work well if the convection is too strong.
                   'preconditioner': 'hypre_amg',
-                  'krylov_solver': {'relative_tolerance': 1.0e-12,
-                                    'absolute_tolerance': 0.0,
-                                    'maximum_iterations': 100,
-                                    'monitor_convergence': False}
+                  'krylov_solver': {
+                      'relative_tolerance': 1.0e-12,
+                      'absolute_tolerance': 0.0,
+                      'maximum_iterations': 100,
+                      'monitor_convergence': False
+                      }
                   })
 
         with XDMFFile('temperature.xdmf') as f:
@@ -216,10 +222,12 @@ def test_solve(stationary):
                   'linear_solver': 'iterative',
                   'symmetric': False,
                   'preconditioner': 'hypre_amg',
-                  'krylov_solver': {'relative_tolerance': 1.0e-12,
-                                    'absolute_tolerance': 0.0,
-                                    'maximum_iterations': 100,
-                                    'monitor_convergence': False}
+                  'krylov_solver': {
+                      'relative_tolerance': 1.0e-12,
+                      'absolute_tolerance': 0.0,
+                      'maximum_iterations': 100,
+                      'monitor_convergence': False
+                      }
                   })
 
         with XDMFFile('temperature.xdmf') as f:
@@ -234,7 +242,7 @@ def test_solve(stationary):
         theta_1 = Function(problem.Q)
         theta_1.interpolate(theta0)
         t = 0.0
-        with XDMFFile('results/temperature.xdmf') as f:
+        with XDMFFile('temperature.xdmf') as f:
             f.parameters['flush_output'] = True
             f.parameters['rewrite_function_mesh'] = False
 
