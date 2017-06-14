@@ -4,9 +4,9 @@
 from __future__ import print_function
 
 from dolfin import (
-    plot, interactive, FacetNormal, dot, grad, pi, dx, ds, Constant, Measure,
-    XDMFFile, solve, Function, DirichletBC, TrialFunction, TestFunction, lhs,
-    rhs, SpatialCoordinate
+    plot, interactive, dot, grad, pi, dx, Constant, Measure, XDMFFile, solve,
+    Function, DirichletBC, TrialFunction, TestFunction, lhs, rhs,
+    SpatialCoordinate
     )
 
 import problems
@@ -24,10 +24,7 @@ def _main():
     # T = {'upper': 1480.0,
     #      'upper left': 1500.0,
     #      'crucible': 1660.0}
-    test_solve(
-        # heat_transfer_coefficient, T,
-        stationary=False
-        )
+    test_solve(stationary=True)
     return
 
 
@@ -91,31 +88,6 @@ def _parameter_quest():
         plot(theta_1, rescale=True)
         interactive()
     return
-
-
-def _get_weak_F(mesh, f, kappa, rho_cp, b,
-                theta_bcs_n,
-                theta_bcs_r):
-    '''Get right-hand side of heat equation in weak form.
-    '''
-    r = SpatialCoordinate(mesh)[0]
-    n = FacetNormal(mesh)
-
-    # pylint: disable=unused-argument
-    def weak_F(t, u_t, u, v):
-        f.t = t
-        F = - r * kappa * dot(grad(u), grad(v/rho_cp)) * 2*pi*dx \
-            - dot(b, grad(u)) * v * 2*pi*r*dx \
-            + f * v/rho_cp * 2*pi*r*dx
-        # Neumann boundary conditions
-        for k, gradT in theta_bcs_n.items():
-            F += r * kappa * dot(n, gradT) * v/rho_cp * 2*pi*ds(k)
-        # Robin boundary conditions
-        for k, value in theta_bcs_r.items():
-            alpha, u0 = value
-            F -= r * kappa * alpha * (u - u0) * v/rho_cp * 2*pi*ds(k)
-        return F
-    return weak_F
 
 
 @pytest.mark.parametrize('stationary', [
