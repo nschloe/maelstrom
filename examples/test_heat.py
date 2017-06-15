@@ -11,8 +11,9 @@ from dolfin import (
 import problems
 
 import maelstrom
-import maelstrom.time_steppers as ts
+# import maelstrom.time_steppers as ts
 
+import parabolic
 import pytest
 
 
@@ -158,31 +159,38 @@ def test_solve(stationary, show=False):
             interactive()
 
     else:
-        theta_1 = Function(problem.Q)
-        theta_1.interpolate(theta0)
+        convection = None
+        heat = maelstrom.heat.Heat(
+            problem.Q, convection,
+            kappa, rho, cp,
+            source=Constant(0.0),
+            dirichlet_bcs=problem.theta_bcs_d,
+            neumann_bcs=problem.theta_bcs_n,
+            robin_bcs=problem.theta_bcs_r,
+            my_dx=dx,
+            my_ds=my_ds
+            )
+
+        # create time stepper
+        # stepper = parabolic.ImplicitEuler(heat)
+        stepper = parabolic.ExplicitEuler(heat)
+
+        theta0 = Function(problem.Q)
+        theta1 = Function(problem.Q)
+
+        theta0.interpolate(theta0)
         t = 0.0
+        end_time = 1.0
         with XDMFFile('temperature.xdmf') as f:
             f.parameters['flush_output'] = True
             f.parameters['rewrite_function_mesh'] = False
-
+            # step
+            t = 0.0
+            dt = 1.0e-3
             while t < end_time:
-                theta = ts.implicit_euler_step(
-                        problem.Q,
-                        weak_F,
-                        theta_1,
-                        t, dt,
-                        dx=2*pi*r*dx,
-                        sympy_dirichlet_bcs=problem.theta_bcs_d,
-                        tol=1.0e-10,
-                        verbose=False,
-                        # problem is symmetric =>
-                        krylov='cg',
-                        preconditioner='hypre_amg'
-                        )
-                theta_1.assign(theta)
-                f.write(theta_1, t)
-                plot(theta_1, title='temperature')
-                # interactive()
+                theta1.assign(stepper.step(theta0, t, dt))
+                theta0 = theta1.copy()
+                f.write(theta1)
                 t += dt
     return
 

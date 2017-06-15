@@ -53,50 +53,28 @@ class Heat(object):
 
         r = SpatialCoordinate(Q.mesh())[0]
         rho_cp = rho * cp
-        b = convection
-        # F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
-
-        # # Convection
-        # # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
-        # if b:
-        #     F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
-
-        # # Joule heat
-        # F0 -= source * v / rho_cp * 2*pi*r * my_dx
-
-        # # Neumann boundary conditions
-        # for k, nGradT in neumann_bcs.items():
-        #     F0 -= r * kappa * nGradT * v / rho_cp * 2*pi * my_ds(k)
-        # # Robin boundary conditions
-        # for k, value in robin_bcs.items():
-        #     alpha, u0 = value
-        #     F0 -= r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * ds(k)
 
         F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
+
         # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
+        b = convection
         if b:
             F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
+
         # Joule heat
         F0 -= source * v / rho_cp * 2*pi*r * my_dx
+
         # Neumann boundary conditions
         for k, nGradT in neumann_bcs.items():
             F0 -= r * kappa * nGradT * v / rho_cp * 2*pi * my_ds(k)
+
         # Robin boundary conditions
         for k, value in robin_bcs.items():
             alpha, u0 = value
             F0 -= \
                 r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
 
-        # Don't use assemble_system()! See bugs
-        # <https://bitbucket.org/fenics-project/dolfin/issue/257/system_assembler-bilinear-and-linear-forms>,
-        # <https://bitbucket.org/fenics-project/dolfin/issue/78/systemassembler-problem-with-subdomains-on>.
-        # self.A, self.b = assemble_system(F0)
-        self.F0 = F0
-
-        # Don't use assemble_system()! See bugs
-        # <https://bitbucket.org/fenics-project/dolfin/issue/257/system_assembler-bilinear-and-linear-forms>,
-        # <https://bitbucket.org/fenics-project/dolfin/issue/78/systemassembler-problem-with-subdomains-on>.
-        self.A, self.b = assemble_system(lhs(self.F0), rhs(self.F0))
+        self.A, self.b = assemble_system(lhs(F0), rhs(F0))
         return
 
     # pylint: disable=unused-argument
