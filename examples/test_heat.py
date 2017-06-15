@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from dolfin import (
     plot, interactive, dot, grad, pi, dx, Constant, Measure, XDMFFile,
-    Function, SpatialCoordinate
+    Function, SpatialCoordinate, project
     )
 
 import problems
@@ -14,7 +14,6 @@ import maelstrom
 # import maelstrom.time_steppers as ts
 
 import parabolic
-import pytest
 
 
 def _parameter_quest():
@@ -46,10 +45,12 @@ def _parameter_quest():
     for p in search_space:
         print(p)
         # for boundary conditions
-        flux = {'upper': p[0],
-                'crucible': p[1]}
+        flux = {
+            'upper': p[0],
+            'crucible': p[1]
+            }
 
-        theta = test_solve(flux, stationary=True)
+        theta = test_stationary_solve(flux)
 
         # Check if temperature values match with crucible blueprint.
         dev = np.array([theta(c[0]) - c[1] for c in control_values])
@@ -79,11 +80,51 @@ def _parameter_quest():
     return
 
 
-@pytest.mark.parametrize('stationary', [
-    True, False
-    ])
-def test_solve(stationary, show=False):
+def test_stationary_solve(show=False):
 
+    problem = problems.Crucible()
+
+    boundaries = problem.wp_boundaries
+
+    background_temp = 1500.0
+
+    material = problem.subdomain_materials[problem.wpi]
+    rho = material.density(background_temp)
+    cp = material.specific_heat_capacity
+    kappa = material.thermal_conductivity
+
+    my_ds = Measure('ds')(subdomain_data=boundaries)
+
+    convection = None
+    heat = maelstrom.heat.Heat(
+        problem.Q, convection,
+        kappa, rho, cp,
+        source=Constant(0.0),
+        dirichlet_bcs=problem.theta_bcs_d,
+        neumann_bcs=problem.theta_bcs_n,
+        robin_bcs=problem.theta_bcs_r,
+        my_dx=dx,
+        my_ds=my_ds
+        )
+    theta_reference = heat.solve_stationary()
+    theta_reference.rename('theta', 'temperature')
+
+    assert abs(
+        maelstrom.helpers.average(theta_reference) - 1551.0097748979463
+        ) < 1.0e-3
+
+    if show:
+        # with XDMFFile('temperature.xdmf') as f:
+        #     f.parameters['flush_output'] = True
+        #     f.parameters['rewrite_function_mesh'] = False
+        #     f.write(theta_reference)
+        plot(theta_reference)
+        interactive()
+
+    return
+
+
+def test_time_step(show=False):
     problem = problems.Crucible()
 
     #
@@ -91,7 +132,6 @@ def test_solve(stationary, show=False):
     boundaries = problem.wp_boundaries
 
     background_temp = 1500.0
-    theta0 = Constant(background_temp)
 
     f = Constant(0.0)
 
@@ -99,9 +139,6 @@ def test_solve(stationary, show=False):
     rho = material.density(background_temp)
     cp = material.specific_heat_capacity
     kappa = material.thermal_conductivity
-
-    dt = 1.0e1
-    end_time = 1000.0
 
     my_ds = Measure('ds')(subdomain_data=boundaries)
 
@@ -131,67 +168,39 @@ def test_solve(stationary, show=False):
             F -= r * kappa * alpha * (u - u0) * v/rho_cp * 2*pi*my_ds(k)
         return F
 
-    if stationary:
-        convection = None
-        heat = maelstrom.heat.Heat(
-            problem.Q, convection,
-            kappa, rho, cp,
-            source=Constant(0.0),
-            dirichlet_bcs=problem.theta_bcs_d,
-            neumann_bcs=problem.theta_bcs_n,
-            robin_bcs=problem.theta_bcs_r,
-            my_dx=dx,
-            my_ds=my_ds
-            )
-        theta_reference = heat.solve_stationary()
-        theta_reference.rename('theta', 'temperature')
+    convection = None
+    heat = maelstrom.heat.Heat(
+        problem.Q, convection,
+        kappa, rho, cp,
+        source=Constant(0.0),
+        dirichlet_bcs=problem.theta_bcs_d,
+        neumann_bcs=problem.theta_bcs_n,
+        robin_bcs=problem.theta_bcs_r,
+        my_dx=dx,
+        my_ds=my_ds
+        )
 
-        assert abs(
-            maelstrom.helpers.average(theta_reference) - 1551.0097748979463
-            ) < 1.0e-3
+    # create time stepper
+    # stepper = parabolic.ImplicitEuler(heat)
+    stepper = parabolic.ExplicitEuler(heat)
 
-        if show:
-            # with XDMFFile('temperature.xdmf') as f:
-            #     f.parameters['flush_output'] = True
-            #     f.parameters['rewrite_function_mesh'] = False
-            #     f.write(theta_reference)
-            plot(theta_reference)
-            interactive()
+    theta0 = project(Constant(background_temp), problem.Q)
+    theta1 = Function(problem.Q)
 
-    else:
-        convection = None
-        heat = maelstrom.heat.Heat(
-            problem.Q, convection,
-            kappa, rho, cp,
-            source=Constant(0.0),
-            dirichlet_bcs=problem.theta_bcs_d,
-            neumann_bcs=problem.theta_bcs_n,
-            robin_bcs=problem.theta_bcs_r,
-            my_dx=dx,
-            my_ds=my_ds
-            )
-
-        # create time stepper
-        # stepper = parabolic.ImplicitEuler(heat)
-        stepper = parabolic.ExplicitEuler(heat)
-
-        theta0 = Function(problem.Q)
-        theta1 = Function(problem.Q)
-
-        theta0.interpolate(theta0)
+    theta0.interpolate(theta0)
+    t = 0.0
+    end_time = 1.0
+    with XDMFFile('temperature.xdmf') as f:
+        f.parameters['flush_output'] = True
+        f.parameters['rewrite_function_mesh'] = False
+        # step
         t = 0.0
-        end_time = 1.0
-        with XDMFFile('temperature.xdmf') as f:
-            f.parameters['flush_output'] = True
-            f.parameters['rewrite_function_mesh'] = False
-            # step
-            t = 0.0
-            dt = 1.0e-3
-            while t < end_time:
-                theta1.assign(stepper.step(theta0, t, dt))
-                theta0 = theta1.copy()
-                f.write(theta1)
-                t += dt
+        dt = 1.0e-3
+        while t < end_time:
+            theta1.assign(stepper.step(theta0, t, dt))
+            theta0 = theta1.copy()
+            f.write(theta1)
+            t += dt
     return
 
 
@@ -205,4 +214,6 @@ if __name__ == '__main__':
     # T = {'upper': 1480.0,
     #      'upper left': 1500.0,
     #      'crucible': 1660.0}
-    test_solve(stationary=True, show=True)
+
+    test_stationary_solve(show=True)
+    # test_solve(stationary=False, show=True)
