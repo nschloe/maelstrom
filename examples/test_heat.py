@@ -142,18 +142,18 @@ def test_solve(stationary, show=False):
             my_dx=dx,
             my_ds=my_ds
             )
-
-        # Solve  alpha * M * u + beta * F(u, t) = b  for u.
-        theta_reference = \
-            heat.solve_alpha_M_beta_F(alpha=0.0, beta=1.0, b=None, t=0.0)
+        theta_reference = heat.solve_stationary()
         theta_reference.rename('theta', 'temperature')
+
+        assert abs(
+            maelstrom.helpers.average(theta_reference) - 1551.0097748979463
+            ) < 1.0e-3
 
         if show:
             # with XDMFFile('temperature.xdmf') as f:
             #     f.parameters['flush_output'] = True
             #     f.parameters['rewrite_function_mesh'] = False
             #     f.write(theta_reference)
-
             plot(theta_reference)
             interactive()
 

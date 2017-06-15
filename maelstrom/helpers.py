@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 from dolfin import (
-        as_backend_type, DirichletBC
+        as_backend_type, DirichletBC, assemble, dx
         )
 import matplotlib.pyplot as plt
 import scipy.linalg
@@ -52,3 +52,10 @@ def dbcs_to_productspace(W, bcs_list):
                             ))
 
     return new_bcs
+
+
+def average(u):
+    '''Computes the average value of a function u over its domain.
+    '''
+    return assemble(u * dx) \
+        / assemble(1.0 * dx(u.function_space().mesh()))

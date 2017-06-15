@@ -128,6 +128,9 @@ class Heat(object):
         solver.solve(u.vector(), right_hand_side)
         return u
 
+    def solve_stationary(self):
+        return self.solve_alpha_M_beta_F(alpha=0.0, beta=1.0, b=None, t=0.0)
+
 
 class Heat2(object):
 

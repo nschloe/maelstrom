@@ -22,6 +22,7 @@ from dolfin import (
 import numpy
 from numpy import pi
 
+from maelstrom.helpers import average
 import maelstrom.navier_stokes as cyl_ns
 import maelstrom.stokes_heat as stokes_heat
 import maelstrom.maxwell as cmx
@@ -170,13 +171,6 @@ def _store_and_plot(outfile, u, p, theta, t):
     return
 
 
-def _average(u):
-    '''Computes the average value of a function u over its domain.
-    '''
-    return assemble(u * dx) \
-        / assemble(1.0 * dx(u.function_space().mesh()))
-
-
 def _compute(
         u0, p0, theta0, problem, voltages, target_time, show=False
         ):
@@ -187,7 +181,7 @@ def _compute(
     ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
 
     subdomain_indices = problem.subdomain_materials.keys()
-    theta_average = _average(theta0)
+    theta_average = average(theta0)
 
     info('Input voltages:')
     info(repr(voltages))
@@ -321,7 +315,7 @@ def _compute(
                             preconditioner='hypre_euclid',
                             verbose=False
                             )
-                theta0_average = _average(theta0)
+                theta0_average = average(theta0)
                 try:
                     # Do one Navier-Stokes time step.
                     with Message('Computing flux and pressure...'):
