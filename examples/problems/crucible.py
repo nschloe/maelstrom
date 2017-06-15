@@ -17,7 +17,7 @@ import numpy
 import os
 import warnings
 
-DEBUG = False
+DEBUG = True
 
 
 class Crucible():
@@ -306,7 +306,7 @@ class Crucible():
         self.theta_bcs_d = [
             DirichletBC(self.Q, tecplot_dbc, upper_left)
             ]
-        theta_bcs_d_strict = [
+        self.theta_bcs_d_strict = [
             DirichletBC(self.Q, tecplot_dbc, upper_right),
             DirichletBC(self.Q, tecplot_dbc, crucible),
             DirichletBC(self.Q, tecplot_dbc, upper_left)
@@ -351,8 +351,8 @@ class Crucible():
         # correct, so extract the Neumann values directly from that solution.
         zeta = TestFunction(self.Q)
 
-        theta_reference = Function(self.Q, name='temperature (Dirichlet)')
-        theta_reference.vector()[:] = 0.0
+        self.theta_ref = Function(self.Q, name='temperature (Dirichlet)')
+        self.theta_ref.vector()[:] = 0.0
 
         # Solve the *quasilinear* PDE (coefficients may depend on theta).
         # This is to avoid setting a fixed temperature for the coefficients.
@@ -362,46 +362,46 @@ class Crucible():
         if isinstance(wp_material.specific_heat_capacity, float):
             cp = wp_material.specific_heat_capacity
         else:
-            cp = wp_material.specific_heat_capacity(theta_reference)
+            cp = wp_material.specific_heat_capacity(self.theta_ref)
         if isinstance(wp_material.density, float):
             rho = wp_material.density
         else:
-            rho = wp_material.density(theta_reference)
+            rho = wp_material.density(self.theta_ref)
         if isinstance(wp_material.thermal_conductivity, float):
             k = wp_material.thermal_conductivity
         else:
-            k = wp_material.thermal_conductivity(theta_reference)
+            k = wp_material.thermal_conductivity(self.theta_ref)
 
-        reference_problem = cyl_heat.Heat(
-            self.Q, theta_reference,
+        reference_problem = cyl_heat.Heat2(
+            self.Q, self.theta_ref,
             zeta,
             b=Constant((0.0, 0.0, 0.0)),
             kappa=k,
             rho=rho,
             cp=cp,
             source=Constant(0.0),
-            dirichlet_bcs=theta_bcs_d_strict
+            dirichlet_bcs=self.theta_bcs_d_strict
             )
+        # from dolfin import solve
+        # solve(reference_problem.F0 == 0,
+        #       self.theta_ref,
+        #       bcs=self.theta_bcs_d_strict
+        #       )
+        self.theta_ref = reference_problem.ssolve()
 
-        from dolfin import solve
-        solve(reference_problem.F0 == 0,
-              theta_reference,
-              bcs=theta_bcs_d_strict
-              )
-
-        # Create equivalent boundary conditions from theta_reference. This
+        # Create equivalent boundary conditions from theta_ref. This
         # makes sure that the potentially expensive Expression evaluation in
         # theta_bcs_* is replaced by something reasonably cheap.
-        for k, bc in enumerate(self.theta_bcs_d):
-            self.theta_bcs_d[k] = DirichletBC(
-                    bc.function_space(),
-                    theta_reference,
-                    bc.domain_args[0]
-                    )
+        self.theta_bcs_d = [
+            DirichletBC(bc.function_space(), self.theta_ref, bc.domain_args[0])
+            for bc in self.theta_bcs_d
+            ]
         # Adapt Neumann conditions.
         n = FacetNormal(self.Q.mesh())
-        for k in self.theta_bcs_n:
-            self.theta_bcs_n[k] = dot(n, grad(theta_reference))
+        self.theta_bcs_n = {
+            k: dot(n, grad(self.theta_ref))
+            for k in self.theta_bcs_n
+            }
 
         if DEBUG:
             # Solve the heat equation with the mixed Dirichlet-Neumann
@@ -412,8 +412,9 @@ class Crucible():
                 name='temperature (Neumann + Dirichlet)'
                 )
             from dolfin import Measure
-            ds_workpiece = Measure('ds')[self.wp_boundaries]
-            problem_new = cyl_heat.Heat(
+            ds_workpiece = Measure('ds', subdomain_data=self.wp_boundaries)
+
+            problem_new = cyl_heat.Heat2(
                 self.Q, theta_new,
                 zeta,
                 b=Constant((0.0, 0.0, 0.0)),
@@ -423,22 +424,33 @@ class Crucible():
                 source=Constant(0.0),
                 dirichlet_bcs=self.theta_bcs_d,
                 neumann_bcs=self.theta_bcs_n,
-                ds=ds_workpiece
+                my_ds=ds_workpiece
                 )
+            theta_new = problem_new.ssolve()
 
-            from dolfin import solve
-            solve(problem_new.F0 == 0,
-                  theta_new,
-                  bcs=problem_new.dirichlet_bcs
-                  )
+            # heat = cyl_heat.Heat(
+            #     self.Q,
+            #     convection=None,
+            #     kappa=k, rho=rho, cp=cp,
+            #     source=Constant(0.0),
+            #     dirichlet_bcs=self.theta_bcs_d,
+            #     neumann_bcs=self.theta_bcs_n,
+            #     robin_bcs=self.theta_bcs_r,
+            #     my_ds=ds_workpiece
+            #     )
+            # theta_new = \
+            #     heat.solve_alpha_M_beta_F(alpha=0.0, beta=1.0, b=None, t=0.0)
+
+            theta_new.rename('theta', 'temperature (Neumann + Dirichlet)')
+
             from dolfin import plot, interactive, errornorm
             print('||theta_new - theta_ref|| = %e'
-                  % errornorm(theta_new, theta_reference)
+                  % errornorm(theta_new, self.theta_ref)
                   )
-            plot(theta_reference)
+            plot(self.theta_ref)
             plot(theta_new)
             plot(
-                theta_reference - theta_new,
+                self.theta_ref - theta_new,
                 title='theta_ref - theta_new'
                 )
             interactive()

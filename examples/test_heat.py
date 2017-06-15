@@ -4,28 +4,16 @@
 from __future__ import print_function
 
 from dolfin import (
-    plot, interactive, dot, grad, pi, dx, Constant, Measure, XDMFFile, solve,
-    Function, DirichletBC, TrialFunction, TestFunction, lhs, rhs,
-    SpatialCoordinate
+    plot, interactive, dot, grad, pi, dx, Constant, Measure, XDMFFile,
+    Function, SpatialCoordinate
     )
 
 import problems
 
+import maelstrom
 import maelstrom.time_steppers as ts
 
 import pytest
-
-
-def _main():
-    # # for boundary conditions
-    # heat_transfer_coefficient = {'upper': 50.0,
-    #                              'upper left': 300.0,
-    #                              'crucible': 15.0}
-    # T = {'upper': 1480.0,
-    #      'upper left': 1500.0,
-    #      'crucible': 1660.0}
-    test_solve(stationary=True)
-    return
 
 
 def _parameter_quest():
@@ -93,7 +81,7 @@ def _parameter_quest():
 @pytest.mark.parametrize('stationary', [
     True, False
     ])
-def test_solve(stationary):
+def test_solve(stationary, show=False):
 
     problem = problems.Crucible()
 
@@ -143,73 +131,32 @@ def test_solve(stationary):
         return F
 
     if stationary:
-        t = 0.0
-        # u_t = Constant(0.0)
-        u = TrialFunction(problem.Q)
-        v = TestFunction(problem.Q)
-        steady_F = weak_F(None, None, u, v)
-        a = lhs(steady_F)
-        L = rhs(steady_F)
-        # Solve the stationary problem with the strict Dirichlet boundary
-        # conditions, and extract dtheta/dn from the solution.
-        theta_reference = Function(problem.Q, name='temperature')
-        solve(a == L,
-              theta_reference,
-              bcs=problem.theta_bcs_d,
-              # bcs=theta_bcs_d_strict,
-              solver_parameters={
-                  'linear_solver': 'iterative',
-                  'symmetric': False,
-                  # AMG won't work well if the convection is too strong.
-                  'preconditioner': 'hypre_amg',
-                  'krylov_solver': {
-                      'relative_tolerance': 1.0e-12,
-                      'absolute_tolerance': 0.0,
-                      'maximum_iterations': 100,
-                      'monitor_convergence': False
-                      }
-                  })
+        convection = None
+        heat = maelstrom.heat.Heat(
+            problem.Q, convection,
+            kappa, rho, cp,
+            source=Constant(0.0),
+            dirichlet_bcs=problem.theta_bcs_d,
+            neumann_bcs=problem.theta_bcs_n,
+            robin_bcs=problem.theta_bcs_r,
+            my_dx=dx,
+            my_ds=my_ds
+            )
 
-        with XDMFFile('temperature.xdmf') as f:
-            f.parameters['flush_output'] = True
-            f.parameters['rewrite_function_mesh'] = False
-            f.write(theta_reference)
+        # Solve  alpha * M * u + beta * F(u, t) = b  for u.
+        theta_reference = \
+            heat.solve_alpha_M_beta_F(alpha=0.0, beta=1.0, b=None, t=0.0)
+        theta_reference.rename('theta', 'temperature')
 
-        plot(theta_reference, rescale=True)
-        interactive()
-        exit()
-        # Create new Dirichlet boundary conditions with the reference
-        # solution.
-        theta_bcs_d_new = []
-        for d in problem.theta_bcs_d:
-            V = d.function_space()
-            theta_bcs_d_new.append(
-                DirichletBC(V, theta_reference, d.domain_args[0])
-                )
-        theta = Function(problem.Q)
-        solve(a == L,
-              theta,
-              bcs=theta_bcs_d_new,
-              solver_parameters={
-                  'linear_solver': 'iterative',
-                  'symmetric': False,
-                  'preconditioner': 'hypre_amg',
-                  'krylov_solver': {
-                      'relative_tolerance': 1.0e-12,
-                      'absolute_tolerance': 0.0,
-                      'maximum_iterations': 100,
-                      'monitor_convergence': False
-                      }
-                  })
+        if show:
+            # with XDMFFile('temperature.xdmf') as f:
+            #     f.parameters['flush_output'] = True
+            #     f.parameters['rewrite_function_mesh'] = False
+            #     f.write(theta_reference)
 
-        with XDMFFile('temperature.xdmf') as f:
-            f.parameters['flush_output'] = True
-            f.parameters['rewrite_function_mesh'] = False
-            f.write(theta_reference)
+            plot(theta_reference)
+            interactive()
 
-        plot(theta_reference)
-        interactive()
-        return theta
     else:
         theta_1 = Function(problem.Q)
         theta_1.interpolate(theta0)
@@ -241,5 +188,13 @@ def test_solve(stationary):
 
 
 if __name__ == '__main__':
-    _main()
-    # _parameter_quest()
+    # # for boundary conditions
+    # heat_transfer_coefficient = {
+    #         'upper': 50.0,
+    #         'upper left': 300.0,
+    #         'crucible': 15.0
+    #         }
+    # T = {'upper': 1480.0,
+    #      'upper left': 1500.0,
+    #      'crucible': 1660.0}
+    test_solve(stationary=True, show=True)
