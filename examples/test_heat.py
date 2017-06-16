@@ -198,4 +198,4 @@ if __name__ == '__main__':
     #      'crucible': 1660.0}
 
     # test_stationary_solve(show=True)
-    test_time_step(show=True)
+    test_time_step()

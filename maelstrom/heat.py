@@ -39,6 +39,23 @@ class Heat(object):
             my_dx=dx,
             my_ds=ds
             ):
+        # TODO stabilization
+        # About stabilization for reaction-diffusion-convection:
+        # http://www.ewi.tudelft.nl/fileadmin/Faculteit/EWI/Over_de_faculteit/Afdelingen/Applied_Mathematics/Rapporten/doc/06-03.pdf
+        # http://www.xfem.rwth-aachen.de/Project/PaperDownload/Fries_ReviewStab.pdf
+        #
+        # R = u_t \
+        #     + dot(u0, grad(trial)) \
+        #     - 1.0/(rho(293.0)*cp) * div(kappa*grad(trial))
+        # F -= R * dot(tau*u0, grad(v)) * dx
+        #
+        # Stabilization
+        # tau = stab.supg2(
+        #         mesh,
+        #         u0,
+        #         kappa/(rho(293.0)*cp),
+        #         Q.ufl_element().degree()
+        #         )
         super(Heat, self).__init__()
         self.Q = Q
 
@@ -49,7 +66,21 @@ class Heat(object):
         u = TrialFunction(Q)
         v = TestFunction(Q)
 
-        self.M = assemble(u * v * dx)
+        # If there are sharp temperature gradients, numerical oscillations may
+        # occur. This happens because the resulting matrix is not an M-matrix,
+        # caused by the fact that A1 puts positive elements in places other
+        # than the main diagonal. To prevent that, it is suggested by
+        # Großmann/Roos to use a vertex-centered discretization for the mass
+        # matrix part.
+        # Check
+        # https://bitbucket.org/fenics-project/ffc/issues/145/uflacs-error-for-vertex-quadrature-scheme
+        self.M = assemble(
+              u * v * dx,
+              form_compiler_parameters={
+                  'quadrature_rule': 'vertex',
+                  'representation': 'quadrature'
+                  }
+              )
 
         self.dirichlet_bcs = dirichlet_bcs
 
@@ -74,6 +105,19 @@ class Heat(object):
         for k, value in robin_bcs.items():
             alpha, u0 = value
             F0 -= r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
+
+        # # Add SUPG stabilization.
+        # rho_cp = rho[wpi](background_temp)*cp[wpi]
+        # k = kappa[wpi](background_temp)
+        # Rdx = u_t * 2*pi*r*dx(wpi) \
+        #     + dot(u_1, grad(trial)) * 2*pi*r*dx(wpi) \
+        #     - 1.0/(rho_cp) * div(k*r*grad(trial)) * 2*pi*dx(wpi)
+        # #F -= dot(tau*u_1, grad(v)) * Rdx
+        # #F -= tau * inner(u_1, grad(v)) * 2*pi*r*dx(wpi)
+        # #plot(tau, mesh=V.mesh(), title='u_tau')
+        # #interactive()
+        # #F -= tau * v * 2*pi*r*dx(wpi)
+        # #F -= tau * Rdx
 
         self.A, self.b = assemble_system(-lhs(F0), rhs(F0))
         return
@@ -101,6 +145,7 @@ class Heat(object):
         solver.parameters['absolute_tolerance'] = 0.0
         solver.parameters['maximum_iterations'] = 100
         solver.parameters['monitor_convergence'] = True
+        # solver = LUSolver()
         solver.set_operator(matrix)
 
         u = Function(self.Q)
