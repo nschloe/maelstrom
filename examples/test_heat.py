@@ -4,8 +4,8 @@
 from __future__ import print_function
 
 from dolfin import (
-    plot, interactive, dot, grad, pi, dx, Constant, Measure, XDMFFile,
-    Function, SpatialCoordinate, project
+    plot, interactive, dot, grad, pi, dx, Constant, Measure, Function,
+    SpatialCoordinate, project, XDMFFile
     )
 
 import problems
@@ -168,6 +168,7 @@ def test_time_step(show=False):
             F -= r * kappa * alpha * (u - u0) * v/rho_cp * 2*pi*my_ds(k)
         return F
 
+    # from dolfin import DirichletBC
     convection = None
     heat = maelstrom.heat.Heat(
         problem.Q, convection,
@@ -181,26 +182,39 @@ def test_time_step(show=False):
         )
 
     # create time stepper
-    # stepper = parabolic.ImplicitEuler(heat)
-    stepper = parabolic.ExplicitEuler(heat)
+    # stepper = parabolic.ExplicitEuler(heat)
+    stepper = parabolic.ImplicitEuler(heat)
+    # stepper = parabolic.Trapezoidal(heat)
 
     theta0 = project(Constant(background_temp), problem.Q)
-    theta1 = Function(problem.Q)
+    # theta0 = heat.solve_stationary()
+    theta0.rename('theta0', 'temperature')
 
-    theta0.interpolate(theta0)
+    theta1 = Function(problem.Q)
+    # theta1 = Function(problem.Q)
+
+    # plot(theta0)
+    # interactive()
+
     t = 0.0
-    end_time = 1.0
+    dt = 1.0e-3
+    end_time = 10 * dt
+
     with XDMFFile('temperature.xdmf') as f:
         f.parameters['flush_output'] = True
         f.parameters['rewrite_function_mesh'] = False
-        # step
-        t = 0.0
-        dt = 1.0e-3
+
+        f.write(theta0, t)
         while t < end_time:
             theta1.assign(stepper.step(theta0, t, dt))
-            theta0 = theta1.copy()
-            f.write(theta1)
+            theta0.assign(theta1)
             t += dt
+            #
+            # plot(theta0)
+            # interactive()
+            #
+            f.write(theta0, t)
+
     return
 
 
@@ -215,5 +229,5 @@ if __name__ == '__main__':
     #      'upper left': 1500.0,
     #      'crucible': 1660.0}
 
-    test_stationary_solve(show=True)
-    # test_solve(stationary=False, show=True)
+    # test_stationary_solve(show=True)
+    test_time_step(show=True)

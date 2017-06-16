@@ -10,9 +10,7 @@ class Heat(object):
     '''
     Compute
 
-       \\alpha M u + \\beta F(u) = b
-
-    or its inverse with
+    .. math::
 
         F(u) =
             \\int_\\Omega \\kappa r \\dot(\\grad(u), \\grad(v/\\rho, c_p))
@@ -25,7 +23,11 @@ class Heat(object):
             - \\int_\\Gamma  r \\kappa  \\alpha (u - u_0) v
                 \\frac{1}{\\rho c_p} \\times 2\\pi \,\\text{d}s
 
-    plus Dirichlet conditions.
+    or its inverse with Dirichlet conditions. Used for time-stepping
+
+    .. math::
+
+        u' = F(u).
     '''
     def __init__(
             self, Q, convection,
@@ -65,16 +67,15 @@ class Heat(object):
         F0 -= source * v / rho_cp * 2*pi*r * my_dx
 
         # Neumann boundary conditions
-        for k, nGradT in neumann_bcs.items():
-            F0 -= r * kappa * nGradT * v / rho_cp * 2*pi * my_ds(k)
+        for k, n_grad_T in neumann_bcs.items():
+            F0 -= r * kappa * n_grad_T * v / rho_cp * 2*pi * my_ds(k)
 
         # Robin boundary conditions
         for k, value in robin_bcs.items():
             alpha, u0 = value
-            F0 -= \
-                r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
+            F0 -= r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
 
-        self.A, self.b = assemble_system(lhs(F0), rhs(F0))
+        self.A, self.b = assemble_system(-lhs(F0), rhs(F0))
         return
 
     # pylint: disable=unused-argument
@@ -88,7 +89,7 @@ class Heat(object):
         # conditions.
         matrix = alpha * self.M + beta * self.A
 
-        right_hand_side = self.b.copy()
+        right_hand_side = - beta * self.b.copy()
         if b:
             right_hand_side += b
 
