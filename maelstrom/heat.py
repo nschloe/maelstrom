@@ -7,7 +7,14 @@ from dolfin import (
     )
 
 
-class Heat(object):
+def F(u, v, kappa, rho, cp,
+      convection,
+      source,
+      neumann_bcs,
+      robin_bcs,
+      my_dx,
+      my_ds
+      ):
     '''
     Compute
 
@@ -30,6 +37,47 @@ class Heat(object):
 
         u' = F(u).
     '''
+    Q = v.function_space()
+
+    r = SpatialCoordinate(Q.mesh())[0]
+    rho_cp = rho * cp
+
+    F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
+
+    # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
+    b = convection
+    if b:
+        F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
+
+    # Joule heat
+    F0 -= source * v / rho_cp * 2*pi*r * my_dx
+
+    # Neumann boundary conditions
+    for k, n_grad_T in neumann_bcs.items():
+        F0 -= r * kappa * n_grad_T * v / rho_cp * 2*pi * my_ds(k)
+
+    # Robin boundary conditions
+    for k, value in robin_bcs.items():
+        alpha, u0 = value
+        F0 -= \
+            r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
+
+    # # Add SUPG stabilization.
+    # rho_cp = rho[wpi](background_temp)*cp[wpi]
+    # k = kappa[wpi](background_temp)
+    # Rdx = u_t * 2*pi*r*dx(wpi) \
+    #     + dot(u_1, grad(trial)) * 2*pi*r*dx(wpi) \
+    #     - 1.0/(rho_cp) * div(k*r*grad(trial)) * 2*pi*dx(wpi)
+    # #F -= dot(tau*u_1, grad(v)) * Rdx
+    # #F -= tau * inner(u_1, grad(v)) * 2*pi*r*dx(wpi)
+    # #plot(tau, mesh=V.mesh(), title='u_tau')
+    # #interactive()
+    # #F -= tau * v * 2*pi*r*dx(wpi)
+    # #F -= tau * Rdx
+    return F0
+
+
+class Heat(object):
     def __init__(
             self, Q,
             kappa, rho, cp,
@@ -65,6 +113,8 @@ class Heat(object):
         neumann_bcs = neumann_bcs or {}
         robin_bcs = robin_bcs or {}
 
+        self.convection = convection
+
         u = TrialFunction(Q)
         v = TestFunction(Q)
 
@@ -84,44 +134,17 @@ class Heat(object):
                   }
               )
 
+        self.F0 = F(
+                u, v, kappa, rho, cp,
+                convection,
+                source,
+                neumann_bcs,
+                robin_bcs,
+                my_dx,
+                my_ds
+                )
+
         self.dirichlet_bcs = dirichlet_bcs
-
-        r = SpatialCoordinate(Q.mesh())[0]
-        rho_cp = rho * cp
-
-        self.F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
-
-        # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
-        self.convection = convection
-        b = convection
-        if b:
-            self.F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
-
-        # Joule heat
-        self.F0 -= source * v / rho_cp * 2*pi*r * my_dx
-
-        # Neumann boundary conditions
-        for k, n_grad_T in neumann_bcs.items():
-            self.F0 -= r * kappa * n_grad_T * v / rho_cp * 2*pi * my_ds(k)
-
-        # Robin boundary conditions
-        for k, value in robin_bcs.items():
-            alpha, u0 = value
-            self.F0 -= \
-                r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
-
-        # # Add SUPG stabilization.
-        # rho_cp = rho[wpi](background_temp)*cp[wpi]
-        # k = kappa[wpi](background_temp)
-        # Rdx = u_t * 2*pi*r*dx(wpi) \
-        #     + dot(u_1, grad(trial)) * 2*pi*r*dx(wpi) \
-        #     - 1.0/(rho_cp) * div(k*r*grad(trial)) * 2*pi*dx(wpi)
-        # #F -= dot(tau*u_1, grad(v)) * Rdx
-        # #F -= tau * inner(u_1, grad(v)) * 2*pi*r*dx(wpi)
-        # #plot(tau, mesh=V.mesh(), title='u_tau')
-        # #interactive()
-        # #F -= tau * v * 2*pi*r*dx(wpi)
-        # #F -= tau * Rdx
 
         self.A, self.b = assemble_system(-lhs(self.F0), rhs(self.F0))
         return

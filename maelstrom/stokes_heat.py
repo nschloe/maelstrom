@@ -75,7 +75,7 @@ class StokesHeat(NonlinearProblem):
         theta_robin_bcs = theta_robin_bcs or {}
 
         # Translate the Dirichlet boundary conditions into the product space.
-        self.bcs = helpers.dbcs_to_productspace(
+        self.dirichlet_bcs = helpers.dbcs_to_productspace(
             WPQ,
             [u_bcs, p_bcs, theta_dirichlet_bcs]
             )
@@ -92,49 +92,40 @@ class StokesHeat(NonlinearProblem):
         mesh = self.uptheta.function_space().mesh()
         self.stokes = Stokes(mesh, u, p, v, q, f)
 
-        # self.heat = heat.Heat(
-        #     WPQ.sub(2), theta, zeta,
-        #     u,
-        #     kappa, rho_const, cp,
-        #     source=heat_source,
-        #     dirichlet_bcs=theta_dirichlet_bcs,
-        #     neumann_bcs=theta_neumann_bcs,
-        #     robin_bcs=theta_robin_bcs,
-        #     my_dx=my_dx,
-        #     my_ds=my_ds
-        #     )
-        self.heat = heat.Heat(
-            WPQ.sub(2), convection=u,
-            kappa=kappa, rho=rho_const, cp=cp,
-            source=heat_source,
-            dirichlet_bcs=theta_dirichlet_bcs,
-            neumann_bcs=theta_neumann_bcs,
-            robin_bcs=theta_robin_bcs,
-            my_dx=my_dx,
-            my_ds=my_ds
-            )
+        self.heat_F = heat.F(
+                theta, zeta,
+                kappa=kappa, rho=rho_const, cp=cp,
+                convection=u,
+                source=heat_source,
+                neumann_bcs=theta_neumann_bcs,
+                robin_bcs=theta_robin_bcs,
+                my_dx=my_dx,
+                my_ds=my_ds
+                )
 
-        self.F0 = self.stokes.F0(mu) + self.heat.F0  # fail
+        self.F0 = self.stokes.F0(mu) + self.heat_F
         self.jacobian = derivative(self.F0, self.uptheta)
         return
 
     def F(self, b, x):
         self.uptheta.vector()[:] = x
-        assemble(self.F0,
-                 tensor=b,
-                 form_compiler_parameters={'optimize': True}
-                 )
-        for bc in self.bcs:
+        assemble(
+            self.F0,
+            tensor=b,
+            form_compiler_parameters={'optimize': True}
+            )
+        for bc in self.dirichlet_bcs:
             bc.apply(b, x)
         return
 
     def J(self, A, x):
         self.uptheta.vector()[:] = x
-        assemble(self.jacobian,
-                 tensor=A,
-                 form_compiler_parameters={'optimize': True}
-                 )
-        for bc in self.bcs:
+        assemble(
+            self.jacobian,
+            tensor=A,
+            form_compiler_parameters={'optimize': True}
+            )
+        for bc in self.dirichlet_bcs:
             bc.apply(A)
         return
 
@@ -151,7 +142,6 @@ def solve(
         theta_neumann_bcs,
         dx_submesh, ds_submesh
         ):
-
     # First do a fixed_point iteration. This is usually quite robust and leads
     # to a point from where Newton can converge reliably.
     u0, p0, theta0 = _solve_fixed_point(
