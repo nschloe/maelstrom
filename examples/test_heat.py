@@ -95,8 +95,9 @@ def test_stationary_solve(show=False):
 
     convection = None
     heat = maelstrom.heat.Heat(
-        problem.Q, convection,
+        problem.Q,
         kappa, rho, cp,
+        convection,
         source=Constant(0.0),
         dirichlet_bcs=problem.theta_bcs_d,
         neumann_bcs=problem.theta_bcs_n,
@@ -107,10 +108,6 @@ def test_stationary_solve(show=False):
     theta_reference = heat.solve_stationary()
     theta_reference.rename('theta', 'temperature')
 
-    assert abs(
-        maelstrom.helpers.average(theta_reference) - 1551.0097749549102
-        ) < 1.0e-5
-
     if show:
         # with XDMFFile('temperature.xdmf') as f:
         #     f.parameters['flush_output'] = True
@@ -118,6 +115,10 @@ def test_stationary_solve(show=False):
         #     f.write(theta_reference)
         plot(theta_reference)
         interactive()
+
+    assert abs(
+        maelstrom.helpers.average(theta_reference) - 1551.0097749549102
+        ) < 1.0e-5
 
     return
 
@@ -142,8 +143,9 @@ def test_time_step():
     # from dolfin import DirichletBC
     convection = None
     heat = maelstrom.heat.Heat(
-        problem.Q, convection,
+        problem.Q,
         kappa, rho, cp,
+        convection,
         source=Constant(0.0),
         dirichlet_bcs=problem.theta_bcs_d,
         neumann_bcs=problem.theta_bcs_n,
@@ -198,5 +200,5 @@ if __name__ == '__main__':
     #      'upper left': 1500.0,
     #      'crucible': 1660.0}
 
-    # test_stationary_solve(show=True)
-    test_time_step()
+    test_stationary_solve(show=True)
+    # test_time_step()

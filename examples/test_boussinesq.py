@@ -9,7 +9,7 @@ from __future__ import print_function
 
 from dolfin import (
     parameters, Constant, Function, XDMFFile, mpi_comm_world, DOLFIN_EPS,
-    begin, end, project, plot, norm, as_vector, Measure
+    begin, end, project, plot, norm, as_vector, Measure, FunctionSpace
     )
 import parabolic
 
@@ -39,6 +39,8 @@ def test(target_time=0.1):
     kappa = material.thermal_conductivity
     mu = material.dynamic_viscosity
 
+    average_temp = 1520.0
+
     # Start time, end time, time step.
     t = 0.0
     dt = 1.0e-4
@@ -46,16 +48,25 @@ def test(target_time=0.1):
     g = Constant((0.0, -9.81, 0.0))
 
     # Initial states.
+    # TODO proper intitialization with StokesHeat
     u0 = Function(problem.W, name='velocity')
     u0.interpolate(Constant((0.0, 0.0, 0.0)))
-
     p0 = Function(problem.P, name='pressure')
     p0.interpolate(Constant(0.0))
 
-    theta0 = Function(problem.Q, name='temperature')
-    theta0.interpolate(Constant(1550.0))
-
     my_ds = Measure('ds')(subdomain_data=problem.wp_boundaries)
+
+    heat_problem = maelstrom.heat.Heat(
+                problem.Q,
+                kappa, rho(average_temp), cp,
+                convection=None,
+                source=Constant(0.0),
+                dirichlet_bcs=problem.theta_bcs_d,
+                neumann_bcs=problem.theta_bcs_n,
+                my_ds=my_ds
+                )
+    theta0 = heat_problem.solve_stationary()
+    theta0.rename('theta', 'temperature')
 
     with XDMFFile(mpi_comm_world(), 'boussinesq.xdmf') as xdmf_file:
         xdmf_file.parameters['flush_output'] = True
@@ -70,20 +81,18 @@ def test(target_time=0.1):
 
             begin('Computing heat...')
 
-            stepper = parabolic.ImplicitEuler(
-                    maelstrom.heat.Heat(
+            heat_problem = maelstrom.heat.Heat(
                         problem.Q,
+                        kappa, rho(average_temp), cp,
                         # Only take the first two components of the convection
-                        as_vector([u0[0], u0[1]]),
-                        # Take all parameters at 1550K.
-                        kappa, rho(1550.0), cp,
+                        convection=as_vector([u0[0], u0[1]]),
                         source=Constant(0.0),
-                        dirichlet_bcs=problem.theta_bcs_d,
                         # dirichlet_bcs=problem.theta_bcs_d_strict,
+                        dirichlet_bcs=problem.theta_bcs_d,
                         neumann_bcs=problem.theta_bcs_n,
                         my_ds=my_ds
                         )
-                    )
+            stepper = parabolic.ImplicitEuler(heat_problem)
             theta1 = stepper.step(theta0, t, dt)
             end()
 
@@ -128,7 +137,7 @@ def test(target_time=0.1):
             xdmf_file.write(p0, t+dt)
 
             plot(theta0, title='temperature', rescale=True)
-            # plot(u0, title='velocity', rescale=True)
+            plot(u0, title='velocity', rescale=True)
             plot(p0, title='pressure', rescale=True)
             # interactive()
             t += dt
@@ -147,7 +156,7 @@ def test(target_time=0.1):
             # http://scicomp.stackexchange.com/questions/2927/estimating-the-courant-number-for-the-navier-stokes-equations-under-differing-re
             rho_mu = rho(problem.background_temp) / mu(problem.background_temp)
             target_dt = min(
-                0.5*problem.mesh.hmin()/unorm,
+                0.5*problem.mesh.hmin() / unorm,
                 0.5*problem.mesh.hmin()**2 * rho_mu
                 )
             print('previous dt: %e' % dt)

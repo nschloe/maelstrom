@@ -3,8 +3,7 @@
 from dolfin import (
     NonlinearProblem, dx, ds, Function, split, TestFunctions, as_vector,
     assemble, derivative, Constant, inner, grad, pi, dot, FunctionSpace,
-    MixedElement, assign, SpatialCoordinate, norm, KrylovSolver, TrialFunction,
-    TestFunction, info, errornorm
+    MixedElement, assign, SpatialCoordinate, norm, info, errornorm
     )
 
 from . import heat
@@ -93,10 +92,20 @@ class StokesHeat(NonlinearProblem):
         mesh = self.uptheta.function_space().mesh()
         self.stokes = Stokes(mesh, u, p, v, q, f)
 
+        # self.heat = heat.Heat(
+        #     WPQ.sub(2), theta, zeta,
+        #     u,
+        #     kappa, rho_const, cp,
+        #     source=heat_source,
+        #     dirichlet_bcs=theta_dirichlet_bcs,
+        #     neumann_bcs=theta_neumann_bcs,
+        #     robin_bcs=theta_robin_bcs,
+        #     my_dx=my_dx,
+        #     my_ds=my_ds
+        #     )
         self.heat = heat.Heat(
-            WPQ.sub(2), theta, zeta,
-            u,
-            kappa, rho_const, cp,
+            WPQ.sub(2), convection=u,
+            kappa=kappa, rho=rho_const, cp=cp,
             source=heat_source,
             dirichlet_bcs=theta_dirichlet_bcs,
             neumann_bcs=theta_neumann_bcs,
@@ -248,29 +257,6 @@ class FixedPointSolver(object):
         return
 
 
-def _solve_stationary(problem, theta, t=0.0, verbose=True, mode='lu'):
-    '''Solve the stationary heat equation.
-    '''
-    A, b = problem.get_system(t=t)
-    for bc in problem.get_bcs(t=t):
-        bc.apply(A, b)
-
-    if mode == 'lu':
-        from dolfin import solve
-        solve(A, theta.vector(), b, 'lu')
-    else:
-        assert mode == 'krylov', 'Illegal mode \'{}\'.'.format(mode)
-        # AMG won't work well if the convection is too strong.
-        solver = KrylovSolver('gmres', 'hypre_amg')
-        solver.parameters['relative_tolerance'] = 1.0e-12
-        solver.parameters['absolute_tolerance'] = 0.0
-        solver.parameters['maximum_iterations'] = 142
-        solver.parameters['monitor_convergence'] = verbose
-        solver.solve(A, theta.vector(), b)
-
-    return theta
-
-
 def _solve_fixed_point(
         mesh,
         W_element, P_element, Q_element,
@@ -297,18 +283,15 @@ def _solve_fixed_point(
     theta1 = Function(Q)
     while True:
         heat_problem = heat.Heat(
-            Q, TrialFunction(Q), TestFunction(Q),
-            b=u0,
-            kappa=kappa,
-            rho=rho(theta0),
-            cp=cp,
+            Q, convection=u0,
+            kappa=kappa, rho=rho(theta0), cp=cp,
             source=heat_source,
             dirichlet_bcs=theta_dirichlet_bcs,
             neumann_bcs=theta_neumann_bcs,
             my_dx=dx_submesh,
             my_ds=ds_submesh
             )
-        _solve_stationary(heat_problem, theta1, verbose=False)
+        theta1.assign(heat_problem.solve_stationary())
 
         f = rho(theta0) * g
         if extra_force:

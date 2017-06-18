@@ -30,8 +30,9 @@ class Heat(object):
         u' = F(u).
     '''
     def __init__(
-            self, Q, convection,
+            self, Q,
             kappa, rho, cp,
+            convection,
             source,
             dirichlet_bcs=None,
             neumann_bcs=None,
@@ -87,24 +88,25 @@ class Heat(object):
         r = SpatialCoordinate(Q.mesh())[0]
         rho_cp = rho * cp
 
-        F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
+        self.F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
 
         # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
         b = convection
         if b:
-            F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
+            self.F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
 
         # Joule heat
-        F0 -= source * v / rho_cp * 2*pi*r * my_dx
+        self.F0 -= source * v / rho_cp * 2*pi*r * my_dx
 
         # Neumann boundary conditions
         for k, n_grad_T in neumann_bcs.items():
-            F0 -= r * kappa * n_grad_T * v / rho_cp * 2*pi * my_ds(k)
+            self.F0 -= r * kappa * n_grad_T * v / rho_cp * 2*pi * my_ds(k)
 
         # Robin boundary conditions
         for k, value in robin_bcs.items():
             alpha, u0 = value
-            F0 -= r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
+            self.F0 -= \
+                r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
 
         # # Add SUPG stabilization.
         # rho_cp = rho[wpi](background_temp)*cp[wpi]
@@ -119,7 +121,7 @@ class Heat(object):
         # #F -= tau * v * 2*pi*r*dx(wpi)
         # #F -= tau * Rdx
 
-        self.A, self.b = assemble_system(-lhs(F0), rhs(F0))
+        self.A, self.b = assemble_system(-lhs(self.F0), rhs(self.F0))
         return
 
     # pylint: disable=unused-argument

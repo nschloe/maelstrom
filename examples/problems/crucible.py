@@ -353,7 +353,7 @@ class Crucible():
         # Pick fixed coefficients roughly at the temperature that we expect.
         # This could be made less magic by having the coefficients depend on
         # theta and solving the quasilinear equation.
-        temp_estimate = 1600.0
+        temp_estimate = 1550.0
 
         # Get material parameters
         wp_material = self.subdomain_materials[self.wpi]
@@ -392,6 +392,7 @@ class Crucible():
         n = FacetNormal(self.Q.mesh())
         self.theta_bcs_n = {
             k: dot(n, grad(theta_reference))
+            # k: Constant(1000.0)
             for k in self.theta_bcs_n
             }
 
@@ -419,9 +420,10 @@ class Crucible():
             theta_new.rename('theta', 'temperature (Neumann + Dirichlet)')
 
             from dolfin import plot, interactive, errornorm
-            print('||theta_new - theta_ref|| = %e'
-                  % errornorm(theta_new, theta_reference)
-                  )
+            print(
+                '||theta_new - theta_ref|| = {:e}'.format(
+                    errornorm(theta_new, theta_reference)
+                ))
             plot(theta_reference)
             plot(theta_new)
             plot(
