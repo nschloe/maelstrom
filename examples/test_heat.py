@@ -84,10 +84,10 @@ def test_stationary_solve(show=False):
 
     boundaries = problem.wp_boundaries
 
-    background_temp = 1500.0
+    average_temp = 1551.0
 
     material = problem.subdomain_materials[problem.wpi]
-    rho = material.density(background_temp)
+    rho = material.density(average_temp)
     cp = material.specific_heat_capacity
     kappa = material.thermal_conductivity
 
@@ -108,8 +108,8 @@ def test_stationary_solve(show=False):
     theta_reference.rename('theta', 'temperature')
 
     assert abs(
-        maelstrom.helpers.average(theta_reference) - 1551.0097748979463
-        ) < 1.0e-3
+        maelstrom.helpers.average(theta_reference) - 1551.0097749549102
+        ) < 1.0e-5
 
     if show:
         # with XDMFFile('temperature.xdmf') as f:
@@ -127,12 +127,13 @@ def test_time_step():
 
     boundaries = problem.wp_boundaries
 
-    background_temp = 1500.0
+    # The melting point of GaAs is 1511 K.
+    average_temp = 1520.0
 
     f = Constant(0.0)
 
     material = problem.subdomain_materials[problem.wpi]
-    rho = material.density(background_temp)
+    rho = material.density(average_temp)
     cp = material.specific_heat_capacity
     kappa = material.thermal_conductivity
 
@@ -156,7 +157,7 @@ def test_time_step():
     stepper = parabolic.ImplicitEuler(heat)
     # stepper = parabolic.Trapezoidal(heat)
 
-    theta0 = project(Constant(background_temp), problem.Q)
+    theta0 = project(Constant(average_temp), problem.Q)
     # theta0 = heat.solve_stationary()
     theta0.rename('theta0', 'temperature')
 
@@ -180,7 +181,7 @@ def test_time_step():
             f.write(theta0, t)
 
     assert abs(
-        maelstrom.helpers.average(theta0) - 1499.9998244919047
+        maelstrom.helpers.average(theta0) - 1519.812086239581
         ) < 1.0e-3
 
     return
