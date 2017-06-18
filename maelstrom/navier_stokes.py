@@ -543,7 +543,7 @@ def _step(
         p1 = _compute_pressure(
                 P, p0,
                 mu, ui,
-                rho * ui / dt,
+                rho * ui / Constant(dt),
                 my_dx,
                 p_bcs=p_bcs,
                 rotational_form=rotational_form,
@@ -553,7 +553,7 @@ def _step(
 
     with Message('Computing velocity correction'):
         u1 = _compute_velocity_correction(
-            ui, p0, p1, u_bcs, rho, mu, dt,
+            ui, p0, p1, u_bcs, rho, mu, Constant(dt),
             rotational_form, my_dx,
             tol, verbose
             )
