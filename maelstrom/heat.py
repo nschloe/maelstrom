@@ -2,7 +2,8 @@
 #
 from dolfin import (
     dx, ds, dot, grad, pi, assemble, lhs, rhs, SpatialCoordinate,
-    TrialFunction, TestFunction, KrylovSolver, Function, assemble_system
+    TrialFunction, TestFunction, KrylovSolver, Function, assemble_system,
+    LUSolver
     )
 
 
@@ -91,6 +92,7 @@ class Heat(object):
         self.F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
 
         # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
+        self.convection = convection
         b = convection
         if b:
             self.F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
@@ -142,12 +144,16 @@ class Heat(object):
         for bc in self.dirichlet_bcs:
             bc.apply(matrix, right_hand_side)
 
-        solver = KrylovSolver('gmres', 'hypre_amg')
-        solver.parameters['relative_tolerance'] = 1.0e-13
-        solver.parameters['absolute_tolerance'] = 0.0
-        solver.parameters['maximum_iterations'] = 100
-        solver.parameters['monitor_convergence'] = True
-        # solver = LUSolver()
+        # TODO proper preconditioner for convection
+        if self.convection:
+            solver = LUSolver()
+        else:
+            solver = KrylovSolver('gmres', 'hypre_amg')
+            solver.parameters['relative_tolerance'] = 1.0e-13
+            solver.parameters['absolute_tolerance'] = 0.0
+            solver.parameters['maximum_iterations'] = 100
+            solver.parameters['monitor_convergence'] = True
+
         solver.set_operator(matrix)
 
         u = Function(self.Q)
