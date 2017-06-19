@@ -170,13 +170,15 @@ class Heat(object):
 
         # TODO proper preconditioner for convection
         if self.convection:
-            solver = LUSolver()
+            # solver = LUSolver()
+            # Use HYPRE-Euclid instead of ILU for parallel computation.
+            solver = KrylovSolver('gmres', 'hypre_euclid')
         else:
             solver = KrylovSolver('gmres', 'hypre_amg')
-            solver.parameters['relative_tolerance'] = 1.0e-13
-            solver.parameters['absolute_tolerance'] = 0.0
-            solver.parameters['maximum_iterations'] = 100
-            solver.parameters['monitor_convergence'] = True
+        solver.parameters['relative_tolerance'] = 1.0e-13
+        solver.parameters['absolute_tolerance'] = 0.0
+        solver.parameters['maximum_iterations'] = 100
+        solver.parameters['monitor_convergence'] = True
 
         solver.set_operator(matrix)
 

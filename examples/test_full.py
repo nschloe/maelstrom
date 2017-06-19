@@ -15,19 +15,18 @@ A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 from dolfin import (
     parameters, Measure, Function, FunctionSpace, Constant, SubMesh, plot,
     interactive, project, XDMFFile, DOLFIN_EPS, as_vector, info, norm,
-    assemble, TestFunction, TrialFunction, MPI, dx, interpolate,
-    VectorFunctionSpace
+    assemble, MPI, dx, interpolate, VectorFunctionSpace
     )
 
 import numpy
 from numpy import pi
+import parabolic
 
 from maelstrom.helpers import average
 import maelstrom.navier_stokes as cyl_ns
 import maelstrom.stokes_heat as stokes_heat
 import maelstrom.maxwell as cmx
 import maelstrom.heat as cyl_heat
-import maelstrom.time_steppers as ts
 from maelstrom.message import Message
 
 import problems
@@ -147,7 +146,6 @@ def _compute_lorentz_joule(
                 W_submesh = FunctionSpace(submesh, 'CG', 1)
                 jp = Function(W_submesh, name='Joule heat source')
                 jp.assign(project(joule[ii], W_submesh))
-                # jp.interpolate(joule[ii])
                 plot(jp)
                 interactive()
 
@@ -252,17 +250,15 @@ def _compute(
 
     # Redefine the heat problem with the new u0.
     heat_problem = cyl_heat.Heat(
-        problem.Q, TrialFunction(problem.Q), TestFunction(problem.Q),
-        b=u0,
-        kappa=k_wpi,
-        rho=rho_wpi(theta_average),
-        cp=cp_wpi,
-        source=joule_wpi,
-        dirichlet_bcs=problem.theta_bcs_d,
-        neumann_bcs=problem.theta_bcs_n,
-        my_dx=dx(submesh_workpiece),
-        my_ds=ds_workpiece
-        )
+            problem.Q,
+            kappa=k_wpi, rho=rho_wpi(theta_average), cp=cp_wpi,
+            convection=u0,
+            source=joule_wpi,
+            dirichlet_bcs=problem.theta_bcs_d,
+            neumann_bcs=problem.theta_bcs_n,
+            my_dx=dx(submesh_workpiece),
+            my_ds=ds_workpiece
+            )
 
     show_total_force = False
     if show_total_force:
@@ -300,21 +296,14 @@ def _compute(
                     # Similar to the present approach, one first solves for
                     # velocity and pressure, then for temperature.
                     #
-                    heat_stepper = ts.ImplicitEuler(heat_problem)
+                    heat_stepper = parabolic.ImplicitEuler(heat_problem)
+
                     ns_stepper = cyl_ns.IPCS(
                             time_step_method='backward euler',
                             stabilization=None
                             )
-                    # Use HYPRE-Euclid instead of ILU for parallel computation.
-                    theta1 = heat_stepper.step(
-                            theta0,
-                            t, dt,
-                            tol=1.0e-12,
-                            maxiter=1000,
-                            krylov='gmres',
-                            preconditioner='hypre_euclid',
-                            verbose=False
-                            )
+                    theta1 = heat_stepper.step(theta0, t, dt)
+
                 theta0_average = average(theta0)
                 try:
                     # Do one Navier-Stokes time step.

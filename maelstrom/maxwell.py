@@ -740,7 +740,9 @@ def compute_joule(
         if i in voltages:
             E_r += voltages[i].real / (2*pi*r)
             E_i += voltages[i].imag / (2*pi*r)
-        joule_source[i] = 0.5 * Sigma[i] * (E_r*E_r + E_i*E_i)
+        # Make Sigma[i] a Constant since it could be 0 and then render the
+        # entire Expression 0 (float).
+        joule_source[i] = 0.5 * Constant(Sigma[i]) * (E_r*E_r + E_i*E_i)
 
     # # Alternative computation.
     # joule_source = zero() * dx(0)
