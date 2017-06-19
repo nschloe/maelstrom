@@ -48,13 +48,13 @@ class StokesHeat(NonlinearProblem):
         u, p, theta = split(self.uptheta)
         v, q, zeta = TestFunctions(WPQ)
 
-        # Right-hand side for momentum equation.
-        f = rho(theta) * g
-        if extra_force is not None:
-            f += as_vector((extra_force[0], extra_force[1], 0.0))
-
         mesh = WPQ.mesh()
         r = SpatialCoordinate(mesh)[0]
+
+        # Right-hand side for momentum equation.
+        f = rho(theta) * g  # coupling
+        if extra_force is not None:
+            f += as_vector((extra_force[0], extra_force[1], 0.0))
         self.stokes_F = stokes.F(
             u, p, v, q, f, r, mu, my_dx
             )
@@ -112,7 +112,7 @@ def solve(
         ):
     # First do a fixed_point iteration. This is usually quite robust and leads
     # to a point from where Newton can converge reliably.
-    u0, p0, theta0 = _solve_fixed_point(
+    u0, p0, theta0 = solve_fixed_point(
         mesh,
         W_element, P_element, Q_element,
         u0, p0, theta0,
@@ -124,7 +124,8 @@ def solve(
         theta_neumann_bcs,
         my_dx=dx_submesh,
         my_ds=ds_submesh,
-        tol=1.0e-2
+        max_iter=100,
+        tol=1.0e-8
         )
 
     WPQ = FunctionSpace(
@@ -216,7 +217,7 @@ class FixedPointSolver(object):
         return
 
 
-def _solve_fixed_point(
+def solve_fixed_point(
         mesh,
         W_element, P_element, Q_element,
         u0, p0, theta0,
@@ -227,7 +228,8 @@ def _solve_fixed_point(
         theta_dirichlet_bcs,
         theta_neumann_bcs,
         my_dx, my_ds,
-        tol=1.0e-10
+        max_iter,
+        tol
         ):
     # Solve the coupled heat-Stokes equation approximately. Do this
     # iteratively by solving the heat equation, then solving Stokes with the
@@ -240,10 +242,12 @@ def _solve_fixed_point(
     u0, p0 = up0.split()
 
     theta1 = Function(Q)
-    while True:
+    for _ in range(max_iter):
         heat_problem = heat.Heat(
             Q,
-            kappa=kappa, rho=rho(theta0), cp=cp,
+            kappa=kappa,
+            rho=rho(theta0),
+            cp=cp,
             convection=u0,
             source=heat_source,
             dirichlet_bcs=theta_dirichlet_bcs,
@@ -254,11 +258,10 @@ def _solve_fixed_point(
 
         theta1.assign(heat_problem.solve_stationary())
 
-        f = rho(theta0) * g
+        # Solve problem for velocity, pressure.
+        f = rho(theta0) * g  # coupling
         if extra_force:
             f += as_vector((extra_force[0], extra_force[1], 0.0))
-
-        # Solve problem for velocity, pressure.
         # up1 = up0.copy()
         stokes.stokes_solve(
             up0,

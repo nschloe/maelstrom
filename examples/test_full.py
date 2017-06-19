@@ -42,10 +42,10 @@ parameters['std_out_all_processes'] = False
 def _construct_initial_state(
         mesh,
         W_element, P_element, Q_element,
-        k_wpi, cp_wpi, rho_wpi, mu_wpi,
-        joule_wpi,
+        kappa, cp, rho, mu,
+        heat_source,
         u_bcs, p_bcs,
-        theta_bcs_d, theta_bcs_n,
+        theta_dirichlet_bcs, theta_neumann_bcs,
         dx_submesh,
         ds_submesh,
         g, extra_force
@@ -56,32 +56,53 @@ def _construct_initial_state(
     P = FunctionSpace(mesh, P_element)
     Q = FunctionSpace(mesh, Q_element)
 
-    theta_average = 1530.0
-
-    kappa_wpi_const = \
-        k_wpi if isinstance(k_wpi, float) else k_wpi(theta_average)
-    mu_wpi_const = \
-        mu_wpi if isinstance(mu_wpi, float) else mu_wpi(theta_average)
-    cp_wpi_const = \
-        cp_wpi if isinstance(cp_wpi, float) else cp_wpi(theta_average)
+    # Finding a steady-state solution of the coupled Stokes-Heat problem hasn't
+    # been successfull -- perhaps because there is no steady state. A
+    # reasonable approach is to first solve the heat equation without
+    # convection, then the Stokes problem with the uplift force from the
+    # heat and density distribution.
 
     # initial guess
+    theta_average = 1530.0
     u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
     p0 = interpolate(Constant(0.0), P)
     theta0 = interpolate(Constant(theta_average), Q)
     theta0.rename('temperature', 'temperature')
 
-    u0, p0, theta0 = stokes_heat.solve(
-        mesh, W_element, P_element, Q_element,
+    kappa_const = \
+        kappa if isinstance(kappa, float) else kappa(theta_average)
+    mu_const = \
+        mu if isinstance(mu, float) else mu(theta_average)
+    cp_const = \
+        cp if isinstance(cp, float) else cp(theta_average)
+
+    u0, p0, theta0 = stokes_heat.solve_fixed_point(
+        mesh,
+        W_element, P_element, Q_element,
         u0, p0, theta0,
-        kappa_wpi_const, rho_wpi, mu_wpi_const, cp_wpi_const,
+        kappa_const, rho, mu_const, cp_const,
         g, extra_force,
-        joule_wpi,
+        heat_source,
         u_bcs, p_bcs,
-        theta_bcs_d,
-        theta_bcs_n,
-        dx_submesh, ds_submesh
+        theta_dirichlet_bcs,
+        theta_neumann_bcs,
+        my_dx=dx_submesh,
+        my_ds=ds_submesh,
+        max_iter=1,
+        tol=1.0e-8
         )
+
+    # u0, p0, theta0 = stokes_heat.solve(
+    #     mesh, W_element, P_element, Q_element,
+    #     u0, p0, theta0,
+    #     kappa_wpi_const, rho_wpi, mu_wpi_const, cp_wpi_const,
+    #     g, extra_force,
+    #     joule_wpi,
+    #     u_bcs, p_bcs,
+    #     theta_bcs_d,
+    #     theta_bcs_n,
+    #     dx_submesh, ds_submesh
+    #     )
 
     # Create a *deep* copy of u0, p0, to be able to deal with them as actually
     # separate entities.
@@ -139,15 +160,13 @@ def _compute_lorentz_joule(
                 )
 
         if show:
-            show_joule = subdomain_indices
-            for ii in show_joule:
-                # Show Joule heat source.
-                submesh = SubMesh(mesh, subdomains, ii)
-                W_submesh = FunctionSpace(submesh, 'CG', 1)
-                jp = Function(W_submesh, name='Joule heat source')
-                jp.assign(project(joule[ii], W_submesh))
-                plot(jp)
-                interactive()
+            # Show Joule heat source.
+            submesh = SubMesh(mesh, subdomains, wpi)
+            W_submesh = FunctionSpace(submesh, 'CG', 1)
+            jp = Function(W_submesh, name='Joule heat source')
+            jp.assign(project(joule[wpi], W_submesh))
+            plot(jp)
+            interactive()
 
         joule_wpi = joule[wpi]
 
