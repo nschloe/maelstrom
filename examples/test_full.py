@@ -558,9 +558,9 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
         interactive()
 
     # Rename the states for plotting and such.
-    u0.rename('velocity', 'velocity')
-    p0.rename('pressure', 'pressure')
-    theta0.rename('temperature', 'temperature')
+    u0.rename('u', 'velocity')
+    p0.rename('p', 'pressure')
+    theta0.rename('theta', 'temperature')
 
     for alpha in Alpha:
         # Scale the voltages
@@ -573,4 +573,4 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
 
 
 if __name__ == '__main__':
-    test_optimize(num_steps=51, target_time=600.0, show=True)
+    test_optimize(num_steps=51, target_time=600.0, show=False)

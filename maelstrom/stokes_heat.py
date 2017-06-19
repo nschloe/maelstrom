@@ -298,5 +298,5 @@ def solve_fixed_point(
 
     # Create a *deep* copy of u0, p0, to be able to deal with them as
     # actually separate entities.
-    # u0, p0 = up0.split(deepcopy=True)
+    u0, p0 = up0.split(deepcopy=True)
     return u0, p0, theta0
