@@ -55,7 +55,9 @@ class StokesHeat(NonlinearProblem):
 
         mesh = WPQ.mesh()
         r = SpatialCoordinate(mesh)[0]
-        self.stokes_F = stokes.F(u, p, v, q, f, r, mu, my_dx)
+        self.stokes_F = stokes.F(
+            u, p, v, q, f, r, mu, my_dx
+            )
 
         self.heat_F = heat.F(
                 theta, zeta,

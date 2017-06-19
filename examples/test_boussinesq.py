@@ -95,17 +95,6 @@ def test(target_time=0.1):
 
     my_ds = ds(subdomain_data=problem.wp_boundaries)
 
-    # heat_problem = maelstrom.heat.Heat(
-    #             problem.Q,
-    #             kappa, rho(average_temp), cp,
-    #             convection=None,
-    #             source=Constant(0.0),
-    #             dirichlet_bcs=problem.theta_bcs_d,
-    #             neumann_bcs=problem.theta_bcs_n,
-    #             my_ds=my_ds
-    #             )
-    # theta0 = heat_problem.solve_stationary()
-
     # Initial states.
     u0, p0, theta0 = _construct_initial_state(
         problem.submesh_workpiece,
@@ -122,23 +111,9 @@ def test(target_time=0.1):
         extra_force=None
         )
 
-    # # TODO proper intitialization with StokesHeat
-    # u0 = Function(problem.W, name='velocity')
-    # u0.interpolate(Constant((0.0, 0.0, 0.0)))
-    # p0 = Function(problem.P, name='pressure')
-    # p0.interpolate(Constant(0.0))
-
-    # heat_problem = maelstrom.heat.Heat(
-    #             problem.Q,
-    #             kappa, rho(average_temp), cp,
-    #             convection=None,
-    #             source=Constant(0.0),
-    #             dirichlet_bcs=problem.theta_bcs_d,
-    #             neumann_bcs=problem.theta_bcs_n,
-    #             my_ds=my_ds
-    #             )
-    # theta0 = heat_problem.solve_stationary()
-    # theta0.rename('theta', 'temperature')
+    u0.rename('u', 'velocity')
+    p0.rename('p', 'pressure')
+    theta0.rename('theta', 'temperature')
 
     with XDMFFile('boussinesq.xdmf') as xdmf_file:
         xdmf_file.parameters['flush_output'] = True
