@@ -7,10 +7,35 @@ from __future__ import print_function
 
 from dolfin import (
     TrialFunctions, TestFunctions, grad, pi, dx, assemble_system, KrylovSolver,
-    inner, solve, SpatialCoordinate
+    inner, solve, SpatialCoordinate, Constant, dot, lhs, rhs
     )
 
 from . import helpers
+
+
+# TODO check in depth
+def F(u, p, v, q, f, mu):
+    mesh = v.function_space().mesh()
+    mu = Constant(mu)
+    # Momentum equation (without the nonlinear Navier term).
+    r = SpatialCoordinate(mesh)[0]
+    F0 = mu * inner(r * grad(u), grad(v)) * 2*pi * dx \
+        + mu * u[0] / r * v[0] * 2*pi * dx \
+        - dot(f, v) * 2*pi*r * dx
+    if len(u) == 3:
+        F0 += mu * u[2] / r * v[2] * 2*pi * dx
+    F0 += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * dx
+
+    # Incompressibility condition.
+    # div_u = 1/r * div(r*u)
+    F0 += ((r * u[0]).dx(0) + r * u[1].dx(1)) * q * 2*pi * dx
+
+    # a = mu * inner(r * grad(u), grad(v)) * 2*pi * my_dx \
+    #     - ((r * v[0]).dx(0) + (r * v[1]).dx(1)) * p * 2*pi * my_dx \
+    #     + ((r * u[0]).dx(0) + (r * u[1]).dx(1)) * q * 2*pi * my_dx
+    # #   - div(r*v)*p* 2*pi*my_dx \
+    # #   + q*div(r*u)* 2*pi*my_dx
+    return F0
 
 
 def stokes_solve(
@@ -40,13 +65,9 @@ def stokes_solve(
     r = SpatialCoordinate(WP.mesh())[0]
 
     # build system
-    a = mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx \
-        - ((r * v[0]).dx(0) + (r * v[1]).dx(1)) * p * 2 * pi * my_dx \
-        + ((r * u[0]).dx(0) + (r * u[1]).dx(1)) * q * 2 * pi * my_dx
-    #   - div(r*v)*p* 2*pi*my_dx \
-    #   + q*div(r*u)* 2*pi*my_dx
-    L = inner(f, v) * 2 * pi * r * my_dx
-
+    f = F(u, p, v, q, f, mu)
+    a = lhs(f)
+    L = rhs(f)
     A, b = assemble_system(a, L, new_bcs)
 
     mode = 'lu'

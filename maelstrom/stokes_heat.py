@@ -2,8 +2,8 @@
 #
 from dolfin import (
     NonlinearProblem, dx, ds, Function, split, TestFunctions, as_vector,
-    assemble, derivative, Constant, inner, grad, pi, dot, FunctionSpace,
-    MixedElement, assign, SpatialCoordinate, norm, info, errornorm
+    assemble, derivative, FunctionSpace, MixedElement, assign, norm, info,
+    errornorm
     )
 
 from . import heat
@@ -16,42 +16,6 @@ def _average(u):
     '''
     return assemble(u * dx) \
         / assemble(1.0 * dx(u.function_space().mesh()))
-
-
-class Stokes(object):
-
-    def __init__(self, mesh, u, p, v, q, f):
-        super(Stokes, self).__init__()
-        self.mesh = mesh
-        self.u = u
-        self.p = p
-        self.v = v
-        self.q = q
-        self.f = f
-        return
-
-    def F0(self, mu):
-        u = self.u
-        p = self.p
-        v = self.v
-        q = self.q
-        f = self.f
-        mu = Constant(mu)
-        # Momentum equation (without the nonlinear term).
-        r = SpatialCoordinate(self.mesh)[0]
-        F0 = mu * inner(r * grad(u), grad(v)) * 2 * pi * dx \
-            + mu * u[0] / r * v[0] * 2 * pi * dx \
-            - dot(f, v) * 2 * pi * r * dx
-        if len(u) == 3:
-            # Discard nonlinear component.
-            F0 += mu * u[2] / r * v[2] * 2 * pi * dx
-        F0 += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2 * pi * r * dx
-
-        # Incompressibility condition.
-        # div_u = 1/r * div(r*u)
-        F0 += (1.0 / r * (r * u[0]).dx(0) + u[1].dx(1)) * q \
-            * 2 * pi * r * dx
-        return F0
 
 
 class StokesHeat(NonlinearProblem):
@@ -89,8 +53,7 @@ class StokesHeat(NonlinearProblem):
         if extra_force is not None:
             f += as_vector((extra_force[0], extra_force[1], 0.0))
 
-        mesh = self.uptheta.function_space().mesh()
-        self.stokes = Stokes(mesh, u, p, v, q, f)
+        self.stokes_F = stokes.F(u, p, v, q, f, mu)
 
         self.heat_F = heat.F(
                 theta, zeta,
@@ -103,7 +66,7 @@ class StokesHeat(NonlinearProblem):
                 my_ds=my_ds
                 )
 
-        self.F0 = self.stokes.F0(mu) + self.heat_F
+        self.F0 = self.stokes_F + self.heat_F
         self.jacobian = derivative(self.F0, self.uptheta)
         return
 

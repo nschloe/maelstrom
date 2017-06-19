@@ -8,13 +8,14 @@ in cylindrical coordinates.
 from __future__ import print_function
 
 from dolfin import (
-    parameters, Constant, Function, XDMFFile, mpi_comm_world, DOLFIN_EPS,
-    begin, end, project, plot, norm, as_vector, Measure, FunctionSpace
+    parameters, Constant, XDMFFile, DOLFIN_EPS, begin, end, project, plot,
+    norm, as_vector, FunctionSpace, interpolate, Measure
     )
 import parabolic
 
 import maelstrom
 import maelstrom.navier_stokes as cyl_ns
+import maelstrom.stokes_heat as stokes_heat
 
 import problems
 
@@ -28,10 +29,57 @@ parameters['allow_extrapolation'] = True
 GMSH_EPS = 1.0e-15
 
 
+def _construct_initial_state(
+        mesh,
+        W_element, P_element, Q_element,
+        kappa, cp, rho, mu,
+        heat_source,
+        u_bcs, p_bcs,
+        theta_bcs_d, theta_bcs_n,
+        my_dx,
+        my_ds,
+        g, extra_force
+        ):
+    '''Construct an initial state for the Navier-Stokes simulation.
+    '''
+    W = FunctionSpace(mesh, W_element)
+    P = FunctionSpace(mesh, P_element)
+    Q = FunctionSpace(mesh, Q_element)
+
+    theta_average = 1530.0
+
+    kappa_const = kappa if isinstance(kappa, float) else kappa(theta_average)
+    mu_const = mu if isinstance(mu, float) else mu(theta_average)
+    cp_const = cp if isinstance(cp, float) else cp(theta_average)
+
+    # initial guess
+    u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
+    p0 = interpolate(Constant(0.0), P)
+    theta0 = interpolate(Constant(theta_average), Q)
+    theta0.rename('temperature', 'temperature')
+
+    u0, p0, theta0 = stokes_heat.solve(
+        mesh, W_element, P_element, Q_element,
+        u0, p0, theta0,
+        kappa_const, rho, mu_const, cp_const,
+        g, extra_force,
+        heat_source,
+        u_bcs, p_bcs,
+        theta_bcs_d,
+        theta_bcs_n,
+        my_dx, my_ds
+        )
+
+    # Create a *deep* copy of u0, p0, to be able to deal with them as actually
+    # separate entities.
+    # u0, p0 = up0.split(deepcopy=True)
+    return u0, p0, theta0
+
+
 def test(target_time=0.1):
     problem = problems.Crucible()
 
-    # dx = Measure('dx', subdomain_data=problem.subdomains)
+    my_dx = Measure('dx', subdomain_data=problem.subdomains)
 
     material = problem.subdomain_materials[problem.wpi]
     rho = material.density
@@ -47,28 +95,43 @@ def test(target_time=0.1):
 
     g = Constant((0.0, -9.81, 0.0))
 
-    # Initial states.
-    # TODO proper intitialization with StokesHeat
-    u0 = Function(problem.W, name='velocity')
-    u0.interpolate(Constant((0.0, 0.0, 0.0)))
-    p0 = Function(problem.P, name='pressure')
-    p0.interpolate(Constant(0.0))
-
     my_ds = Measure('ds')(subdomain_data=problem.wp_boundaries)
 
-    heat_problem = maelstrom.heat.Heat(
-                problem.Q,
-                kappa, rho(average_temp), cp,
-                convection=None,
-                source=Constant(0.0),
-                dirichlet_bcs=problem.theta_bcs_d,
-                neumann_bcs=problem.theta_bcs_n,
-                my_ds=my_ds
-                )
-    theta0 = heat_problem.solve_stationary()
-    theta0.rename('theta', 'temperature')
+    # Initial states.
+    u0, p0, theta0 = _construct_initial_state(
+        problem.mesh,
+        problem.W_element, problem.P_element, problem.Q_element,
+        kappa, cp, rho, mu,
+        heat_source=Constant(0.0),
+        u_bcs=problem.u_bcs,
+        p_bcs=problem.p_bcs,
+        theta_bcs_d=problem.theta_bcs_d,
+        theta_bcs_n=problem.theta_bcs_n,
+        my_dx=my_dx,
+        my_ds=my_ds,
+        g=g,
+        extra_force=None
+        )
 
-    with XDMFFile(mpi_comm_world(), 'boussinesq.xdmf') as xdmf_file:
+    # # TODO proper intitialization with StokesHeat
+    # u0 = Function(problem.W, name='velocity')
+    # u0.interpolate(Constant((0.0, 0.0, 0.0)))
+    # p0 = Function(problem.P, name='pressure')
+    # p0.interpolate(Constant(0.0))
+
+    # heat_problem = maelstrom.heat.Heat(
+    #             problem.Q,
+    #             kappa, rho(average_temp), cp,
+    #             convection=None,
+    #             source=Constant(0.0),
+    #             dirichlet_bcs=problem.theta_bcs_d,
+    #             neumann_bcs=problem.theta_bcs_n,
+    #             my_ds=my_ds
+    #             )
+    # theta0 = heat_problem.solve_stationary()
+    # theta0.rename('theta', 'temperature')
+
+    with XDMFFile('boussinesq.xdmf') as xdmf_file:
         xdmf_file.parameters['flush_output'] = True
         xdmf_file.parameters['rewrite_function_mesh'] = False
 
