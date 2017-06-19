@@ -153,6 +153,11 @@ class Heat(object):
     def eval_alpha_M_beta_F(self, alpha, beta, u, t):
         # Evaluate  alpha * M * u + beta * F(u, t).
         uvec = u.vector()
+        # Convert to proper `float`s to avoid accidental conversion to
+        # numpy.arrays, cf.
+        # <https://bitbucket.org/fenics-project/dolfin/issues/874/genericvector-numpyfloat-numpyarray-not>
+        alpha = float(alpha)
+        beta = float(beta)
         return alpha * (self.M * uvec) + beta * (self.A * uvec + self.b)
 
     def solve_alpha_M_beta_F(self, alpha, beta, b, t):
@@ -160,7 +165,8 @@ class Heat(object):
         # conditions.
         matrix = alpha * self.M + beta * self.A
 
-        right_hand_side = - beta * self.b.copy()
+        # See above for float conversion
+        right_hand_side = - float(beta) * self.b.copy()
         if b:
             right_hand_side += b
 
