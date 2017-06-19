@@ -120,7 +120,7 @@ def test_stationary_solve(show=False):
         maelstrom.helpers.average(theta_reference) - 1551.0097749549102
         ) < 1.0e-5
 
-    return
+    return theta_reference
 
 
 def test_time_step():

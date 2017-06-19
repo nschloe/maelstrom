@@ -23,14 +23,14 @@ def F(u, v, kappa, rho, cp,
 
         F(u) =
             \\int_\\Omega \\kappa r \\dot(\\grad(u), \\grad(v/\\rho, c_p))
-                \\times 2\\pi \, \\text{d}x
-            + \\int_\\Omega \\dot(c, \\grad(u)) v \\times 2\\pi r \, \\text{d}x
+                \\times 2\\pi \\, \\text{d}x
+            + \\int_\\Omega \\dot(c, \\grad(u)) v \\times 2\\pi r \\, \\text{d}x
             - \\int_\\Omega \\frace{1}{\\rho c_p} f v
-                \\times 2\\pi r \,\\text{d}x
+                \\times 2\\pi r \\,\\text{d}x
             - \\int_\\Gamma r \\kappa * \\dot(n,\\grad(T)) v
-                \\frac{1}{\\rho c_p} \\times 2\\pi \,\\text{d}s
+                \\frac{1}{\\rho c_p} \\times 2\\pi \\,\\text{d}s
             - \\int_\\Gamma  r \\kappa  \\alpha (u - u_0) v
-                \\frac{1}{\\rho c_p} \\times 2\\pi \,\\text{d}s
+                \\frac{1}{\\rho c_p} \\times 2\\pi \\,\\text{d}s
 
     or its inverse with Dirichlet conditions. Used for time-stepping
 

@@ -18,6 +18,7 @@ jobs:
       - run: sudo -H pip3 install -r requirements.txt
       # lint
       - run: pylint maelstrom/
+      - run: pylint examples/*.py
       - run: pylint tests/*.py
       # The actual test
       - run: PYTHONPATH=$PWD:$PYTHONPATH pytest --cov maelstrom
