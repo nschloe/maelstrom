@@ -9,7 +9,7 @@ from __future__ import print_function
 
 from dolfin import (
     parameters, Constant, XDMFFile, DOLFIN_EPS, begin, end, project, plot,
-    norm, as_vector, FunctionSpace, interpolate, Measure
+    norm, as_vector, FunctionSpace, interpolate, dx, ds
     )
 import parabolic
 
@@ -79,8 +79,6 @@ def _construct_initial_state(
 def test(target_time=0.1):
     problem = problems.Crucible()
 
-    my_dx = Measure('dx', subdomain_data=problem.subdomains)
-
     material = problem.subdomain_materials[problem.wpi]
     rho = material.density
     cp = material.specific_heat_capacity
@@ -95,7 +93,7 @@ def test(target_time=0.1):
 
     g = Constant((0.0, -9.81, 0.0))
 
-    my_ds = Measure('ds')(subdomain_data=problem.wp_boundaries)
+    my_ds = ds(subdomain_data=problem.wp_boundaries)
 
     # heat_problem = maelstrom.heat.Heat(
     #             problem.Q,
@@ -118,7 +116,7 @@ def test(target_time=0.1):
         p_bcs=problem.p_bcs,
         theta_bcs_d=problem.theta_bcs_d,
         theta_bcs_n=problem.theta_bcs_n,
-        my_dx=my_dx,
+        my_dx=dx,
         my_ds=my_ds,
         g=g,
         extra_force=None

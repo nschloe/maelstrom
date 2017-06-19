@@ -10,6 +10,7 @@ from dolfin import (
 def F(u, v, kappa, rho, cp,
       convection,
       source,
+      r,
       neumann_bcs,
       robin_bcs,
       my_dx,
@@ -37,9 +38,6 @@ def F(u, v, kappa, rho, cp,
 
         u' = F(u).
     '''
-    Q = v.function_space()
-
-    r = SpatialCoordinate(Q.mesh())[0]
     rho_cp = rho * cp
 
     F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
@@ -134,10 +132,13 @@ class Heat(object):
                   }
               )
 
+        mesh = Q.mesh()
+        r = SpatialCoordinate(mesh)[0]
         self.F0 = F(
                 u, v, kappa, rho, cp,
                 convection,
                 source,
+                r,
                 neumann_bcs,
                 robin_bcs,
                 my_dx,

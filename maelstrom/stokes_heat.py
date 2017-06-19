@@ -3,7 +3,7 @@
 from dolfin import (
     NonlinearProblem, dx, ds, Function, split, TestFunctions, as_vector,
     assemble, derivative, FunctionSpace, MixedElement, assign, norm, info,
-    errornorm
+    errornorm, SpatialCoordinate
     )
 
 from . import heat
@@ -53,13 +53,16 @@ class StokesHeat(NonlinearProblem):
         if extra_force is not None:
             f += as_vector((extra_force[0], extra_force[1], 0.0))
 
-        self.stokes_F = stokes.F(u, p, v, q, f, mu)
+        mesh = WPQ.mesh()
+        r = SpatialCoordinate(mesh)[0]
+        self.stokes_F = stokes.F(u, p, v, q, f, r, mu, my_dx)
 
         self.heat_F = heat.F(
                 theta, zeta,
                 kappa=kappa, rho=rho_const, cp=cp,
-                convection=u,
+                convection=u,  # coupling
                 source=heat_source,
+                r=r,
                 neumann_bcs=theta_neumann_bcs,
                 robin_bcs=theta_robin_bcs,
                 my_dx=my_dx,
@@ -117,7 +120,8 @@ def solve(
         u_bcs, p_bcs,
         theta_dirichlet_bcs,
         theta_neumann_bcs,
-        dx_submesh, ds_submesh,
+        my_dx=dx_submesh,
+        my_ds=ds_submesh,
         tol=1.0e-2
         )
 
