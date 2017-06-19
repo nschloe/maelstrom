@@ -97,9 +97,20 @@ def test(target_time=0.1):
 
     my_ds = Measure('ds')(subdomain_data=problem.wp_boundaries)
 
+    # heat_problem = maelstrom.heat.Heat(
+    #             problem.Q,
+    #             kappa, rho(average_temp), cp,
+    #             convection=None,
+    #             source=Constant(0.0),
+    #             dirichlet_bcs=problem.theta_bcs_d,
+    #             neumann_bcs=problem.theta_bcs_n,
+    #             my_ds=my_ds
+    #             )
+    # theta0 = heat_problem.solve_stationary()
+
     # Initial states.
     u0, p0, theta0 = _construct_initial_state(
-        problem.mesh,
+        problem.submesh_workpiece,
         problem.W_element, problem.P_element, problem.Q_element,
         kappa, cp, rho, mu,
         heat_source=Constant(0.0),

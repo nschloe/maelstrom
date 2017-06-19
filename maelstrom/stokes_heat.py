@@ -220,7 +220,7 @@ def _solve_fixed_point(
         u_bcs, p_bcs,
         theta_dirichlet_bcs,
         theta_neumann_bcs,
-        dx_submesh, ds_submesh,
+        my_dx, my_ds,
         tol=1.0e-10
         ):
     # Solve the coupled heat-Stokes equation approximately. Do this
@@ -236,14 +236,16 @@ def _solve_fixed_point(
     theta1 = Function(Q)
     while True:
         heat_problem = heat.Heat(
-            Q, convection=u0,
+            Q,
             kappa=kappa, rho=rho(theta0), cp=cp,
+            convection=u0,
             source=heat_source,
             dirichlet_bcs=theta_dirichlet_bcs,
             neumann_bcs=theta_neumann_bcs,
-            my_dx=dx_submesh,
-            my_ds=ds_submesh
+            my_dx=my_dx,
+            my_ds=my_ds
             )
+
         theta1.assign(heat_problem.solve_stationary())
 
         f = rho(theta0) * g
@@ -257,7 +259,7 @@ def _solve_fixed_point(
             mu,
             u_bcs, p_bcs,
             f,
-            my_dx=dx_submesh,
+            my_dx=my_dx,
             tol=1.0e-10,
             verbose=False,
             maxiter=1000
