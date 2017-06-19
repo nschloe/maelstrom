@@ -57,8 +57,7 @@ def F(u, v, kappa, rho, cp,
     # Robin boundary conditions
     for k, value in robin_bcs.items():
         alpha, u0 = value
-        F0 -= \
-            r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
+        F0 -= r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
 
     # # Add SUPG stabilization.
     # rho_cp = rho[wpi](background_temp)*cp[wpi]
@@ -170,15 +169,17 @@ class Heat(object):
 
         # TODO proper preconditioner for convection
         if self.convection:
-            # solver = LUSolver()
             # Use HYPRE-Euclid instead of ILU for parallel computation.
-            solver = KrylovSolver('gmres', 'hypre_euclid')
+            # However, this PC sometimes fails.
+            # solver = KrylovSolver('gmres', 'hypre_euclid')
+            # Fallback:
+            solver = LUSolver()
         else:
             solver = KrylovSolver('gmres', 'hypre_amg')
-        solver.parameters['relative_tolerance'] = 1.0e-13
-        solver.parameters['absolute_tolerance'] = 0.0
-        solver.parameters['maximum_iterations'] = 100
-        solver.parameters['monitor_convergence'] = True
+            solver.parameters['relative_tolerance'] = 1.0e-13
+            solver.parameters['absolute_tolerance'] = 0.0
+            solver.parameters['maximum_iterations'] = 100
+            solver.parameters['monitor_convergence'] = True
 
         solver.set_operator(matrix)
 
