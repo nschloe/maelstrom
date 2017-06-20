@@ -9,11 +9,10 @@ Welcome to Maelstrom's documentation!
 .. toctree::
    :maxdepth: 2
 
-   maelstrom.maxwell_cylindrical
-   maelstrom.stokes_cylindrical
-   maelstrom.navier_stokes_cylindrical
-   maelstrom.time_steppers
-   maelstrom.materials_database
+   maelstrom.heat
+   maelstrom.maxwell
+   maelstrom.stokes
+   maelstrom.navier
 
 References
 ==========
