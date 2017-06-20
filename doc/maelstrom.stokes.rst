@@ -1,7 +1,7 @@
-:mod:`maelstrom.stokes_cylindrical`
+:mod:`maelstrom.stokes`
 ===================================
 
-.. automodule:: maelstrom.stokes_cylindrical
+.. automodule:: maelstrom.stokes
     :members:
     :undoc-members:
     :show-inheritance:

@@ -1,7 +1,7 @@
-:mod:`maelstrom.maxwell_cylindrical`
+:mod:`maelstrom.maxwell`
 ====================================
 
-.. automodule:: maelstrom.maxwell_cylindrical
+.. automodule:: maelstrom.maxwell
     :members:
     :undoc-members:
     :show-inheritance:
