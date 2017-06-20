@@ -153,7 +153,9 @@ class Heat(object):
 
     # pylint: disable=unused-argument
     def eval_alpha_M_beta_F(self, alpha, beta, u, t):
-        # Evaluate  alpha * M * u + beta * F(u, t).
+        '''
+        Evaluate  :code:`alpha * M * u + beta * F(u, t)`.
+        '''
         uvec = u.vector()
         # Convert to proper `float`s to avoid accidental conversion to
         # numpy.arrays, cf.
@@ -163,8 +165,10 @@ class Heat(object):
         return alpha * (self.M * uvec) + beta * (self.A * uvec + self.b)
 
     def solve_alpha_M_beta_F(self, alpha, beta, b, t):
-        # Solve  alpha * M * u + beta * F(u, t) == b  with Dirichlet
-        # conditions.
+        '''
+        Solve  :code:`alpha * M * u + beta * F(u, t) = b`  with Dirichlet
+        conditions.
+        '''
         matrix = alpha * self.M + beta * self.A
 
         # See above for float conversion
