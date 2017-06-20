@@ -408,15 +408,15 @@ def build_system(
     return A, P, b_list, M, W
 
 
-def prescribe_current(A, b, coil_rings, current):
-    '''Get the voltage coefficients c_l with the total current prescribed.
-    '''
-    A[coil_rings][:] = 0.0
-    for i in coil_rings:
-        A[i][i] = 1.0
-    # The current must equal in all coil rings.
-    b[coil_rings] = current
-    return A, b
+# def prescribe_current(A, b, coil_rings, current):
+#     '''Get the voltage coefficients c_l with the total current prescribed.
+#     '''
+#     A[coil_rings][:] = 0.0
+#     for i in coil_rings:
+#         A[i][i] = 1.0
+#     # The current must equal in all coil rings.
+#     b[coil_rings] = current
+#     return A, b
 
 
 def prescribe_voltage(A, b, coil_rings, voltage, v_ref, J):
