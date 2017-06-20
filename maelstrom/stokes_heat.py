@@ -59,10 +59,7 @@ def solve_fixed_point(
             mu,
             u_bcs, p_bcs,
             f,
-            my_dx=my_dx,
-            tol=1.0e-10,
-            verbose=False,
-            maxiter=1000
+            my_dx=my_dx
             )
 
         # from dolfin import plot
