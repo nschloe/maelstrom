@@ -110,73 +110,6 @@ def _construct_initial_state(
     return u0, p0, theta0
 
 
-def _compute_lorentz_joule(
-        mesh, coils, mu, sigma, omega,
-        wpi, submesh_workpiece,
-        subdomain_indices, subdomains,
-        show=False
-        ):
-    # Function space for magnetic scalar potential, Lorentz force etc.
-    V = FunctionSpace(mesh, 'CG', 1)
-    # Compute the magnetic field.
-    # The Maxwell equations depend on two parameters that change during the
-    # computation: (a) the temperature, and (b) the velocity field u0. We
-    # assume though that changes in either of the two will only marginally
-    # influence the magnetic field. Consequently, we precompute all associated
-    # values.
-    dx_subdomains = Measure('dx', subdomain_data=subdomains)
-    with Message('Computing magnetic field...'):
-        Phi, voltages = cmx.compute_potential(
-                coils,
-                V,
-                dx_subdomains,
-                mu, sigma, omega,
-                convections={}
-                # io_submesh=submesh_workpiece
-                )
-        # Get resulting Lorentz force.
-        lorentz = cmx.compute_lorentz(Phi, omega, sigma[wpi])
-
-        # Show the Lorentz force in the workpiece.
-        # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
-        # First project onto the entire mesh, then onto the submesh; see bug
-        # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
-        W = VectorFunctionSpace(mesh, 'CG', 1)
-        pl = project(lorentz, W)
-        W2 = VectorFunctionSpace(submesh_workpiece, 'CG', 1)
-        pl = project(pl, W2)
-        pl.rename('Lorentz force', 'Lorentz force')
-        with XDMFFile(submesh_workpiece.mpi_comm(), 'lorentz.xdmf') as f:
-            f.parameters['flush_output'] = True
-            f.write(pl)
-
-        if show:
-            plot(pl, title='Lorentz force')
-            interactive()
-
-        # Get Joule heat source.
-        joule = cmx.compute_joule(
-                Phi, voltages, omega, sigma, mu, subdomain_indices
-                )
-
-        if show:
-            # Show Joule heat source.
-            submesh = SubMesh(mesh, subdomains, wpi)
-            W_submesh = FunctionSpace(submesh, 'CG', 1)
-            jp = Function(W_submesh, name='Joule heat source')
-            jp.assign(project(joule[wpi], W_submesh))
-            plot(jp)
-            interactive()
-
-        joule_wpi = joule[wpi]
-
-    # To work around bug
-    # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
-    # return the projection `pl` and not `lorentz` itself.
-    # TODO remove this workaround
-    return pl, joule_wpi
-
-
 def _store_and_plot(outfile, u, p, theta, t):
     outfile.write(u, t)
     outfile.write(p, t)
@@ -224,19 +157,119 @@ def _get_lorentz_joule(
             else sigma_const[i](theta_average)
 
     # Do the Maxwell dance
-    lorentz_wpi, joule_wpi = _compute_lorentz_joule(
-            problem.mesh, coils,
-            mu_const, sigma_const, problem.omega,
-            problem.wpi, submesh_workpiece,
-            subdomain_indices,
-            problem.subdomains,
-            show=show
+    # lorentz_wpi, joule_wpi = _compute_lorentz_joule(
+    #         problem.mesh, coils,
+    #         mu_const, sigma_const, problem.omega,
+    #         problem.wpi, submesh_workpiece,
+    #         subdomain_indices,
+    #         problem.subdomains,
+    #         show=show
+    #         )
+
+    # Function space for magnetic scalar potential, Lorentz force etc.
+    V = FunctionSpace(problem.mesh, 'CG', 1)
+    # Compute the magnetic field.
+    # The Maxwell equations depend on two parameters that change during the
+    # computation: (a) the temperature, and (b) the velocity field u0. We
+    # assume though that changes in either of the two will only marginally
+    # influence the magnetic field. Consequently, we precompute all associated
+    # values.
+    dx_subdomains = Measure('dx', subdomain_data=problem.subdomains)
+    with Message('Computing magnetic field...'):
+        Phi, voltages = cmx.compute_potential(
+                coils,
+                V,
+                dx_subdomains,
+                mu_const, sigma_const, problem.omega,
+                convections={}
+                # io_submesh=submesh_workpiece
+                )
+        # Get resulting Lorentz force.
+        lorentz = cmx.compute_lorentz(
+            Phi, problem.omega, sigma_const[problem.wpi]
             )
 
-    return lorentz_wpi, joule_wpi
+        # Show the Lorentz force in the workpiece.
+        # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
+        # First project onto the entire mesh, then onto the submesh; see bug
+        # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+        W = VectorFunctionSpace(problem.mesh, 'CG', 1)
+        pl = project(lorentz, W)
+        W2 = VectorFunctionSpace(submesh_workpiece, 'CG', 1)
+        pl = project(pl, W2)
+        pl.rename('Lorentz force', 'Lorentz force')
+        with XDMFFile(submesh_workpiece.mpi_comm(), 'lorentz.xdmf') as f:
+            f.parameters['flush_output'] = True
+            f.write(pl)
+
+        if show:
+            plot(pl, title='Lorentz force')
+            interactive()
+
+        # Get Joule heat source.
+        joule = cmx.compute_joule(
+                Phi, voltages,
+                problem.omega, sigma_const, mu_const,
+                subdomain_indices
+                )
+
+        if show:
+            # Show Joule heat source.
+            submesh = SubMesh(problem.mesh, problem.subdomains, problem.wpi)
+            W_submesh = FunctionSpace(submesh, 'CG', 1)
+            jp = Function(W_submesh, name='Joule heat source')
+            jp.assign(project(joule[problem.wpi], W_submesh))
+            plot(jp)
+            interactive()
+
+        joule_wpi = joule[problem.wpi]
+
+    # To work around bug
+    # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+    # return the projection `pl` and not `lorentz` itself.
+    # TODO remove this workaround
+    return pl, joule_wpi
 
 
-def test_boussinesq(
+def test_boussinesq(target_time=0.1, show=False):
+    '''Simple boussinesq test; no Maxwell involved.
+    '''
+    problem = problems.Crucible()
+
+    # Solve construct initial state without Lorentz force and Joule heat.
+    m = problem.subdomain_materials[problem.wpi]
+    k_wpi = m.thermal_conductivity
+    cp_wpi = m.specific_heat_capacity
+    rho_wpi = m.density
+    mu_wpi = m.dynamic_viscosity
+
+    g = Constant((0.0, -9.80665, 0.0))
+    submesh_workpiece = problem.W.mesh()
+    ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
+    u0, p0, theta0 = _construct_initial_state(
+        submesh_workpiece,
+        problem.W_element, problem.P_element, problem.Q_element,
+        k_wpi, cp_wpi, rho_wpi, mu_wpi,
+        Constant(0.0),
+        problem.u_bcs, problem.p_bcs,
+        problem.theta_bcs_d, problem.theta_bcs_n,
+        dx(submesh_workpiece),
+        ds_workpiece,
+        g,
+        extra_force=None
+        )
+    u1, p1, theta1 = _compute_boussinesq(
+        problem, u0, p0, theta0,
+        lorentz=None, joule=Constant(0.0), target_time=target_time, show=show
+        )
+
+    assert abs(norm(u1, 'L2') - 0.0010707817987502788) < 1.0e-3
+    assert abs(norm(p1, 'L2') - 38.15028875971896) < 1.0e-3
+    assert abs(norm(theta1, 'L2') - 86.96314082172579) < 1.0e-3
+    return
+
+
+def _compute_boussinesq(
         problem, u0, p0, theta0,
         lorentz, joule, target_time=0.1, show=False
         ):
@@ -408,7 +441,7 @@ def test_boussinesq(
                     info('new dt:    {:e}'.format(dt))
                     info('')
                 info('')
-    return
+    return u0, p0, theta0
 
 
 def get_umax(u):
@@ -579,7 +612,7 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
         lorentz, joule = _get_lorentz_joule(
                 problem, theta_average, v, show=show
                 )
-        test_boussinesq(
+        _compute_boussinesq(
             problem, u0, p0, theta0,
             lorentz, joule, target_time=0.1, show=show
             )
@@ -590,4 +623,5 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
 
 
 if __name__ == '__main__':
-    test_optimize(num_steps=51, target_time=600.0, show=False)
+    # test_optimize(num_steps=51, target_time=600.0, show=False)
+    test_boussinesq(target_time=60.0, show=True)
