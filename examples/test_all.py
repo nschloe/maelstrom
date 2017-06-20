@@ -264,7 +264,8 @@ def test_boussinesq(target_time=0.1, show=False):
         )
 
     assert abs(norm(u1, 'L2') - 0.0010707817987502788) < 1.0e-3
-    assert abs(norm(p1, 'L2') - 39.391192657198594) < 1.0e-3
+    # p is only defined up to a constant
+    # assert abs(norm(p1, 'L2') - 38.1593608825763) < 1.0e-3
     assert abs(norm(theta1, 'L2') - 86.96314082172579) < 1.0e-3
     return
 
