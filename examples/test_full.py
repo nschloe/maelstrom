@@ -188,55 +188,63 @@ def _store_and_plot(outfile, u, p, theta, t):
     return
 
 
-def _compute(
-        u0, p0, theta0, problem, voltages, target_time, show=False
+def _get_lorentz_joule(
+        problem, theta_average, voltages, show=False
         ):
     submesh_workpiece = problem.W.mesh()
 
-    # Define a facet measure on the boundaries. See discussion on
-    # <https://bitbucket.org/fenics-project/dolfin/issue/249/facet-specification-doesnt-work-on-ds>.
-    ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
-
     subdomain_indices = problem.subdomain_materials.keys()
-    theta_average = average(theta0)
 
     info('Input voltages:')
     info(repr(voltages))
 
     if voltages is None:
-        lorentz_wpi = None
-        joule_wpi = Constant(0.0)
-    else:
-        # Merge coil rings with voltages.
-        coils = [
-            {'rings': coil_domain, 'c_type': 'voltage', 'c_value': voltage}
-            for coil_domain, voltage in zip(problem.coil_domains, voltages)
-            ]
-        # Build subdomain parameter dictionaries for Maxwell
-        mu_const = {
-            i: problem.subdomain_materials[i].magnetic_permeability
-            for i in subdomain_indices
-            }
-        sigma_const = {
-            i: problem.subdomain_materials[i].electrical_conductivity
-            for i in subdomain_indices
-            }
-        for i in subdomain_indices:
-            mu_const[i] = \
-                mu_const[i] if isinstance(mu_const[i], float) \
-                else mu_const[i](theta_average)
-            sigma_const[i] = \
-                sigma_const[i] if isinstance(sigma_const[i], float) \
-                else sigma_const[i](theta_average)
-        # Do the Maxwell dance
-        lorentz_wpi, joule_wpi = _compute_lorentz_joule(
-                problem.mesh, coils,
-                mu_const, sigma_const, problem.omega,
-                problem.wpi, submesh_workpiece,
-                subdomain_indices,
-                problem.subdomains,
-                show=show
-                )
+        return None, Constant(0.0)
+
+    # Merge coil rings with voltages.
+    coils = [
+        {'rings': coil_domain, 'c_type': 'voltage', 'c_value': voltage}
+        for coil_domain, voltage in zip(problem.coil_domains, voltages)
+        ]
+    # Build subdomain parameter dictionaries for Maxwell
+    mu_const = {
+        i: problem.subdomain_materials[i].magnetic_permeability
+        for i in subdomain_indices
+        }
+    sigma_const = {
+        i: problem.subdomain_materials[i].electrical_conductivity
+        for i in subdomain_indices
+        }
+    for i in subdomain_indices:
+        mu_const[i] = \
+            mu_const[i] if isinstance(mu_const[i], float) \
+            else mu_const[i](theta_average)
+        sigma_const[i] = \
+            sigma_const[i] if isinstance(sigma_const[i], float) \
+            else sigma_const[i](theta_average)
+
+    # Do the Maxwell dance
+    lorentz_wpi, joule_wpi = _compute_lorentz_joule(
+            problem.mesh, coils,
+            mu_const, sigma_const, problem.omega,
+            problem.wpi, submesh_workpiece,
+            subdomain_indices,
+            problem.subdomains,
+            show=show
+            )
+
+    return lorentz_wpi, joule_wpi
+
+
+def test_boussinesq(
+        problem, u0, p0, theta0,
+        lorentz, joule, target_time=0.1, show=False
+        ):
+    # Define a facet measure on the boundaries. See discussion on
+    # <https://bitbucket.org/fenics-project/dolfin/issue/249/facet-specification-doesnt-work-on-ds>.
+    ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
+
+    submesh_workpiece = problem.W.mesh()
 
     # Start time, time step.
     t = 0.0
@@ -267,12 +275,14 @@ def _compute(
     rho_wpi = m.density
     mu_wpi = m.dynamic_viscosity
 
+    theta_average = average(theta0)
+
     # Redefine the heat problem with the new u0.
     heat_problem = cyl_heat.Heat(
             problem.Q,
             kappa=k_wpi, rho=rho_wpi(theta_average), cp=cp_wpi,
             convection=u0,
-            source=joule_wpi,
+            source=joule,
             dirichlet_bcs=problem.theta_bcs_d,
             neumann_bcs=problem.theta_bcs_n,
             my_dx=dx(submesh_workpiece),
@@ -282,8 +292,8 @@ def _compute(
     show_total_force = False
     if show_total_force:
         f = rho_wpi(theta0) * g
-        if lorentz_wpi:
-            f += as_vector((lorentz_wpi[0], lorentz_wpi[1], 0.0))
+        if lorentz:
+            f += as_vector((lorentz[0], lorentz[1], 0.0))
         plot(f, mesh=submesh_workpiece, title='Total external force')
         interactive()
 
@@ -331,9 +341,9 @@ def _compute(
                         # for the Boussinesq effect.
                         f0 = rho_wpi(theta0) * g
                         f1 = rho_wpi(theta1) * g
-                        if lorentz_wpi is not None:
+                        if lorentz is not None:
                             f = as_vector(
-                                (lorentz_wpi[0], lorentz_wpi[1], 0.0)
+                                (lorentz[0], lorentz[1], 0.0)
                                 )
                             f0 += f
                             f1 += f
@@ -565,7 +575,14 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
     for alpha in Alpha:
         # Scale the voltages
         v = alpha * numpy.array(voltages)
-        _compute(u0, p0, theta0, problem, v, target_time, show=show)
+        theta_average = average(theta0)
+        lorentz, joule = _get_lorentz_joule(
+                problem, theta_average, v, show=show
+                )
+        test_boussinesq(
+            problem, u0, p0, theta0,
+            lorentz, joule, target_time=0.1, show=show
+            )
 
         # From the second iteration on, only go for at most 60 secs
         target_time = min(60.0, target_time)
