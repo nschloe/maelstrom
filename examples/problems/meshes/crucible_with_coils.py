@@ -357,7 +357,7 @@ def _define():
 
 
 def generate(verbose=False):
-    cache_file = 'cruc_cache.vtu'
+    cache_file = 'cruc_cache.msh'
     if os.path.isfile(cache_file):
         print('Using mesh from cache \'{}\'.'.format(cache_file))
         out = meshio.read(cache_file)
