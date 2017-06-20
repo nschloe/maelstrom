@@ -264,7 +264,7 @@ def test_boussinesq(target_time=0.1, show=False):
         )
 
     assert abs(norm(u1, 'L2') - 0.0010707817987502788) < 1.0e-3
-    assert abs(norm(p1, 'L2') - 38.15028875971896) < 1.0e-3
+    assert abs(norm(p1, 'L2') - 39.391192657198594) < 1.0e-3
     assert abs(norm(theta1, 'L2') - 86.96314082172579) < 1.0e-3
     return
 
@@ -330,7 +330,7 @@ def _compute_boussinesq(
         plot(f, mesh=submesh_workpiece, title='Total external force')
         interactive()
 
-    with XDMFFile(submesh_workpiece.mpi_comm(), 'full.xdmf') as outfile:
+    with XDMFFile(submesh_workpiece.mpi_comm(), 'all.xdmf') as outfile:
         outfile.parameters['flush_output'] = True
         outfile.parameters['rewrite_function_mesh'] = False
 
