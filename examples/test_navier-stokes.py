@@ -25,7 +25,7 @@ parameters['allow_extrapolation'] = True
     # problems.Rotating_lid(),
     problems.Ball_in_tube(),
     ])
-def test(problem, max_num_steps=2):
+def test(problem, max_num_steps=2, show=False):
     # # Density depends on temperature.
     # material = 'water'
     # rho = params[material]['density'](293.0)
@@ -73,8 +73,9 @@ def test(problem, max_num_steps=2):
         xdmf_file.parameters['flush_output'] = True
         xdmf_file.parameters['rewrite_function_mesh'] = False
 
-        xdmf_file.write(u0, t)
-        xdmf_file.write(p0, t)
+        if show:
+            xdmf_file.write(u0, t)
+            xdmf_file.write(p0, t)
 
         stepper = cyl_ns.IPCS(
                 time_step_method='backward euler',
@@ -108,14 +109,14 @@ def test(problem, max_num_steps=2):
             u0.assign(u1)
             p0.assign(p1)
 
-            # Save to files.
-            xdmf_file.write(u0, t+dt)
-            xdmf_file.write(p0, t+dt)
-
-            # Plotting for some reason takes up a lot of memory.
-            plot(u0, title='velocity', rescale=True)
-            plot(p0, title='pressure', rescale=True)
-            # interactive()
+            if show:
+                # Save to files.
+                xdmf_file.write(u0, t+dt)
+                xdmf_file.write(p0, t+dt)
+                # Plotting for some reason takes up a lot of memory.
+                plot(u0, title='velocity', rescale=True)
+                plot(p0, title='pressure', rescale=True)
+                # interactive()
 
             begin('Step size adaptation...')
             # unorm = project(abs(u[0]) + abs(u[1]) + abs(u[2]),
@@ -154,5 +155,6 @@ if __name__ == '__main__':
         # problems.Lid_driven_cavity()
         # problems.Rotating_lid()
         problems.Ball_in_tube(),
-        max_num_steps=1000
+        max_num_steps=1000,
+        show=True
         )

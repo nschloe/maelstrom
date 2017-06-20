@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from dolfin import (
     parameters, XDMFFile, Measure, FunctionSpace, begin, end, SubMesh, project,
-    Function, assemble, grad, as_vector, File, DOLFIN_EPS, info, interactive,
+    Function, assemble, grad, as_vector, DOLFIN_EPS, info, interactive,
     mpi_comm_world, FiniteElement, SpatialCoordinate
     )
 import matplotlib.pyplot as plt
@@ -120,7 +120,7 @@ def _convert_to_complex(A):
     return ReA + 1j * ImA
 
 
-def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
+def _pyamg_test(V, dx, Mu, Sigma, omega, coils):
     import pyamg
     import krypy
     import scipy.sparse
@@ -130,11 +130,14 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     v_ref = 1.0
     voltages_list = [{coils[0]['rings'][0]: v_ref}]
 
+    # pylint: disable=unused-variable
+    voltages_degree = 2
     A, P, b_list, M, W = cmx.build_system(
             V, dx,
             Mu, Sigma,  # dictionaries
             omega,
             voltages_list,  # dictionary
+            f_degree=voltages_degree,
             convections={},
             bcs=[]
             )
@@ -212,6 +215,7 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     # Construct right-hand side.
     m, n = Ac.shape
     b = numpy.random.rand(n) + 1j * numpy.random.rand(n)
+    # pylint: disable=cell-var-from-loop
     for k, cycles in enumerate(Cycles):
         def _apply_inverse_prec_cycles(rhs):
             x_init = numpy.zeros((n, 1), dtype=complex)
@@ -258,6 +262,7 @@ def _pyamg_test(V, dx, ds, Mu, Sigma, omega, coils):
     return
 
 
+# pylint: disable=too-many-branches
 def test():
     problem = problems.Crucible()
 
@@ -320,7 +325,7 @@ def test():
 
     dx = Measure('dx')(subdomain_data=problem.subdomains)
     # boundaries = mesh.domains().facet_domains()
-    ds = Measure('ds')(subdomain_data=problem.subdomains)
+    # ds = Measure('ds')(subdomain_data=problem.subdomains)
 
     # Function space for Maxwell.
     V = FunctionSpace(problem.mesh, 'CG', 1)
@@ -330,7 +335,7 @@ def test():
     # AMG playground.
     pyamg_test = False
     if pyamg_test and parameters['linear_algebra_backend'] == 'uBLAS':
-        _pyamg_test(V, dx, ds, mu, sigma, omega, coils)
+        _pyamg_test(V, dx, mu, sigma, omega, coils)
         exit()
 
     # TODO when projected onto submesh, the time harmonic solver bails out
@@ -367,30 +372,37 @@ def test():
         r = SpatialCoordinate(problem.mesh)[0]
         begin('Currents computed after the fact:')
         k = 0
-        for coil in coils:
-            for ii in coil['rings']:
-                J_r = sigma[ii] * (voltages[k].real/(2*pi*r) + omega * Phi[1])
-                J_i = sigma[ii] * (voltages[k].imag/(2*pi*r) - omega * Phi[0])
-                alpha = assemble(J_r * dx(ii))
-                beta = assemble(J_i * dx(ii))
-                info('J = %e + i %e' % (alpha, beta))
-                info(
-                    '|J|/sqrt(2) = %e' % numpy.sqrt(0.5 * (alpha**2 + beta**2))
-                    )
-                submesh = SubMesh(problem.mesh, problem.subdomains, ii)
-                V1 = FunctionSpace(submesh, 'CG', 1)
-                # Those projections may take *very* long.
-                # TODO find out why
-                j_v1 = [
-                    project(J_r, V1),
-                    project(J_i, V1)
-                    ]
-                # plot(j_v1[0], title='j_r')
-                # plot(j_v1[1], title='j_i')
-                # interactive()
-                File('results/j%d.xdmf' % ii) << \
-                    project(as_vector(j_v1), V1*V1)
-                k += 1
+        with XDMFFile('currents.xdmf') as xdmf_file:
+            for coil in coils:
+                for ii in coil['rings']:
+                    J_r = sigma[ii] * (
+                        voltages[k].real/(2*pi*r) + omega * Phi[1]
+                        )
+                    J_i = sigma[ii] * (
+                        voltages[k].imag/(2*pi*r) - omega * Phi[0]
+                        )
+                    alpha = assemble(J_r * dx(ii))
+                    beta = assemble(J_i * dx(ii))
+                    info('J = {:e} + i {:e}'.format(alpha, beta))
+                    info(
+                        '|J|/sqrt(2) = {:e}'.format(
+                            numpy.sqrt(0.5 * (alpha**2 + beta**2))
+                        ))
+                    submesh = SubMesh(problem.mesh, problem.subdomains, ii)
+                    V1 = FunctionSpace(submesh, 'CG', 1)
+                    # Those projections may take *very* long.
+                    # TODO find out why
+                    j_v1 = [
+                        project(J_r, V1),
+                        project(J_i, V1)
+                        ]
+                    # plot(j_v1[0], title='j_r')
+                    # plot(j_v1[1], title='j_i')
+                    # interactive()
+                    current = project(as_vector(j_v1), V1*V1)
+                    current.rename('j{}'.format(ii), 'current {}'.format(ii))
+                    xdmf_file.write(current)
+                    k += 1
         end()
 
     show_phi = True

@@ -9,7 +9,7 @@ from maelstrom import heat as cyl_heat
 from dolfin import (
     Mesh, SubMesh, SubDomain, FacetFunction, DirichletBC, dot, grad,
     FunctionSpace, Expression, FacetNormal, pi, Function, Constant,
-    TestFunction, MeshFunction, FiniteElement, MixedElement
+    MeshFunction, FiniteElement, MixedElement
     )
 import materials
 import meshio
@@ -207,11 +207,11 @@ class Crucible():
         V_element = FiniteElement('CG', self.submesh_workpiece.ufl_cell(), 2)
         with_bubbles = False
         if with_bubbles:
-            V_element += FiniteElement('B', self.submesh_workpiece.ufl_cell(), 2)
-        self.W = FunctionSpace(
-                self.submesh_workpiece,
-                MixedElement(3 * [V_element])
-                )
+            V_element += FiniteElement(
+                    'B', self.submesh_workpiece.ufl_cell(), 2
+                    )
+        self.W_element = MixedElement(3 * [V_element])
+        self.W = FunctionSpace(self.submesh_workpiece, self.W_element)
 
         rot0 = Expression(('0.0', '0.0', '-2*pi*x[0] * 5.0/60.0'), degree=1)
         # rot0 = (0.0, 0.0, 0.0)
@@ -226,10 +226,16 @@ class Crucible():
             ]
         self.p_bcs = []
 
-        self.P = FunctionSpace(self.submesh_workpiece, 'CG', 1)
+        self.P_element = FiniteElement(
+                'CG', self.submesh_workpiece.ufl_cell(), 1
+                )
+        self.P = FunctionSpace(self.submesh_workpiece, self.P_element)
 
-        # Boundary conditions for heat equation.
-        self.Q = FunctionSpace(self.submesh_workpiece, 'CG', 2)
+        self.Q_element = FiniteElement(
+                'CG', self.submesh_workpiece.ufl_cell(), 2
+                )
+        self.Q = FunctionSpace(self.submesh_workpiece, self.Q_element)
+
         # Dirichlet.
         # This is a bit of a tough call since the boundary conditions need to
         # be read from a Tecplot file here.
@@ -284,8 +290,11 @@ class Crucible():
                 # pp.plot(x[0], x[1], 'xg')
                 if not edge_found:
                     value[0] = 0.0
-                    warnings.warn('Coordinate (%e, %e) doesn\'t sit on edge.'
-                                  % (x[0], x[1]))
+                    if False:
+                        warnings.warn(
+                            'Coordinate ({:e}, {:e}) doesn\'t sit on edge.'
+                            .format(x[0], x[1])
+                            )
                     # pp.plot(RZ[:, 0], RZ[:, 1], '.k')
                     # pp.plot(x[0], x[1], 'xr')
                     # pp.show()
@@ -297,7 +306,7 @@ class Crucible():
         self.theta_bcs_d = [
             DirichletBC(self.Q, tecplot_dbc, upper_left)
             ]
-        theta_bcs_d_strict = [
+        self.theta_bcs_d_strict = [
             DirichletBC(self.Q, tecplot_dbc, upper_right),
             DirichletBC(self.Q, tecplot_dbc, crucible),
             DirichletBC(self.Q, tecplot_dbc, upper_left)
@@ -340,59 +349,52 @@ class Crucible():
         # different results; the value *cannot* correspond to one solution.
         # From looking at the solutions, the pure Dirichlet setting appears
         # correct, so extract the Neumann values directly from that solution.
-        zeta = TestFunction(self.Q)
 
-        theta_reference = Function(self.Q, name='temperature (Dirichlet)')
-        theta_reference.vector()[:] = 0.0
-
-        # Solve the *quasilinear* PDE (coefficients may depend on theta).
-        # This is to avoid setting a fixed temperature for the coefficients.
+        # Pick fixed coefficients roughly at the temperature that we expect.
+        # This could be made less magic by having the coefficients depend on
+        # theta and solving the quasilinear equation.
+        temp_estimate = 1550.0
 
         # Get material parameters
         wp_material = self.subdomain_materials[self.wpi]
         if isinstance(wp_material.specific_heat_capacity, float):
             cp = wp_material.specific_heat_capacity
         else:
-            cp = wp_material.specific_heat_capacity(theta_reference)
+            cp = wp_material.specific_heat_capacity(temp_estimate)
         if isinstance(wp_material.density, float):
             rho = wp_material.density
         else:
-            rho = wp_material.density(theta_reference)
+            rho = wp_material.density(temp_estimate)
         if isinstance(wp_material.thermal_conductivity, float):
             k = wp_material.thermal_conductivity
         else:
-            k = wp_material.thermal_conductivity(theta_reference)
+            k = wp_material.thermal_conductivity(temp_estimate)
 
-        reference_problem = cyl_heat.HeatCylindrical(
-            self.Q, theta_reference,
-            zeta,
-            b=Constant((0.0, 0.0, 0.0)),
-            kappa=k,
-            rho=rho,
-            cp=cp,
+        reference_problem = cyl_heat.Heat(
+            self.Q, convection=None,
+            kappa=k, rho=rho, cp=cp,
             source=Constant(0.0),
-            dirichlet_bcs=theta_bcs_d_strict
+            dirichlet_bcs=self.theta_bcs_d_strict
             )
+        theta_reference = reference_problem.solve_stationary()
+        theta_reference.rename('theta', 'temperature (Dirichlet)')
 
-        from dolfin import solve
-        solve(reference_problem.F0 == 0,
-              theta_reference,
-              bcs=theta_bcs_d_strict
-              )
-
-        # Create equivalent boundary conditions from theta_reference. This
+        # Create equivalent boundary conditions from theta_ref. This
         # makes sure that the potentially expensive Expression evaluation in
         # theta_bcs_* is replaced by something reasonably cheap.
-        for k, bc in enumerate(self.theta_bcs_d):
-            self.theta_bcs_d[k] = DirichletBC(
-                    bc.function_space(),
-                    theta_reference,
-                    bc.domain_args[0]
-                    )
+        self.theta_bcs_d = [
+            DirichletBC(
+                bc.function_space(), theta_reference, bc.domain_args[0]
+                )
+            for bc in self.theta_bcs_d
+            ]
         # Adapt Neumann conditions.
         n = FacetNormal(self.Q.mesh())
-        for k in self.theta_bcs_n:
-            self.theta_bcs_n[k] = dot(n, grad(theta_reference))
+        self.theta_bcs_n = {
+            k: dot(n, grad(theta_reference))
+            # k: Constant(1000.0)
+            for k in self.theta_bcs_n
+            }
 
         if DEBUG:
             # Solve the heat equation with the mixed Dirichlet-Neumann
@@ -403,29 +405,25 @@ class Crucible():
                 name='temperature (Neumann + Dirichlet)'
                 )
             from dolfin import Measure
-            ds_workpiece = Measure('ds')[self.wp_boundaries]
-            problem_new = cyl_heat.HeatCylindrical(
-                self.Q, theta_new,
-                zeta,
-                b=Constant((0.0, 0.0, 0.0)),
-                kappa=k,
-                rho=rho,
-                cp=cp,
+            ds_workpiece = Measure('ds', subdomain_data=self.wp_boundaries)
+
+            heat = cyl_heat.Heat(
+                self.Q, convection=None,
+                kappa=k, rho=rho, cp=cp,
                 source=Constant(0.0),
                 dirichlet_bcs=self.theta_bcs_d,
                 neumann_bcs=self.theta_bcs_n,
-                ds=ds_workpiece
+                robin_bcs=self.theta_bcs_r,
+                my_ds=ds_workpiece
                 )
+            theta_new = heat.solve_stationary()
+            theta_new.rename('theta', 'temperature (Neumann + Dirichlet)')
 
-            from dolfin import solve
-            solve(problem_new.F0 == 0,
-                  theta_new,
-                  bcs=problem_new.dirichlet_bcs
-                  )
             from dolfin import plot, interactive, errornorm
-            print('||theta_new - theta_ref|| = %e'
-                  % errornorm(theta_new, theta_reference)
-                  )
+            print(
+                '||theta_new - theta_ref|| = {:e}'.format(
+                    errornorm(theta_new, theta_reference)
+                ))
             plot(theta_reference)
             plot(theta_new)
             plot(

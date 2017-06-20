@@ -6,14 +6,16 @@
 Welcome to Maelstrom's documentation!
 =====================================
 
+Relevant publications are :cite:`KP2003TNI`, :cite:`Derby89`,
+:cite:`ChuSMP`, :cite:`vdV03`, :cite:`GMS06`, :cite:`DDKS12`.
+
 .. toctree::
    :maxdepth: 2
 
-   maelstrom.maxwell_cylindrical
-   maelstrom.stokes_cylindrical
-   maelstrom.navier_stokes_cylindrical
-   maelstrom.time_steppers
-   maelstrom.materials_database
+   maelstrom.heat
+   maelstrom.maxwell
+   maelstrom.stokes
+   maelstrom.navier_stokes
 
 References
 ==========

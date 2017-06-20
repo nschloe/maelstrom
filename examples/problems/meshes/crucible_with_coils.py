@@ -6,7 +6,9 @@
 #     semicondictor bulk single crystals;
 #     W. Dreyer, P.-E. Druet, O. Klein, J. Sprekels.
 #
+import meshio
 import numpy
+import os
 import pygmsh
 
 
@@ -354,17 +356,31 @@ def _define():
     return geom
 
 
-def generate():
-    return pygmsh.generate_mesh(_define())
+def generate(verbose=False):
+    cache_file = 'cruc_cache.msh'
+    if os.path.isfile(cache_file):
+        print('Using mesh from cache \'{}\'.'.format(cache_file))
+        out = meshio.read(cache_file)
+    else:
+        out = pygmsh.generate_mesh(_define(), verbose=verbose)
+        points, cells, point_data, cell_data, _ = out
+        meshio.write(
+                cache_file,
+                points,
+                cells,
+                point_data=point_data,
+                cell_data=cell_data
+                )
+    return out
 
 
 if __name__ == '__main__':
-    import meshio
     points, cells, point_data, cell_data, _ = generate()
     meshio.write(
             'out.vtu',
             points,
             cells,
             point_data=point_data,
-            cell_data=cell_data
+            cell_data=cell_data,
+            verbose=True
             )
