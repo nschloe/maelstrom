@@ -258,7 +258,7 @@ def test_boussinesq(target_time=0.1, show=False):
         g,
         extra_force=None
         )
-    u1, p1, theta1 = _compute_boussinesq(
+    u1, _, theta1 = _compute_boussinesq(
         problem, u0, p0, theta0,
         lorentz=None, joule=Constant(0.0), target_time=target_time, show=show
         )
