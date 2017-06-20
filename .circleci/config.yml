@@ -15,15 +15,18 @@ jobs:
       - run: sudo apt remove -y python3-pytest
       - run: sudo -H pip3 install pytest pytest-cov pylint Sphinx
       - checkout
-      - run: sudo -H pip3 install -r requirements.txt
       # lint
       - run: pylint maelstrom/
       - run: pylint examples/*.py
       - run: pylint tests/*.py
       # check if documentation builds
-      - run: cd doc && sudo -H pip3 install -r requirements.txt && make html
+      - run: cd doc
+      - run: sudo -H pip3 install -r requirements.txt
+      - run: PYTHONPATH=~/maelstrom/:$PYTHONPATH make html
       # The actual test
-      - run: PYTHONPATH=$PWD:$PYTHONPATH pytest --cov maelstrom
+      - run: cd ~/maelstrom/
+      - run: sudo -H pip3 install -r requirements.txt
+      - run: PYTHONPATH=~/maelstrom:$PYTHONPATH pytest --cov maelstrom
       # submit to codecov
       - run: sudo apt install -y curl
       - run: bash <(curl -s https://codecov.io/bash)
