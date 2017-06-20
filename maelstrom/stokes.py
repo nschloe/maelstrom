@@ -6,8 +6,8 @@ Numerical solution schemes for the Stokes equation in cylindrical coordinates.
 from __future__ import print_function
 
 from dolfin import (
-    TrialFunctions, TestFunctions, grad, pi, dx, assemble_system, KrylovSolver,
-    inner, solve, SpatialCoordinate, Constant, dot, lhs, rhs
+    TrialFunctions, TestFunctions, grad, pi, dx, assemble_system, inner, solve,
+    SpatialCoordinate, Constant, dot, lhs, rhs
     )
 
 from . import helpers
@@ -41,10 +41,7 @@ def stokes_solve(
         mu,
         u_bcs, p_bcs,
         f,
-        my_dx=dx,
-        verbose=True,
-        tol=1.0e-10,
-        maxiter=1000
+        my_dx=dx
         ):
     # Some initial sanity checks.
     assert mu > 0.0
@@ -71,30 +68,31 @@ def stokes_solve(
 
     mode = 'lu'
 
-    if mode == 'lu':
-        solve(A, up_out.vector(), b, 'lu')
-    else:
-        assert mode == 'gmres'
-        # For preconditioners for the Stokes system, see
-        #
-        #     Fast iterative solvers for discrete Stokes equations;
-        #     J. Peters, V. Reichelt, A. Reusken.
-        #
-        prec = mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx \
-            - p * q * 2 * pi * r * my_dx
-        P, _ = assemble_system(prec, L, new_bcs)
-        solver = KrylovSolver('tfqmr', 'hypre_amg')
-        # solver = KrylovSolver('gmres', 'hypre_amg')
-        solver.set_operators(A, P)
+    assert mode == 'lu'
+    solve(A, up_out.vector(), b, 'lu')
 
-        solver.parameters['monitor_convergence'] = verbose
-        solver.parameters['report'] = verbose
-        solver.parameters['absolute_tolerance'] = 0.0
-        solver.parameters['relative_tolerance'] = tol
-        solver.parameters['maximum_iterations'] = maxiter
+    # TODO Krylov solver for Stokes
+    # assert mode == 'gmres'
+    # # For preconditioners for the Stokes system, see
+    # #
+    # #     Fast iterative solvers for discrete Stokes equations;
+    # #     J. Peters, V. Reichelt, A. Reusken.
+    # #
+    # prec = mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx \
+    #     - p * q * 2 * pi * r * my_dx
+    # P, _ = assemble_system(prec, L, new_bcs)
+    # solver = KrylovSolver('tfqmr', 'hypre_amg')
+    # # solver = KrylovSolver('gmres', 'hypre_amg')
+    # solver.set_operators(A, P)
 
-        # Solve
-        solver.solve(up_out.vector(), b)
+    # solver.parameters['monitor_convergence'] = verbose
+    # solver.parameters['report'] = verbose
+    # solver.parameters['absolute_tolerance'] = 0.0
+    # solver.parameters['relative_tolerance'] = tol
+    # solver.parameters['maximum_iterations'] = maxiter
+
+    # # Solve
+    # solver.solve(up_out.vector(), b)
     # elif mode == 'fieldsplit':
     #     # For an assortment of preconditioners, see
     #     #

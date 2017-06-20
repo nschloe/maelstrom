@@ -22,12 +22,14 @@ def F(u, v, kappa, rho, cp,
     .. math::
 
         F(u) =
-            \\int_\\Omega \\kappa r \\dot(\\grad(u), \\grad(v/\\rho, c_p))
+            \\int_\\Omega \\kappa r
+                \\langle\\nabla(u), \\nabla(v/\\rho, c_p)\\rangle
                 \\times 2\\pi \\, \\text{d}x
-            + \\int_\\Omega \\dot(c, \\grad(u)) v \\times 2\\pi r \\, \\text{d}x
-            - \\int_\\Omega \\frace{1}{\\rho c_p} f v
-                \\times 2\\pi r \\,\\text{d}x
-            - \\int_\\Gamma r \\kappa * \\dot(n,\\grad(T)) v
+            + \\int_\\Omega \\langle c, \\nabla(u)\\rangle v
+                \\times 2\\pi r\\,\\text{d}x
+            - \\int_\\Omega \\frac{1}{\\rho c_p} f v
+                \\times 2\\pi r \\,\\text{d}x\\\\
+            - \\int_\\Gamma r \\kappa * \\langlen,\\nabla(T)\\rangle v
                 \\frac{1}{\\rho c_p} \\times 2\\pi \\,\\text{d}s
             - \\int_\\Gamma  r \\kappa  \\alpha (u - u_0) v
                 \\frac{1}{\\rho c_p} \\times 2\\pi \\,\\text{d}s
@@ -151,7 +153,9 @@ class Heat(object):
 
     # pylint: disable=unused-argument
     def eval_alpha_M_beta_F(self, alpha, beta, u, t):
-        # Evaluate  alpha * M * u + beta * F(u, t).
+        '''
+        Evaluate  :code:`alpha * M * u + beta * F(u, t)`.
+        '''
         uvec = u.vector()
         # Convert to proper `float`s to avoid accidental conversion to
         # numpy.arrays, cf.
@@ -161,8 +165,10 @@ class Heat(object):
         return alpha * (self.M * uvec) + beta * (self.A * uvec + self.b)
 
     def solve_alpha_M_beta_F(self, alpha, beta, b, t):
-        # Solve  alpha * M * u + beta * F(u, t) == b  with Dirichlet
-        # conditions.
+        '''
+        Solve  :code:`alpha * M * u + beta * F(u, t) = b`  with Dirichlet
+        conditions.
+        '''
         matrix = alpha * self.M + beta * self.A
 
         # See above for float conversion

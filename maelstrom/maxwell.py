@@ -408,15 +408,15 @@ def build_system(
     return A, P, b_list, M, W
 
 
-def prescribe_current(A, b, coil_rings, current):
-    '''Get the voltage coefficients c_l with the total current prescribed.
-    '''
-    A[coil_rings][:] = 0.0
-    for i in coil_rings:
-        A[i][i] = 1.0
-    # The current must equal in all coil rings.
-    b[coil_rings] = current
-    return A, b
+# def prescribe_current(A, b, coil_rings, current):
+#     '''Get the voltage coefficients c_l with the total current prescribed.
+#     '''
+#     A[coil_rings][:] = 0.0
+#     for i in coil_rings:
+#         A[i][i] = 1.0
+#     # The current must equal in all coil rings.
+#     b[coil_rings] = current
+#     return A, b
 
 
 def prescribe_voltage(A, b, coil_rings, voltage, v_ref, J):
@@ -548,11 +548,10 @@ def compute_potential(
     for k, coil in enumerate(new_coils):
         weight_type = coils[k]['c_type']
         target_value = coils[k]['c_value']
-        if weight_type == 'current':
-            A, b = prescribe_current(A, b, coil, target_value)
-        else:
-            assert weight_type == 'voltage'
-            A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
+        # if weight_type == 'current':
+        #     A, b = prescribe_current(A, b, coil, target_value)
+        assert weight_type == 'voltage'
+        A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
 
     # # TODO write out the equation system to a file
     # if io_submesh:
