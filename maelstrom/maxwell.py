@@ -548,11 +548,10 @@ def compute_potential(
     for k, coil in enumerate(new_coils):
         weight_type = coils[k]['c_type']
         target_value = coils[k]['c_value']
-        if weight_type == 'current':
-            A, b = prescribe_current(A, b, coil, target_value)
-        else:
-            assert weight_type == 'voltage'
-            A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
+        # if weight_type == 'current':
+        #     A, b = prescribe_current(A, b, coil, target_value)
+        assert weight_type == 'voltage'
+        A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
 
     # # TODO write out the equation system to a file
     # if io_submesh:
