@@ -20,9 +20,7 @@ jobs:
       - run: pylint examples/*.py
       - run: pylint tests/*.py
       # check if documentation builds
-      - run: cd doc
-      - run: sudo -H pip3 install -r requirements.txt
-      - run: PYTHONPATH=~/maelstrom/:$PYTHONPATH make html
+      - run: cd doc && sudo -H pip3 install -r requirements.txt && PYTHONPATH=~/maelstrom/:$PYTHONPATH make html
       # The actual test
       - run: cd ~/maelstrom/
       - run: sudo -H pip3 install -r requirements.txt
