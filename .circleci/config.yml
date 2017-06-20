@@ -20,6 +20,8 @@ jobs:
       - run: pylint maelstrom/
       - run: pylint examples/*.py
       - run: pylint tests/*.py
+      # check if documentation builds
+      - run: cd doc && make html
       # The actual test
       - run: PYTHONPATH=$PWD:$PYTHONPATH pytest --cov maelstrom
       # submit to codecov
