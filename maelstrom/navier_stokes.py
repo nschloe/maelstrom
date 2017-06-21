@@ -303,8 +303,8 @@ def compute_pressure(
 
     .. math::
 
-      \\int r \\langle\\nabla\\phi, \\nabla q\\rangle \,2 \\pi =
-           - \\frac{\\rho}{dt} \\int \\div(r u^*) q \, 2 \\pi
+      \\int r \\langle\\nabla\\phi, \\nabla q\\rangle \\,2 \\pi =
+           - \\frac{\\rho}{dt} \\int \\div(r u^*) q \\, 2 \\pi
            - \\frac{\\rho}{dt} \\int_{\\Gamma}
                  \\langle n,  r (u_{n+1}-u^*)\\rangle q \\, 2\\pi.
 

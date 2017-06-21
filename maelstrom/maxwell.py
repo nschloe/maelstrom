@@ -61,7 +61,7 @@ The differential operators are interpreted like 2D for :math:`r` and :math:`z`.
 The seemingly complicated additional term :math:`u\\times B` finally breaks
 down to just a convective component.
 
-For the weak formulation, the volume elements :math:`2\\pi r\,\\text{d}x` are
+For the weak formulation, the volume elements :math:`2\\pi r\\,\\text{d}x` are
 used. This corresponds to the full 3D rotational formulation and also makes
 sure that at least the diffusive term is nice and symmetric. Additionally, it
 avoids dividing by :math:`r` in the convections and the right hand side.
@@ -858,22 +858,29 @@ def compute_lorentz(Phi, omega, sigma):
               + \\frac{j}{r} \\frac{d(r\\phi^*)}{dr} e_r\\right)\\\\
            &= \\frac{1}{2}
               \\Re\\left(\\frac{j}{r} \\nabla(r\\phi^*)\\right)\\\\
-           &= \\frac{1}{2} \\left(\\frac{\\Re(j)}{r} \\nabla(r \\Re(\\phi))
-              +\\frac{\\Im(j)}{r} \\nabla(r \\Im(\\phi))\\right)
 
-    In the workpiece, we can assumg
+    In the workpiece, we can assume
 
     .. math::
         j = -\\text{i} \\sigma \\omega \\phi
 
-    which avoids complications since it doesn not contain a voltage term.
+    which gives
+
+    .. math::
+       \\begin{align*}
+       \\overline{F_L}
+           &= \\frac{\\sigma\\omega}{2r} \\Im\\left(
+                  \\phi \\nabla(r \\phi^*)
+                  \\right)
+           &= \\frac{\\sigma\\omega}{2r} \\left(
+                \\Im(\\phi) \\nabla(r \\Re(\\phi))
+               -\\Re(\\phi) \\nabla(r \\Im(\\phi))
+               \\right)
+       \\end{align*}
     '''
     mesh = Phi[0].function_space().mesh()
     r = SpatialCoordinate(mesh)[0]
-
-    j_r = + sigma * omega * Phi[1]
-    j_i = - sigma * omega * Phi[0]
-    return 0.5 * (
-            + j_r / r * grad(r * Phi[0])
-            + j_i / r * grad(r * Phi[1])
+    return 0.5 * sigma * omega / r * (
+            + Phi[1] * grad(r * Phi[0])
+            - Phi[0] * grad(r * Phi[1])
             )
