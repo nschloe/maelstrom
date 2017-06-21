@@ -6,7 +6,7 @@ coordinates,
 TODO update
 
 .. math::
-    \DeclareMathOperator{\\div}{div}
+    \\DeclareMathOperator{\\div}{div}
 
 .. math::
     \\begin{align}

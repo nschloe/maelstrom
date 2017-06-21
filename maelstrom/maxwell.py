@@ -9,8 +9,8 @@ Given an electric field :math:`E` and a magnetic field :math:`B`, the current
 density :math:`J` is given by
 
 .. math::
-    \DeclareMathOperator{\\div}{div}
-    \DeclareMathOperator{\\curl}{curl}
+    \\DeclareMathOperator{\\div}{div}
+    \\DeclareMathOperator{\\curl}{curl}
 
 .. math::
      J = \\sigma (E + u \\times B).
