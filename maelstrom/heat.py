@@ -101,8 +101,8 @@ class Heat(object):
     Note that the mass matrix :math:`M` is computed using a vertex quadrature
     scheme such that it does not have off-diagonal entries. The usual form with
     positive off-diagonal entries makes the mass matrix a non-M-matrix, leading
-    to oscillations whenever the temperature gradient is sharp. See :cite:`GR`
-    for background.
+    to oscillations whenever the temperature gradient is sharp. See
+    :cite:`GR2007` for background.
     '''
     def __init__(
             self, Q,
