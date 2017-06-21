@@ -588,7 +588,7 @@ def _step(
 
 class IPCS(object):
     '''
-    Incremental pressure correction scheme.
+    Incremental pressure correction scheme; for details see :cite:`GMS06`.
     '''
     order = {
         'velocity': 1,

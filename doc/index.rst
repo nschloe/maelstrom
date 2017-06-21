@@ -7,7 +7,7 @@ Welcome to maelstrom's documentation!
 =====================================
 
 Relevant publications are :cite:`KP2003TNI`, :cite:`Derby89`,
-:cite:`ChuSMP`, :cite:`vdV03`, :cite:`GMS06`, :cite:`DDKS12`.
+:cite:`ChuSMP`, :cite:`DDKS12`.
 
 .. toctree::
    :maxdepth: 2
