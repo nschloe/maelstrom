@@ -6,20 +6,25 @@ coordinates,
 TODO update
 
 .. math::
+    \\DeclareMathOperator{\\div}{div}
+
+.. math::
+    \\begin{align}
         \\rho \\left(\\frac{du}{dt} + (u\\cdot\\nabla)u\\right)
           = -\\nabla p
             + \\mu \\left(
-                \\frac{1}{r} div(r \\nabla u)
+                \\frac{1}{r} \\div(r \\nabla u)
                 - e_r \\frac{u_r}{r^2}
                 \\right)
             + f,\\\\
-        \\frac{1}{r} div(r u) = 0,
+        \\frac{1}{r} \\div(r u) = 0,
+    \\end{align}
 
 cf.
 https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Cylindrical_coordinates.
 In the weak formulation, we consider integrals in pseudo 3D, resulting in a
 weighting with :math:`2\\pi r` of the equations. (The volume element is
-:math:`2\\pi r dx`, cf. https://answers.launchpad.net/dolfin/+question/228170.)
+:math:`2\\pi r \\text{d}x`.)
 
 The order of the variables is taken to be :math:`(r, z, \\theta)`. This makes
 sure that for planar domains, the :math:`x`- and :math:`y`-coordinates are
@@ -131,7 +136,8 @@ def _compute_tentative_velocity(
     '''Compute the tentative velocity via
 
     .. math::
-        \\rho (u[0] + (u\\cdot\\nabla)u) = \\mu 1/r div(r \\nabla u) + \\rho g.
+        \\rho (u[0] + (u\\cdot\\nabla)u) =
+            \\mu 1/r \\div(r \\nabla u) + \\rho g.
     '''
 
     class TentativeVelocityProblem(NonlinearProblem):
@@ -255,8 +261,10 @@ def _compute_pressure(
 
     .. math::
 
-        -1/r div(r \\nabla (p1-p0)) = -1/r div(r u),\\\\
+        \\begin{align}
+        -1/r \\div(r \\nabla (p1-p0)) = -1/r \\div(r u),\\\\
         \\text{(with boundary conditions)},
+        \\end{align}
 
     for
         \\nabla p = u.

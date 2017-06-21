@@ -1,39 +1,45 @@
 # -*- coding: utf-8 -*-
 #
 '''
-The equation system defined in this routine are largely based on
-:cite:`Cha97`.  The equations had to be modified to include the material
-flux :math:`u`, modeled by Navier-Stokes.  In the setup with convections, the
-current density is expressed by
+The equation system defined in this file are largely based on
+:cite:`Cha97`.  The equations are modified to include the material
+flux :math:`u`, from the Navier-Stokes computation.
+
+Given an electric field :math:`E` and a magnetic field :math:`B`, the current
+density :math:`J` is given by
 
 .. math::
-     J = \\sigma (E + u \\times B)
-
-which leads to
+    \\DeclareMathOperator{\\div}{div}
+    \\DeclareMathOperator{\\curl}{curl}
 
 .. math::
-     curl(\\sigma^{-1} (J - u\\times B) + i \\omega A) = 0.
+     J = \\sigma (E + u \\times B).
+
+This leads to
+
+.. math::
+     \\curl(\\sigma^{-1} (J - u\\times B) + i \\omega A) = 0.
 
 Assuming that :math:`u` only has components in :math:`r`- and
-:math:`z`-direction,
+:math:`z`-direction (and not in :math:`\\theta`),
+:math:`u = u_r e_r + u_z e_z`,
+and :math:`B = \\curl(\\phi e_{\\theta})`, we end up with
 
 .. math::
-     u = u_r e_r + u_z e_z,
-
-and :math:`B = curl(\\phi e_{\\theta})`, we end up with
-
-.. math::
-    u \\times B &= u \\times curl(\\phi e_{\\theta}) \\\\
-                &= u \\times \\left(- \\frac{d\\phi}{dz} e_r + \\frac{1}{r}
-                \\frac{d(r\\phi)}{dr} e_z\\right) \\\\
-                &= -u_z \\frac{d\\phi}{dz} e_{\\theta} - u_r \\frac{1}{r}
-                \\frac{d(r\\phi)}{dr} e_{\\theta}.
+    u \\times B &= u \\times \\curl(\\phi e_{\\theta}) \\\\
+                &= u \\times \\left(
+                    - \\frac{\\text{d}\\phi}{\\text{d}z} e_r
+                    + \\frac{1}{r} \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_z
+                    \\right) \\\\
+                &= - u_z \\frac{\\text{d}\\phi}{\\text{d}z} e_{\\theta}
+                   - u_r \\frac{1}{r}
+                     \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_{\\theta}.
 
 Following Chaboudez, this eventually leads to the equation system
 
 .. math::
     \\begin{cases}
-    - div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right) + \\left\\langle u,
+    - \\div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right) + \\left\\langle u,
       \\frac{1}{r}\\nabla(r\\phi)\\right\\rangle + i \\sigma \\omega \\phi
     = \\frac{\\sigma v_k}{2\\pi r}    \\quad\\text{in } \\Omega,\\\\
     n\\cdot\\left(- \\frac{1}{\\mu r} \\nabla(r\\phi)\\right) = 0
@@ -52,7 +58,7 @@ sure that at least the diffusive term is nice and symmetric. Additionally, it
 avoids dividing by r in the convections and the right hand side.
 
 .. math::
-       \\int div\\left(\\frac{1}{\\mu r} \\nabla(r u)\\right) (2\\pi r v)
+       \\int \\div\\left(\\frac{1}{\\mu r} \\nabla(r u)\\right) (2\\pi r v)
      + \\langle b, \\nabla(r u)\\rangle 2\\pi v
      + i \\sigma \\omega u 2 \\pi r v
    = \\int \\sigma v_k v.
@@ -80,8 +86,9 @@ def solve(
     coordinates
 
     .. math::
-         div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
-         + \\langle u, 1/r \\nabla(r\\phi)\\rangle + i \\sigma \\omega \\phi
+         \\div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
+         + \\left\\langle u, \\frac{1}{r} \\nabla(r\\phi)\\right\\rangle
+         + i \\sigma \\omega \\phi
             = f
 
     with finite elements.
@@ -254,8 +261,9 @@ def build_system(
     '''Build FEM system for
 
     .. math::
-         div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
-         + \\langle u, 1/r \\nabla(r\\phi)\\rangle + i \\sigma \\omega \\phi
+         \\div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
+         + \\left\\langle u, \\frac{1}{r} \\nabla(r\\phi)\\right\\rangle
+         + i \\sigma \\omega \\phi
             = f
 
     by multiplying with :math:`2\\pi r v` and integrating over the domain.

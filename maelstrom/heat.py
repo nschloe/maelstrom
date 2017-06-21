@@ -23,18 +23,18 @@ def F(u, v, kappa, rho, cp,
 
         F(u) =
             \\int_\\Omega \\kappa r
-                \\langle\\nabla(u), \\nabla(v/\\rho, c_p)\\rangle
-                \\times 2\\pi \\, \\text{d}x
-            + \\int_\\Omega \\langle c, \\nabla(u)\\rangle v
-                \\times 2\\pi r\\,\\text{d}x
+                \\langle\\nabla u, \\nabla \\frac{v}{\\rho c_p}\\rangle
+                \\, 2\\pi \\, \\text{d}x
+            + \\int_\\Omega \\langle c, \\nabla u\\rangle v
+                \\, 2\\pi r\\,\\text{d}x
             - \\int_\\Omega \\frac{1}{\\rho c_p} f v
-                \\times 2\\pi r \\,\\text{d}x\\\\
-            - \\int_\\Gamma r \\kappa * \\langlen,\\nabla(T)\\rangle v
-                \\frac{1}{\\rho c_p} \\times 2\\pi \\,\\text{d}s
+                \\, 2\\pi r \\,\\text{d}x\\\\
+            - \\int_\\Gamma r \\kappa \\langle n, \\nabla T\\rangle v
+                \\frac{1}{\\rho c_p} \\m 2\\pi \\,\\text{d}s
             - \\int_\\Gamma  r \\kappa  \\alpha (u - u_0) v
-                \\frac{1}{\\rho c_p} \\times 2\\pi \\,\\text{d}s
+                \\frac{1}{\\rho c_p} \\, 2\\pi \\,\\text{d}s
 
-    or its inverse with Dirichlet conditions. Used for time-stepping
+    Used for time-stepping
 
     .. math::
 
@@ -153,8 +153,7 @@ class Heat(object):
 
     # pylint: disable=unused-argument
     def eval_alpha_M_beta_F(self, alpha, beta, u, t):
-        '''
-        Evaluate  :code:`alpha * M * u + beta * F(u, t)`.
+        '''Evaluate  :code:`alpha * M * u + beta * F(u, t)`.
         '''
         uvec = u.vector()
         # Convert to proper `float`s to avoid accidental conversion to
@@ -165,8 +164,7 @@ class Heat(object):
         return alpha * (self.M * uvec) + beta * (self.A * uvec + self.b)
 
     def solve_alpha_M_beta_F(self, alpha, beta, b, t):
-        '''
-        Solve  :code:`alpha * M * u + beta * F(u, t) = b`  with Dirichlet
+        '''Solve  :code:`alpha * M * u + beta * F(u, t) = b`  with Dirichlet
         conditions.
         '''
         matrix = alpha * self.M + beta * self.A
@@ -200,4 +198,7 @@ class Heat(object):
         return u
 
     def solve_stationary(self):
+        '''Solve the stationary problem :code:`F(u, t) = 0`  with Dirichlet
+        conditions.
+        '''
         return self.solve_alpha_M_beta_F(alpha=0.0, beta=1.0, b=None, t=0.0)
