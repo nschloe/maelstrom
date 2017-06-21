@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 #
+# TODO update
 '''
 Numerical solution schemes for the Navier--Stokes equation in cylindrical
 coordinates,
-TODO update
 
 .. math::
     \\DeclareMathOperator{\\div}{div}

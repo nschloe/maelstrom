@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
 #
 '''
-The equation system defined in this file are largely based on
-:cite:`Cha97`.  The equations are modified to include the material
-flux :math:`u`, from the Navier-Stokes computation.
-
-Given an electric field :math:`E` and a magnetic field :math:`B`, the current
-density :math:`J` is given by
-
 .. math::
     \\DeclareMathOperator{\\div}{div}
     \\DeclareMathOperator{\\curl}{curl}
 
+The equation system defined here are largely based on :cite:`Cha97`, with the
+addition of the material flux :math:`u` of the liquid.
+
+Given an electric field :math:`E`, a magnetic field :math:`B`, and a material
+flux :math:`u`, the current density :math:`J` in the material is given
+by
+
 .. math::
      J = \\sigma (E + u \\times B).
+
+where :math:`\\sigma` is the electrical conductivity.
 
 This leads to
 
@@ -266,7 +268,8 @@ def build_system(
          + i \\sigma \\omega \\phi
             = f
 
-    by multiplying with :math:`2\\pi r v` and integrating over the domain.
+    by multiplying with :math:`2\\pi r v` and integrating over the domain and
+    the preconditioner given by :cite:`KL2012`.
     '''
     r = SpatialCoordinate(V.mesh())[0]
 
