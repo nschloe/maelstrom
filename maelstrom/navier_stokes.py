@@ -126,7 +126,7 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
     return F
 
 
-def _compute_tentative_velocity(
+def compute_tentative_velocity(
         time_step_method, rho, mu,
         u, p0, dt, u_bcs, f, W,
         my_dx,
@@ -247,7 +247,7 @@ def _compute_tentative_velocity(
     return ui
 
 
-def _compute_pressure(
+def compute_pressure(
         P, p0,
         mu, ui,
         u,
@@ -467,7 +467,7 @@ def _compute_pressure(
     return p1
 
 
-def _compute_velocity_correction(
+def compute_velocity_correction(
         ui, p0, p1, u_bcs, rho, mu, dt,
         rotational_form, my_dx,
         tol, verbose
@@ -539,7 +539,7 @@ def _step(
     assert dt > 0.0
 
     with Message('Computing tentative velocity'):
-        ui = _compute_tentative_velocity(
+        ui = compute_tentative_velocity(
                 time_step_method, rho, mu,
                 u, p0, dt, u_bcs, f, W,
                 my_dx,
@@ -548,7 +548,7 @@ def _step(
                 )
 
     with Message('Computing pressure correction'):
-        p1 = _compute_pressure(
+        p1 = compute_pressure(
                 P, p0,
                 mu, ui,
                 rho * ui / Constant(dt),
@@ -560,7 +560,7 @@ def _step(
                 )
 
     with Message('Computing velocity correction'):
-        u1 = _compute_velocity_correction(
+        u1 = compute_velocity_correction(
             ui, p0, p1, u_bcs, rho, mu, Constant(dt),
             rotational_form, my_dx,
             tol, verbose
