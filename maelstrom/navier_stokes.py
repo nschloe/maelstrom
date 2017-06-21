@@ -324,6 +324,10 @@ def compute_pressure(
     This condition makes clear that for incompressible Navier-Stokes, one
     either needs to make sure that inflow and outflow always add up to 0, or
     one has to specify pressure boundary conditions.
+
+    Note that, when using a multigrid preconditioner as is done here, the
+    coarse solver must be chosen such that it preserves the nullspace of the
+    problem.
     '''
     W = ui.function_space()
     r = SpatialCoordinate(W.mesh())[0]
