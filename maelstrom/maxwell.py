@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
 #
 '''
-The equation system defined in this file are largely based on
-:cite:`Cha97`.  The equations are modified to include the material
-flux :math:`u`, from the Navier-Stokes computation.
-
-Given an electric field :math:`E` and a magnetic field :math:`B`, the current
-density :math:`J` is given by
-
 .. math::
     \\DeclareMathOperator{\\div}{div}
     \\DeclareMathOperator{\\curl}{curl}
 
+The equation system defined here are largely based on :cite:`Cha97`, with the
+addition of the material flux :math:`u` of the liquid.
+
+Given an electric field :math:`E`, a magnetic field :math:`B`, and a material
+flux :math:`u`, the current density :math:`J` in the material is given
+by
+
 .. math::
      J = \\sigma (E + u \\times B).
+
+where :math:`\\sigma` is the electrical conductivity.
 
 This leads to
 
 .. math::
-     \\curl(\\sigma^{-1} (J - u\\times B) + i \\omega A) = 0.
+     \\curl(\\sigma^{-1} J - u\\times B + \\text{i} \\omega A) = 0.
 
-Assuming that :math:`u` only has components in :math:`r`- and
-:math:`z`-direction (and not in :math:`\\theta`),
-:math:`u = u_r e_r + u_z e_z`,
-and :math:`B = \\curl(\\phi e_{\\theta})`, we end up with
+Assuming that :math:`B` is given by the potential :math:`\\phi`,
+:math:`B = \\curl(\\phi e_{\\theta})`, we end up with
 
 .. math::
     u \\times B &= u \\times \\curl(\\phi e_{\\theta}) \\\\
@@ -32,19 +32,28 @@ and :math:`B = \\curl(\\phi e_{\\theta})`, we end up with
                     + \\frac{1}{r} \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_z
                     \\right) \\\\
                 &= - u_z \\frac{\\text{d}\\phi}{\\text{d}z} e_{\\theta}
+                   + u_{\\theta} \\frac{\\text{d}\\phi}{\\text{d}z} e_z
                    - u_r \\frac{1}{r}
                      \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_{\\theta}.
+                   + u_{\\theta} \\frac{1}{r}
+                     \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_r.
+
+(Note that :math:`\\curl` is taken in cylindrial coordinates.)
 
 Following Chaboudez, this eventually leads to the equation system
 
 .. math::
     \\begin{cases}
-    - \\div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right) + \\left\\langle u,
-      \\frac{1}{r}\\nabla(r\\phi)\\right\\rangle + i \\sigma \\omega \\phi
+    - \\div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
+    - \\sigma u_\\theta \\div\\left(\\frac{1}{r}\\nabla(r\\phi)\\right)
+    + \\sigma \\left\\langle
+          \\begin{pmatrix}u_r\\u_z\\end{pmatrix},
+          \\frac{1}{r}\\nabla(r\\phi)
+          \\right\\rangle
+    + \\text{i} \\sigma \\omega \\phi
     = \\frac{\\sigma v_k}{2\\pi r}    \\quad\\text{in } \\Omega,\\\\
     n\\cdot\\left(- \\frac{1}{\\mu r} \\nabla(r\\phi)\\right) = 0
-      \\quad\\text{on
-    }\\Gamma \\setminus \\{r=0\\}\\\\
+      \\quad\\text{on }\\Gamma \\setminus \\{r=0\\}\\\\
     \\phi = 0    \\quad\\text{ for } r=0.
     \\end{cases}
 
@@ -52,16 +61,19 @@ The differential operators are interpreted like 2D for :math:`r` and :math:`z`.
 The seemingly complicated additional term :math:`u\\times B` finally breaks
 down to just a convective component.
 
-For the weak formulation, the volume elements :math:`2\\pi r dx` are used. This
-corresponds to the full 3D rotational formulation and also makes
+For the weak formulation, the volume elements :math:`2\\pi r\\,\\text{d}x` are
+used. This corresponds to the full 3D rotational formulation and also makes
 sure that at least the diffusive term is nice and symmetric. Additionally, it
-avoids dividing by r in the convections and the right hand side.
+avoids dividing by :math:`r` in the convections and the right hand side.
+
+Here with no convection in direction :math:`\\theta`:
 
 .. math::
-       \\int \\div\\left(\\frac{1}{\\mu r} \\nabla(r u)\\right) (2\\pi r v)
+       \\int_\\Omega
+           \\div\\left(\\frac{1}{\\mu r} \\nabla(r u)\\right) (2\\pi r v)
      + \\langle b, \\nabla(r u)\\rangle 2\\pi v
-     + i \\sigma \\omega u 2 \\pi r v
-   = \\int \\sigma v_k v.
+     + \\text{i} \\sigma \\omega u 2 \\pi r v
+   = \\int_\\Omega \\sigma v_k v.
 '''
 from dolfin import (
     info, DOLFIN_EPS, DirichletBC, Function, KrylovSolver, dot, grad, pi,
@@ -263,10 +275,11 @@ def build_system(
     .. math::
          \\div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
          + \\left\\langle u, \\frac{1}{r} \\nabla(r\\phi)\\right\\rangle
-         + i \\sigma \\omega \\phi
+         + \\text{i} \\sigma \\omega \\phi
             = f
 
-    by multiplying with :math:`2\\pi r v` and integrating over the domain.
+    by multiplying with :math:`2\\pi r v` and integrating over the domain and
+    the preconditioner given by :cite:`KL2012`.
     '''
     r = SpatialCoordinate(V.mesh())[0]
 
@@ -428,7 +441,8 @@ def build_system(
 
 
 def prescribe_voltage(A, b, coil_rings, voltage, v_ref, J):
-    '''Get the voltage coefficients c_l with the total voltage prescribed.
+    '''Get the voltage coefficients :math:`c_l` with the total voltage
+    prescribed.
     '''
     # The currents must equal in all coil rings.
     for k in range(len(coil_rings) - 1):
@@ -490,7 +504,8 @@ def compute_potential(
         io_submesh=None
         ):
     '''Compute the magnetic potential :math:`\\Phi` with
-    :math:`A = \\exp(i \\omega t) \\Phi e_{\\theta}` for a number of coils.
+    :math:`A = \\exp(\\text{i} \\omega t) \\Phi e_{\\theta}` for a number of
+    coils.
     '''
     # Index all coil rings consecutively, starting with 0.
     # This makes them easier to handle for the equation system.
@@ -695,7 +710,31 @@ def compute_joule(
         omega, Sigma, Mu,
         subdomain_indices
         ):
-    '''Compute Joule heating term from given coil voltages.
+    '''
+    See, e.g., equation (2.17) in :cite:`Cha97`.
+
+    In a time-harmonic approximation with
+
+    ..math:
+        A = \\Re(a exp(\\text{i} \\omega t)),
+        B = \\Re(b exp(\\text{i} \\omega t)),
+
+    the time-average of :math:`A\\cdot B` over one period is
+
+       \\overline{A\\cdot B} = \\frac{1}{2} \\Re(a \\cdot b^*)
+
+    see http://www.ece.rutgers.edu/~orfanidi/ewa/ch01.pdf.
+    In particular,
+
+       \\overline{A\\cdot A} = \\frac{1}{2} \\|a\\|^2.
+
+    Consequently, we can compute the average source term over one period
+    as
+
+        s = \\frac{1}{2} \\|j\\|^2 / \\sigma = \\frac{1}{2} \\|E\\|^2 \\sigma.
+
+    (Not using :math:`j` avoids explicitly dividing by :math:`\\sigma` which is
+    0 at nonconductors.)
     '''
     # j_r = {}
     # j_i = {}
@@ -774,19 +813,21 @@ def compute_joule(
 
 
 def compute_lorentz(Phi, omega, sigma):
-    '''
-    In a time-harmonic discretization with
+    '''In a time-harmonic discretization with quantities
 
     .. math::
-        A &= \\Re(a \\exp(i \\omega t)),\\\\
-        B &= \\Re(b \\exp(i \\omega t)),
+
+        \\begin{align}
+            A &= \\Re(a \\exp(\\text{i} \\omega t)),\\\\
+            B &= \\Re(b \\exp(\\text{i} \\omega t)),
+        \\end{align}
 
     the time-average of :math:`A\\times B` over one period is
 
     .. math::
         \\overline{A\\times B} = \\frac{1}{2} \\Re(a \\times b^*),
 
-    see <http://www.ece.rutgers.edu/~orfanidi/ewa/ch01.pdf>.
+    see http://www.ece.rutgers.edu/~orfanidi/ewa/ch01.pdf.
     Since the Lorentz force generated by the current :math:`J` in the magnetic
     field :math:`B` is
 
@@ -801,10 +842,11 @@ def compute_lorentz(Phi, omega, sigma):
     With
 
     .. math::
-       J &= \\Re(\\exp(i \\omega t) j e_{\\theta}),\\\\
+       J &= \\Re(\\exp(\\math{i} \\omega t) j e_{\\theta}),\\\\
        B &= \\Re\\left(
            \\exp(i \\omega t) \\left(
-           -\\frac{d\\phi}{dz} e_r + \\frac{1}{r} \\frac{d(r\\phi)}{dr} e_z
+             -\\frac{\\text{d}\\phi}{\\text{d}z} e_r
+             + \\frac{1}{r} \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_z
            \\right)
            \\right),
 
@@ -816,23 +858,29 @@ def compute_lorentz(Phi, omega, sigma):
               + \\frac{j}{r} \\frac{d(r\\phi^*)}{dr} e_r\\right)\\\\
            &= \\frac{1}{2}
               \\Re\\left(\\frac{j}{r} \\nabla(r\\phi^*)\\right)\\\\
-           &= \\frac{1}{2} \\left(\\frac{\\Re(j)}{r} \\nabla(r \\Re(\\phi))
-              +\\frac{\\Im(j)}{r} \\nabla(r \\Im(\\phi))\\right)
 
-    Only create the Lorentz force for the workpiece. This avoids complications
-    with j(r,z) for which we here can assume
+    In the workpiece, we can assume
 
     .. math::
-        j = -i \\sigma \\omega \\phi
+        j = -\\text{i} \\sigma \\omega \\phi
 
-    (in particular not containing a voltage term).
+    which gives
+
+    .. math::
+       \\begin{align*}
+       \\overline{F_L}
+           &= \\frac{\\sigma\\omega}{2r} \\Im\\left(
+                  \\phi \\nabla(r \\phi^*)
+                  \\right)
+           &= \\frac{\\sigma\\omega}{2r} \\left(
+                \\Im(\\phi) \\nabla(r \\Re(\\phi))
+               -\\Re(\\phi) \\nabla(r \\Im(\\phi))
+               \\right)
+       \\end{align*}
     '''
     mesh = Phi[0].function_space().mesh()
     r = SpatialCoordinate(mesh)[0]
-
-    j_r = + sigma * omega * Phi[1]
-    j_i = - sigma * omega * Phi[0]
-    return 0.5 * (
-            + j_r / r * grad(r * Phi[0])
-            + j_i / r * grad(r * Phi[1])
+    return 0.5 * sigma * omega / r * (
+            + Phi[1] * grad(r * Phi[0])
+            - Phi[0] * grad(r * Phi[1])
             )

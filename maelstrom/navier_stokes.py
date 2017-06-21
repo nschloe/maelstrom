@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 #
+# TODO update
 '''
 Numerical solution schemes for the Navier--Stokes equation in cylindrical
 coordinates,
-TODO update
 
 .. math::
     \\DeclareMathOperator{\\div}{div}
@@ -126,7 +126,7 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
     return F
 
 
-def _compute_tentative_velocity(
+def compute_tentative_velocity(
         time_step_method, rho, mu,
         u, p0, dt, u_bcs, f, W,
         my_dx,
@@ -247,7 +247,7 @@ def _compute_tentative_velocity(
     return ui
 
 
-def _compute_pressure(
+def compute_pressure(
         P, p0,
         mu, ui,
         u,
@@ -262,51 +262,68 @@ def _compute_pressure(
     .. math::
 
         \\begin{align}
-        -1/r \\div(r \\nabla (p1-p0)) = -1/r \\div(r u),\\\\
-        \\text{(with boundary conditions)},
+          -\\frac{1}{r} \\div(r \\nabla (p_1-p_0)) =
+              -\\frac{1}{r} \\div(r u),\\\\
+          \\text{(with boundary conditions)},
         \\end{align}
 
-    for
-        \\nabla p = u.
+    for :math:`\\nabla p = u`.
 
     The pressure correction is based on the update formula
 
-                                (    d\\phi/dr      )
-        \\rho/dt (u_{n+1}-u*) + (    d\\phi/dz      ) = 0
-                                (1/r d\\phi/d\\theta)
+    .. math::
+        \\frac{\\rho}{dt} (u_{n+1}-u^*)
+            + \\begin{pmatrix}
+                \\text{d}\\phi/\\text{d}r\\\\
+                \\text{d}\\phi/\\text{d}z\\\\
+                \\frac{1}{r} \\text{d}\\phi/\\text{d}\\theta
+              \\end{pmatrix}
+                = 0
 
-    with
-
-        \\phi = p_{n+1} - p*
-
-    and
+    with :math:`\\phi = p_{n+1} - p^*` and
 
     .. math::
 
-         1/r d/dr      (r u_r_{n+1})
-       +     d/dz      (  u_z_{n+1})
-       + 1/r d/d\\theta(  u_{\\theta}_{n+1}) = 0
+         \\frac{1}{r} \\frac{\\text{d}}{\\text{d}r} (r u_r_{n+1})
+       + \\frac{\\text{d}}{\\text{d}z}  (u_z_{n+1})
+       + \\frac{1}{r} \\frac{\\text{d}}{\\text{d}\\theta} (u_{\\theta}_{n+1})
+           = 0
 
     With the assumption that u does not change in the direction
     :math:`\\theta`, one derives
 
     .. math::
 
-     - 1/r     div(r \\nabla phi) = 1/r * \\rho/dt     div(r (u_{n+1} - u*))
-     - 1/r n\\cdot(r \\nabla phi) = 1/r * \\rho/dt n\\cdot(r (u_{n+1} - u*))
+       - \\frac{1}{r}   \\div(r \\nabla \\phi) =
+           \\frac{1}{r} \\frac{\\rho}{dt}   \\div(r (u_{n+1} - u^*))\\\\
+       - \\frac{1}{r} \\langle n, r \\nabla \\phi\\rangle =
+           \\frac{1}{r} \\frac{\\rho}{dt} \\langle n, r (u_{n+1} - u^*)\\rangle
 
     In its weak form, this is
 
     .. math::
 
-      \\int r * \\grad(phi)\\cdot\\grad(q) \\cdot 2 \\pi =
-           - \\rho/dt \\int div(r u*) q \\cdot 2 \\pi
-           - \\rho/dt \\int_{\\Gamma} n\\cdot(r (u_{n+1}-u*)) q \\cdot 2\\pi.
+      \\int r \\langle\\nabla\\phi, \\nabla q\\rangle \\,2 \\pi =
+           - \\frac{\\rho}{dt} \\int \\div(r u^*) q \\, 2 \\pi
+           - \\frac{\\rho}{dt} \\int_{\\Gamma}
+                 \\langle n,  r (u_{n+1}-u^*)\\rangle q \\, 2\\pi.
 
-    (The terms :math:`1/r` cancel with the volume elements :math:`2\\pi r`.) If
-    the Dirichlet boundary conditions are applied to both :math:`u*` and
+    (The terms :math:`1/r` cancel with the volume elements :math:`2\\pi r`.)
+    If the Dirichlet boundary conditions are applied to both :math:`u^*` and
     :math:`u_n` (the latter in the velocity correction step), the boundary
     integral vanishes.
+
+    If no Dirichlet conditions are given (which is the default case), the
+    system has no unique solution; one eigenvalue is 0. This however, does not
+    hurt CG convergence if the system is consistent, cf. :cite:`vdV03`. And
+    indeed it is consistent if and only if
+
+    .. math::
+        \\int_\\Gamma r \\langle n, u\\rangle = 0.
+
+    This condition makes clear that for incompressible Navier-Stokes, one
+    either needs to make sure that inflow and outflow always add up to 0, or
+    one has to specify pressure boundary conditions.
     '''
     W = ui.function_space()
     r = SpatialCoordinate(W.mesh())[0]
@@ -467,7 +484,7 @@ def _compute_pressure(
     return p1
 
 
-def _compute_velocity_correction(
+def compute_velocity_correction(
         ui, p0, p1, u_bcs, rho, mu, dt,
         rotational_form, my_dx,
         tol, verbose
@@ -539,7 +556,7 @@ def _step(
     assert dt > 0.0
 
     with Message('Computing tentative velocity'):
-        ui = _compute_tentative_velocity(
+        ui = compute_tentative_velocity(
                 time_step_method, rho, mu,
                 u, p0, dt, u_bcs, f, W,
                 my_dx,
@@ -548,7 +565,7 @@ def _step(
                 )
 
     with Message('Computing pressure correction'):
-        p1 = _compute_pressure(
+        p1 = compute_pressure(
                 P, p0,
                 mu, ui,
                 rho * ui / Constant(dt),
@@ -560,7 +577,7 @@ def _step(
                 )
 
     with Message('Computing velocity correction'):
-        u1 = _compute_velocity_correction(
+        u1 = compute_velocity_correction(
             ui, p0, p1, u_bcs, rho, mu, Constant(dt),
             rotational_form, my_dx,
             tol, verbose
