@@ -262,51 +262,68 @@ def compute_pressure(
     .. math::
 
         \\begin{align}
-        -1/r \\div(r \\nabla (p1-p0)) = -1/r \\div(r u),\\\\
-        \\text{(with boundary conditions)},
+          -\\frac{1}{r} \\div(r \\nabla (p_1-p_0)) =
+              -\\frac{1}{r} \\div(r u),\\\\
+          \\text{(with boundary conditions)},
         \\end{align}
 
-    for
-        \\nabla p = u.
+    for :math:`\\nabla p = u`.
 
     The pressure correction is based on the update formula
 
-                                (    d\\phi/dr      )
-        \\rho/dt (u_{n+1}-u*) + (    d\\phi/dz      ) = 0
-                                (1/r d\\phi/d\\theta)
+    .. math::
+        \\frac{\\rho}{dt} (u_{n+1}-u^*)
+            + \\begin{pmatrix}
+                \\text{d}\\phi/\\text{d}r\\\\
+                \\text{d}\\phi/\\text{d}z\\\\
+                \\frac{1}{r} \\text{d}\\phi/\\text{d}\\theta
+              \\end{pmatrix}
+                = 0
 
-    with
-
-        \\phi = p_{n+1} - p*
-
-    and
+    with :math:`\\phi = p_{n+1} - p^*` and
 
     .. math::
 
-         1/r d/dr      (r u_r_{n+1})
-       +     d/dz      (  u_z_{n+1})
-       + 1/r d/d\\theta(  u_{\\theta}_{n+1}) = 0
+         \\frac{1}{r} \\frac{\\text{d}}{\\text{d}r} (r u_r_{n+1})
+       + \\frac{\\text{d}}{\\text{d}z}  (u_z_{n+1})
+       + \\frac{1}{r} \\frac{\\text{d}}{\\text{d}\\theta} (u_{\\theta}_{n+1})
+           = 0
 
     With the assumption that u does not change in the direction
     :math:`\\theta`, one derives
 
     .. math::
 
-     - 1/r     div(r \\nabla phi) = 1/r * \\rho/dt     div(r (u_{n+1} - u*))
-     - 1/r n\\cdot(r \\nabla phi) = 1/r * \\rho/dt n\\cdot(r (u_{n+1} - u*))
+       - \\frac{1}{r}   \\div(r \\nabla \\phi) =
+           \\frac{1}{r} \\frac{\\rho}{dt}   \\div(r (u_{n+1} - u^*))\\\\
+       - \\frac{1}{r} \\langle n, r \\nabla \\phi\\rangle =
+           \\frac{1}{r} \\frac{\\rho}{dt} \\langle n, r (u_{n+1} - u^*)\\rangle
 
     In its weak form, this is
 
     .. math::
 
-      \\int r * \\grad(phi)\\cdot\\grad(q) \\cdot 2 \\pi =
-           - \\rho/dt \\int div(r u*) q \\cdot 2 \\pi
-           - \\rho/dt \\int_{\\Gamma} n\\cdot(r (u_{n+1}-u*)) q \\cdot 2\\pi.
+      \\int r \\langle\\nabla\\phi, \\nabla q\\rangle \,2 \\pi =
+           - \\frac{\\rho}{dt} \\int \\div(r u^*) q \, 2 \\pi
+           - \\frac{\\rho}{dt} \\int_{\\Gamma}
+                 \\langle n,  r (u_{n+1}-u^*)\\rangle q \\, 2\\pi.
 
-    (The terms :math:`1/r` cancel with the volume elements :math:`2\\pi r`.) If
-    the Dirichlet boundary conditions are applied to both :math:`u*` and
+    (The terms :math:`1/r` cancel with the volume elements :math:`2\\pi r`.)
+    If the Dirichlet boundary conditions are applied to both :math:`u^*` and
     :math:`u_n` (the latter in the velocity correction step), the boundary
     integral vanishes.
+
+    If no Dirichlet conditions are given (which is the default case), the
+    system has no unique solution; one eigenvalue is 0. This however, does not
+    hurt CG convergence if the system is consistent, cf. :cite:`vdV03`. And
+    indeed it is consistent if and only if
+
+    .. math::
+        \\int_\\Gamma r \\langle n, u\\rangle = 0.
+
+    This condition makes clear that for incompressible Navier-Stokes, one
+    either needs to make sure that inflow and outflow always add up to 0, or
+    one has to specify pressure boundary conditions.
     '''
     W = ui.function_space()
     r = SpatialCoordinate(W.mesh())[0]
