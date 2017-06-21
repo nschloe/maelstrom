@@ -30,11 +30,11 @@ def F(u, v, kappa, rho, cp,
             - \\int_\\Omega \\frac{1}{\\rho c_p} f v
                 \\, 2\\pi r \\,\\text{d}x\\\\
             - \\int_\\Gamma r \\kappa \\langle n, \\nabla T\\rangle v
-                \\frac{1}{\\rho c_p} \\m 2\\pi \\,\\text{d}s
+                \\frac{1}{\\rho c_p} 2\\pi \\,\\text{d}s
             - \\int_\\Gamma  r \\kappa  \\alpha (u - u_0) v
-                \\frac{1}{\\rho c_p} \\, 2\\pi \\,\\text{d}s
+                \\frac{1}{\\rho c_p} \\, 2\\pi \\,\\text{d}s,
 
-    Used for time-stepping
+    used for time-stepping
 
     .. math::
 
@@ -73,10 +73,37 @@ def F(u, v, kappa, rho, cp,
     # #interactive()
     # #F -= tau * v * 2*pi*r*dx(wpi)
     # #F -= tau * Rdx
+
+    # TODO stabilization
+    # About stabilization for reaction-diffusion-convection:
+    # http://www.ewi.tudelft.nl/fileadmin/Faculteit/EWI/Over_de_faculteit/Afdelingen/Applied_Mathematics/Rapporten/doc/06-03.pdf
+    # http://www.xfem.rwth-aachen.de/Project/PaperDownload/Fries_ReviewStab.pdf
+    #
+    # R = u_t \
+    #     + dot(u0, grad(trial)) \
+    #     - 1.0/(rho(293.0)*cp) * div(kappa*grad(trial))
+    # F -= R * dot(tau*u0, grad(v)) * dx
+    #
+    # Stabilization
+    # tau = stab.supg2(
+    #         mesh,
+    #         u0,
+    #         kappa/(rho(293.0)*cp),
+    #         Q.ufl_element().degree()
+    #         )
     return F0
 
 
 class Heat(object):
+    '''
+    Class for interfacing the parabolic library for time stepping.
+
+    Note that the mass matrix :math:`M` is computed using a vertex quadrature
+    scheme such that it does not have off-diagonal entries. The usual form with
+    positive off-diagonal entries makes the mass matrix a non-M-matrix, leading
+    to oscillations whenever the temperature gradient is sharp. See :cite:`GR`
+    for background.
+    '''
     def __init__(
             self, Q,
             kappa, rho, cp,
@@ -88,23 +115,6 @@ class Heat(object):
             my_dx=dx,
             my_ds=ds
             ):
-        # TODO stabilization
-        # About stabilization for reaction-diffusion-convection:
-        # http://www.ewi.tudelft.nl/fileadmin/Faculteit/EWI/Over_de_faculteit/Afdelingen/Applied_Mathematics/Rapporten/doc/06-03.pdf
-        # http://www.xfem.rwth-aachen.de/Project/PaperDownload/Fries_ReviewStab.pdf
-        #
-        # R = u_t \
-        #     + dot(u0, grad(trial)) \
-        #     - 1.0/(rho(293.0)*cp) * div(kappa*grad(trial))
-        # F -= R * dot(tau*u0, grad(v)) * dx
-        #
-        # Stabilization
-        # tau = stab.supg2(
-        #         mesh,
-        #         u0,
-        #         kappa/(rho(293.0)*cp),
-        #         Q.ufl_element().degree()
-        #         )
         super(Heat, self).__init__()
         self.Q = Q
 
