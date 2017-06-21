@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Maelstrom documentation build configuration file, created by
+# maelstrom documentation build configuration file, created by
 # sphinx-quickstart on Tue Feb 18 00:56:56 2014.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -52,8 +52,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Maelstrom'
-copyright = u'2014, Nico Schlömer'
+project = u'maelstrom'
+copyright = u'2014-2017, Nico Schlömer'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -176,7 +176,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Maelstromdoc'
+htmlhelp_basename = 'maelstromdoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -195,7 +195,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'Maelstrom.tex', u'Maelstrom Documentation',
+  ('index', 'maelstrom.tex', u'maelstrom Documentation',
    u'Nico Schlömer', 'manual'),
 ]
 
@@ -225,7 +225,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'Maelstrom', u'Maelstrom Documentation',
+    ('index', 'maelstrom', u'maelstrom Documentation',
      [u'Nico Schlömer'], 1)
 ]
 
@@ -239,8 +239,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'Maelstrom', u'Maelstrom Documentation',
-   u'Nico Schlömer', 'Maelstrom', 'One line description of project.',
+  ('index', 'maelstrom', u'maelstrom Documentation',
+   u'Nico Schlömer', 'maelstrom', 'One line description of project.',
    'Miscellaneous'),
 ]
 
