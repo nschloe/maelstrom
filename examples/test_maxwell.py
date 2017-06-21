@@ -160,7 +160,7 @@ def _pyamg_test(V, dx, Mu, Sigma, omega, coils):
         # Find good AMG parameters for P.
         solver_diagnostics(
                 Pc,
-                fname='results/my_maxwell_solver_diagnostic',
+                fname='my_maxwell_solver_diagnostic',
                 # definiteness='positive',
                 # symmetry='hermitian'
                 )
@@ -359,7 +359,7 @@ def test():
     # submesh_coil = SubMesh(mesh, subdomains, ii)
     # V1 = FunctionSpace(submesh_coil, 'CG', ii)
 
-    # #File('results/phi.xdmf') << project(as_vector((Phi_r, Phi_i)), V*V)
+    # #File('phi.xdmf') << project(as_vector((Phi_r, Phi_i)), V*V)
     from dolfin import plot
     plot(Phi[0], title='Re(Phi)')
     plot(Phi[1], title='Im(Phi)')
@@ -407,7 +407,7 @@ def test():
 
     show_phi = True
     if show_phi:
-        filename = './results/phi.xdmf'
+        filename = './phi.xdmf'
         info('Writing out Phi to %s...' % filename)
         with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
             xdmf_file.parameters['flush_output'] = True
@@ -439,7 +439,7 @@ def test():
         B_r = project(as_vector((-g[1], g[0])), VV)
         g = 1/r * grad(r*Phi[1])
         B_i = project(as_vector((-g[1], g[0])), VV)
-        filename = './results/magnetic-field.xdmf'
+        filename = './magnetic-field.xdmf'
         info('Writing out B to %s...' % filename)
         B = Function(VV, name='magnetic field B')
         if abs(omega) < DOLFIN_EPS:
@@ -505,7 +505,7 @@ def test():
         lorentz_fun = project(lorentz_wpi, LL)
         lorentz_fun.rename('F_L', 'Lorentz force')
 
-        # filename = './results/lorentz.xdmf'
+        # filename = './lorentz.xdmf'
         # info('Writing out Lorentz force to %s...' % filename)
         # with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
         #     xdmf_file.write(lorentz_fun)
@@ -529,7 +529,7 @@ def test():
     #     # TODO find out why the projection here segfaults
     #     jp = project(joule[ii], V_submesh)
     #     jp.name = 'Joule heat source'
-    #     filename = './results/joule.xdmf'
+    #     filename = './joule.xdmf'
     #     joule_file = XDMFFile(filename)
     #     joule_file << jp
     #     plot(jp, title='heat source')
