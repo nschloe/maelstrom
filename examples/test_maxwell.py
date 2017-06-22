@@ -6,7 +6,7 @@ from __future__ import print_function
 from dolfin import (
     parameters, XDMFFile, Measure, FunctionSpace, begin, end, SubMesh, project,
     Function, assemble, grad, as_vector, DOLFIN_EPS, info, interactive,
-    mpi_comm_world, FiniteElement, SpatialCoordinate
+    mpi_comm_world, FiniteElement, SpatialCoordinate, VectorFunctionSpace
     )
 import numpy
 from numpy import pi, sin, cos
@@ -217,56 +217,27 @@ def test():
                     B.vector().axpy(cos(omega*t), B_i.vector())
                     xdmf_file.write(B, t)
 
-    # TODO reenable; there's still a bug in FEniCS concerning the submesh
-    # projection of vector quanities. MWE:
-    # ```
-    # from dolfin import *
-    #
-    # # Generate meshes
-    # # Structure sub domain
-    # class Structure(SubDomain):
-    #     def inside(self, x, on_boundary):
-    #         return x[0] > 1.4 - DOLFIN_EPS and x[0] < 1.6 \
-    #             + DOLFIN_EPS and x[1] < 0.6 + DOLFIN_EPS
-    # # Create mesh
-    # mesh = RectangleMesh(Point(0.0, 0.0), Point(3.0, 1.0), 60, 20)
-    # # Create sub domain markers and mark everaything as 0
-    # sub_domains = MeshFunction("size_t", mesh, mesh.topology().dim())
-    # sub_domains.set_all(0)
-    # # Mark structure domain as 1
-    # structure = Structure()
-    # structure.mark(sub_domains, 1)
-    # # Extract sub meshes
-    # fluid_mesh = SubMesh(mesh, sub_domains, 0)
-    # structure_mesh = SubMesh(mesh, sub_domains, 1)
-    #
-    # # Project grad(exp) onto submesh
-    # V = FunctionSpace(mesh, 'CG', 1)
-    # exp = Expression('exp(x[0] + x[1])', domain=mesh, degree=10)
-    # V_element = FiniteElement('CG', fluid_mesh.ufl_cell(), 1)
-    # V_submesh = FunctionSpace(fluid_mesh, V_element*V_element)
-    # project(grad(exp), V_submesh)
-    # ```
-    if problem.wpi and False:
+    if problem.wpi:
         # Get resulting Lorentz force.
         lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
 
-        # Show the Lorentz force.
-        L_element = \
-            FiniteElement('CG', problem.submesh_workpiece.ufl_cell(), 1)
-        LL = FunctionSpace(problem.submesh_workpiece, L_element * L_element)
-        # TODO find out why the projection here segfaults
-        lorentz_fun = project(lorentz_wpi, LL)
+        # Show the Lorentz force in the workpiece.
+        # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
+        # First project onto the entire mesh, then onto the submesh; see bug
+        # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+        W = VectorFunctionSpace(problem.mesh, 'CG', 1)
+        pl = project(lorentz_wpi, W)
+        W2 = VectorFunctionSpace(problem.submesh_workpiece, 'CG', 1)
+        lorentz_fun = project(pl, W2)
         lorentz_fun.rename('F_L', 'Lorentz force')
 
-        # filename = './lorentz.xdmf'
-        # info('Writing out Lorentz force to %s...' % filename)
-        # with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
-        #     xdmf_file.write(lorentz_fun)
+        filename = './lorentz.xdmf'
+        info('Writing out Lorentz force to %s...' % filename)
+        with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+            xdmf_file.write(lorentz_fun)
 
         # plot(lfun, title='Lorentz force')
         # interactive()
-        print('z')
 
     # # Get resulting Joule heat source.
     # #ii = None
