@@ -34,24 +34,6 @@ def test():
         25.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
         25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
         ]
-    #
-    # voltages = [0.0, 0.0, 0.0, 0.0, 0.0]
-    #
-    # voltages = [
-    #     25.0 * numpy.exp(-1j * 2*pi * 2 * 70.0/360.0),
-    #     25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0),
-    #     25.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #     38.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #     38.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
-    #     ]
-    #
-    # voltages = [
-    #     38.0 * numpy.exp(+1j * 2*pi * 2 * 70.0/360.0),
-    #     38.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0),
-    #     38.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #     25.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #     25.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0)
-    #     ]
 
     info('Input voltages:')
     info('%r' % voltages)
