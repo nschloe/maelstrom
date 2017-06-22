@@ -4,9 +4,9 @@
 from __future__ import print_function
 
 from dolfin import (
-    parameters, XDMFFile, Measure, FunctionSpace, begin, end, SubMesh, project,
-    Function, assemble, grad, as_vector, DOLFIN_EPS, info, interactive,
-    mpi_comm_world, FiniteElement, SpatialCoordinate, VectorFunctionSpace
+    XDMFFile, Measure, FunctionSpace, begin, end, SubMesh, project, Function,
+    assemble, grad, as_vector, DOLFIN_EPS, info, interactive, mpi_comm_world,
+    FiniteElement, SpatialCoordinate, VectorFunctionSpace
     )
 import numpy
 from numpy import pi, sin, cos
@@ -14,12 +14,6 @@ from numpy import pi, sin, cos
 import maelstrom.maxwell as cmx
 
 import problems
-
-# We need to allow extrapolation here since otherwise, the equation systems
-# for Maxwell cannot be constructed: They contain the velocity `u` (from
-# Navier-Stokes) which is only defined on the workpiece subdomain.
-# Cf. <https://answers.launchpad.net/dolfin/+question/210508>.
-parameters['allow_extrapolation'] = True
 
 
 # pylint: disable=too-many-branches
