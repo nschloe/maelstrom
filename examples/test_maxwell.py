@@ -5,8 +5,8 @@ from __future__ import print_function
 
 from dolfin import (
     XDMFFile, Measure, FunctionSpace, begin, end, SubMesh, project, Function,
-    assemble, grad, as_vector, DOLFIN_EPS, info, interactive, mpi_comm_world,
-    FiniteElement, SpatialCoordinate, VectorFunctionSpace
+    assemble, grad, as_vector, DOLFIN_EPS, info, mpi_comm_world, FiniteElement,
+    SpatialCoordinate, VectorFunctionSpace, norm
     )
 import numpy
 from numpy import pi, sin, cos
@@ -108,9 +108,9 @@ def test():
     # V1 = FunctionSpace(submesh_coil, 'CG', ii)
 
     # #File('phi.xdmf') << project(as_vector((Phi_r, Phi_i)), V*V)
-    from dolfin import plot
-    plot(Phi[0], title='Re(Phi)')
-    plot(Phi[1], title='Im(Phi)')
+    # from dolfin import plot
+    # plot(Phi[0], title='Re(Phi)')
+    # plot(Phi[1], title='Im(Phi)')
     # plot(project(Phi_r, V1), title='Re(Phi)')
     # plot(project(Phi_i, V1), title='Im(Phi)')
     # interactive()
@@ -153,26 +153,23 @@ def test():
                     k += 1
         end()
 
-    show_phi = True
-    if show_phi:
-        filename = './phi.xdmf'
+    filename = './maxwell.xdmf'
+    with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+        xdmf_file.parameters['flush_output'] = True
+        xdmf_file.parameters['rewrite_function_mesh'] = False
+
+        # Store phi
         info('Writing out Phi to %s...' % filename)
-        with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
-            xdmf_file.parameters['flush_output'] = True
-            xdmf_file.parameters['rewrite_function_mesh'] = False
+        phi = Function(V, name='phi')
+        Phi0 = project(Phi[0], V)
+        Phi1 = project(Phi[1], V)
+        for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
+            # Im(Phi * exp(i*omega*t))
+            phi.vector().zero()
+            phi.vector().axpy(sin(omega*t), Phi0.vector())
+            phi.vector().axpy(cos(omega*t), Phi1.vector())
+            xdmf_file.write(phi, t)
 
-            phi = Function(V, name='phi')
-            Phi0 = project(Phi[0], V)
-            Phi1 = project(Phi[1], V)
-            for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
-                # Im(Phi * exp(i*omega*t))
-                phi.vector().zero()
-                phi.vector().axpy(sin(omega*t), Phi0.vector())
-                phi.vector().axpy(cos(omega*t), Phi1.vector())
-                xdmf_file.write(phi, t)
-
-    show_magnetic_field = True
-    if show_magnetic_field:
         # Show the resulting magnetic field
         #
         #   B_r = -dphi/dz,
@@ -187,72 +184,67 @@ def test():
         B_r = project(as_vector((-g[1], g[0])), VV)
         g = 1/r * grad(r*Phi[1])
         B_i = project(as_vector((-g[1], g[0])), VV)
-        filename = './magnetic-field.xdmf'
         info('Writing out B to %s...' % filename)
-        B = Function(VV, name='magnetic field B')
+        B = Function(VV)
+        B.rename('B', 'magnetic field')
         if abs(omega) < DOLFIN_EPS:
             B.assign(B_r)
-            with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
-                xdmf_file.write(B)
-            plot(B_r, title='Re(B)')
-            plot(B_i, title='Im(B)')
-            interactive()
+            xdmf_file.write(B)
+            # plot(B_r, title='Re(B)')
+            # plot(B_i, title='Im(B)')
+            # interactive()
         else:
             # Write those out to a file.
-            with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
-                xdmf_file.parameters['flush_output'] = True
-                xdmf_file.parameters['rewrite_function_mesh'] = False
-                lspace = \
-                    numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False)
-                for t in lspace:
-                    # Im(B * exp(i*omega*t))
-                    B.vector().zero()
-                    B.vector().axpy(sin(omega*t), B_r.vector())
-                    B.vector().axpy(cos(omega*t), B_i.vector())
-                    xdmf_file.write(B, t)
+            lspace = numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False)
+            for t in lspace:
+                # Im(B * exp(i*omega*t))
+                B.vector().zero()
+                B.vector().axpy(sin(omega*t), B_r.vector())
+                B.vector().axpy(cos(omega*t), B_i.vector())
+                xdmf_file.write(B, t)
 
-    if problem.wpi:
-        # Get resulting Lorentz force.
-        lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
+    # Store Lorentz force and Joule heat source in file
+    # Get resulting Lorentz force.
+    lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
 
-        # Show the Lorentz force in the workpiece.
-        # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
-        # First project onto the entire mesh, then onto the submesh; see bug
-        # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
-        W = VectorFunctionSpace(problem.mesh, 'CG', 1)
-        pl = project(lorentz_wpi, W)
-        W2 = VectorFunctionSpace(problem.submesh_workpiece, 'CG', 1)
-        lorentz_fun = project(pl, W2)
-        lorentz_fun.rename('F_L', 'Lorentz force')
+    # Show the Lorentz force in the workpiece.
+    # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
+    # First project onto the entire mesh, then onto the submesh; see bug
+    # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+    W = VectorFunctionSpace(problem.mesh, 'CG', 1)
+    pl = project(lorentz_wpi, W)
+    W2 = VectorFunctionSpace(problem.submesh_workpiece, 'CG', 1)
+    lorentz_fun = project(pl, W2)
+    lorentz_fun.rename('F_L', 'Lorentz force')
 
-        filename = './lorentz.xdmf'
-        info('Writing out Lorentz force to %s...' % filename)
-        with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
-            xdmf_file.write(lorentz_fun)
+    assert abs(norm(lorentz_fun, 'L2') - 0.8417945622831131) < 1.0e-3
 
-        # plot(lfun, title='Lorentz force')
-        # interactive()
+    # plot(lfun, title='Lorentz force')
+    # interactive()
 
-    # # Get resulting Joule heat source.
-    # #ii = None
-    # ii = 4
-    # if ii in subdomain_indices:
-    #     joule = cmx.compute_joule(V, dx,
-    #                               Phi, voltages,
-    #                               omega, sigma, mu,
-    #                               wpi,
-    #                               subdomain_indices
-    #                               )
-    #     submesh = SubMesh(mesh, subdomains, ii)
-    #     V_submesh = FunctionSpace(submesh, 'CG', 1)
-    #     # TODO find out why the projection here segfaults
-    #     jp = project(joule[ii], V_submesh)
-    #     jp.name = 'Joule heat source'
-    #     filename = './joule.xdmf'
-    #     joule_file = XDMFFile(filename)
-    #     joule_file << jp
-    #     plot(jp, title='heat source')
-    #     interactive()
+    joule = cmx.compute_joule(
+            Phi, voltages,
+            omega, sigma, mu,
+            subdomain_indices=[problem.wpi]
+            )
+    V2 = FunctionSpace(problem.submesh_workpiece, 'CG', 1)
+    jp = project(joule[problem.wpi], V2)
+    jp.rename('s', 'Joule heat source')
+
+    assert abs(norm(jp, 'L2') - 32.232276325879475) < 1.0e-3
+
+    # plot(jp, title='heat source')
+    # interactive()
+
+    filename = './lorentz-joule.xdmf'
+    info('Writing out Lorentz force and Joule heat source to {}...'.format(
+        filename
+        ))
+    with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+        # xdmf_file.parameters['flush_output'] = True
+        # xdmf_file.parameters['rewrite_function_mesh'] = False
+        xdmf_file.write(jp, 0.0)
+        xdmf_file.write(lorentz_fun, 0.0)
 
     # # For the lulz: solve heat equation with the Joule source.
     # u = TrialFunction(V)
