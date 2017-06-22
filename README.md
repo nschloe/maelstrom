@@ -4,20 +4,50 @@
 [![codecov](https://codecov.io/gh/nschloe/maelstrom/branch/master/graph/badge.svg)](https://codecov.io/gh/nschloe/maelstrom)
 [![Documentation Status](https://readthedocs.org/projects/maelstrom/badge/?version=latest)](https://readthedocs.org/projects/maelstrom/?badge=latest)
 
-
 maelstrom is a numerical software tool for the solution of magnetohydrodynamics
 problems in cylindrical coordinates.
 As such, maelstrom includes time integrators for the heat equation, for the
-Navier--Stokes equations, and a stationary solver for the Maxwell equations.
+Navier--Stokes equations, and a stationary solver for the Maxwell equations,
+each in cylindrial coordinates.
 
+### Some details on the problem
 
-### Latest source code
+The goal is to compute the flux of a liquid metal under the influence of a
+magnetic field, modeled by
 
-The latest development version of maelstrom's sources are always available at:
+  * the heat equation,
+  * Maxwell's equations, and
+  * the Navier-Stokes equations.
 
-https://github.com/nschloe/maelstrom
+Heat and Navier-Stokes are coupled by buoyancy, heat and Maxwell by the Joule
+effect, and Maxwell and Navier-Stokes by current induction and the Lorentz
+force.
 
-They can be downloaded as a zip file or using the Git client.
+To simplify matters, it is assumed that the effect of the material flux does
+not influence the electric and magnetic fields, i.e., the current induction
+from moving molten metal in a magnetic field is neglected. This decouples
+Maxwell's equations from the other two. Essentially, the task breaks down to
+
+ * computing Joule heating and Lorentz force, given a voltage distribution in
+   coils, and given those two quantities
+ * computing the the resulting material flux inside a container.
+
+### Solving Maxwell's equations
+
+Derivation of the involved formulas is best taken from [the
+documentation](https://maelstrom.readthedocs.io/en/master/maelstrom.maxwell.html).
+
+##### Some visualizations
+
+![](https://nschloe.github.io/meshio/magnetic-field.gif)
+A typical cylindrical problem: A crucible with a liquid on the left, surrounded
+by a number of electric coils (the squares). The arrows indicate the magnetic
+field produced by current in those coils. Note that the actual domain where
+Maxwell's equations are solved is much larger.
+
+![](https://nschloe.github.io/meshio/lorentz-joule.png)
+The Joule heat source (blue/red) and the Lorentz force (arrows) generated from
+the above magnetic field.
 
 ### Testing
 

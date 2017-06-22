@@ -34,7 +34,7 @@ Assuming that :math:`B` is given by the potential :math:`\\phi`,
                 &= - u_z \\frac{\\text{d}\\phi}{\\text{d}z} e_{\\theta}
                    + u_{\\theta} \\frac{\\text{d}\\phi}{\\text{d}z} e_z
                    - u_r \\frac{1}{r}
-                     \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_{\\theta}.
+                     \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_{\\theta}
                    + u_{\\theta} \\frac{1}{r}
                      \\frac{\\text{d}(r\\phi)}{\\text{d}r} e_r.
 
@@ -47,7 +47,7 @@ Following Chaboudez, this eventually leads to the equation system
     - \\div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
     - \\sigma u_\\theta \\div\\left(\\frac{1}{r}\\nabla(r\\phi)\\right)
     + \\sigma \\left\\langle
-          \\begin{pmatrix}u_r\\u_z\\end{pmatrix},
+          (u_r, u_z)^T,
           \\frac{1}{r}\\nabla(r\\phi)
           \\right\\rangle
     + \\text{i} \\sigma \\omega \\phi
@@ -58,8 +58,6 @@ Following Chaboudez, this eventually leads to the equation system
     \\end{cases}
 
 The differential operators are interpreted like 2D for :math:`r` and :math:`z`.
-The seemingly complicated additional term :math:`u\\times B` finally breaks
-down to just a convective component.
 
 For the weak formulation, the volume elements :math:`2\\pi r\\,\\text{d}x` are
 used. This corresponds to the full 3D rotational formulation and also makes
@@ -716,20 +714,29 @@ def compute_joule(
     In a time-harmonic approximation with
 
     ..math:
-        A = \\Re(a exp(\\text{i} \\omega t)),
-        B = \\Re(b exp(\\text{i} \\omega t)),
+
+        \\begin{align}
+        A &= \\Re(a exp(\\text{i} \\omega t)),\\\\
+        B &= \\Re(b exp(\\text{i} \\omega t)),
+        \\end{align}
 
     the time-average of :math:`A\\cdot B` over one period is
+
+    ..math:
 
        \\overline{A\\cdot B} = \\frac{1}{2} \\Re(a \\cdot b^*)
 
     see http://www.ece.rutgers.edu/~orfanidi/ewa/ch01.pdf.
     In particular,
 
+    ..math:
+
        \\overline{A\\cdot A} = \\frac{1}{2} \\|a\\|^2.
 
     Consequently, we can compute the average source term over one period
     as
+
+    ..math:
 
         s = \\frac{1}{2} \\|j\\|^2 / \\sigma = \\frac{1}{2} \\|E\\|^2 \\sigma.
 
@@ -842,7 +849,7 @@ def compute_lorentz(Phi, omega, sigma):
     With
 
     .. math::
-       J &= \\Re(\\exp(\\math{i} \\omega t) j e_{\\theta}),\\\\
+       J &= \\Re(\\exp(\\text{i} \\omega t) j e_{\\theta}),\\\\
        B &= \\Re\\left(
            \\exp(i \\omega t) \\left(
              -\\frac{\\text{d}\\phi}{\\text{d}z} e_r
@@ -871,7 +878,7 @@ def compute_lorentz(Phi, omega, sigma):
        \\overline{F_L}
            &= \\frac{\\sigma\\omega}{2r} \\Im\\left(
                   \\phi \\nabla(r \\phi^*)
-                  \\right)
+                  \\right)\\\\
            &= \\frac{\\sigma\\omega}{2r} \\left(
                 \\Im(\\phi) \\nabla(r \\Re(\\phi))
                -\\Re(\\phi) \\nabla(r \\Im(\\phi))

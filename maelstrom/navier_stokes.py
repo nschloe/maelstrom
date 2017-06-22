@@ -9,19 +9,19 @@ coordinates,
     \\DeclareMathOperator{\\div}{div}
 
 .. math::
-    \\begin{align}
-        \\rho \\left(\\frac{du}{dt} + (u\\cdot\\nabla)u\\right)
+    \\begin{align*}
+        &\\rho \\left(\\frac{du}{dt} + (u\\cdot\\nabla)u\\right)
           = -\\nabla p
             + \\mu \\left(
                 \\frac{1}{r} \\div(r \\nabla u)
                 - e_r \\frac{u_r}{r^2}
                 \\right)
             + f,\\\\
-        \\frac{1}{r} \\div(r u) = 0,
-    \\end{align}
+        &\\frac{1}{r} \\div(r u) &= 0,
+    \\end{align*}
 
 cf.
-https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Cylindrical_coordinates.
+https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Representations_in_3D.
 In the weak formulation, we consider integrals in pseudo 3D, resulting in a
 weighting with :math:`2\\pi r` of the equations. (The volume element is
 :math:`2\\pi r \\text{d}x`.)
@@ -136,8 +136,8 @@ def compute_tentative_velocity(
     '''Compute the tentative velocity via
 
     .. math::
-        \\rho (u[0] + (u\\cdot\\nabla)u) =
-            \\mu 1/r \\div(r \\nabla u) + \\rho g.
+        \\rho (u_0 + (u\\cdot\\nabla)u) =
+            \\mu \\frav{1}{r} \\div(r \\nabla u) + \\rho g.
     '''
 
     class TentativeVelocityProblem(NonlinearProblem):
@@ -284,9 +284,9 @@ def compute_pressure(
 
     .. math::
 
-         \\frac{1}{r} \\frac{\\text{d}}{\\text{d}r} (r u_r_{n+1})
-       + \\frac{\\text{d}}{\\text{d}z}  (u_z_{n+1})
-       + \\frac{1}{r} \\frac{\\text{d}}{\\text{d}\\theta} (u_{\\theta}_{n+1})
+         \\frac{1}{r} \\frac{\\text{d}}{\\text{d}r} (r u_r^{(n+1)})
+       + \\frac{\\text{d}}{\\text{d}z}  (u_z^{(n+1)})
+       + \\frac{1}{r} \\frac{\\text{d}}{\\text{d}\\theta} (u_{\\theta}^{(n+1)})
            = 0
 
     With the assumption that u does not change in the direction
@@ -324,6 +324,10 @@ def compute_pressure(
     This condition makes clear that for incompressible Navier-Stokes, one
     either needs to make sure that inflow and outflow always add up to 0, or
     one has to specify pressure boundary conditions.
+
+    Note that, when using a multigrid preconditioner as is done here, the
+    coarse solver must be chosen such that it preserves the nullspace of the
+    problem.
     '''
     W = ui.function_space()
     r = SpatialCoordinate(W.mesh())[0]
@@ -493,7 +497,7 @@ def compute_velocity_correction(
 
     .. math::
 
-        U = u_0 - dt/\\rho \\nabla (p_1-p_0).
+        U = u_0 - \\frac{dt}{\\rho} \\nabla (p_1-p_0).
     '''
     W = ui.function_space()
     P = p1.function_space()
@@ -588,7 +592,7 @@ def _step(
 
 class IPCS(object):
     '''
-    Incremental pressure correction scheme.
+    Incremental pressure correction scheme; for details see :cite:`GMS06`.
     '''
     order = {
         'velocity': 1,
