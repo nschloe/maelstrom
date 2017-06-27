@@ -504,7 +504,7 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
     for alpha in Alpha:
         # Scale the voltages
         v = alpha * numpy.array(voltages)
-        lorentz, joule = get_lorentz_joule(problem, v, show=show)
+        lorentz, joule, _ = get_lorentz_joule(problem, v, show=show)
         _compute_boussinesq(
             problem, u0, p0, theta0,
             lorentz, joule, target_time=0.1, show=show
