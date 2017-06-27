@@ -109,10 +109,14 @@ def _construct_initial_state(
     return u0, p0, theta0
 
 
-def _store_and_plot(outfile, u, p, theta, t):
+def _store(outfile, u, p, theta, t):
     outfile.write(u, t)
     outfile.write(p, t)
     outfile.write(theta, t)
+    return
+
+
+def _plot(u, p, theta, t):
     plot(theta, title='temperature', rescale=True)
     plot(u, title='velocity', rescale=True)
     plot(p, title='pressure', rescale=True)
@@ -224,8 +228,9 @@ def _compute_boussinesq(
         outfile.parameters['flush_output'] = True
         outfile.parameters['rewrite_function_mesh'] = False
 
+        _store(outfile, u0, p0, theta0, t)
         if show:
-            _store_and_plot(outfile, u0, p0, theta0, t)
+            _plot(outfile, u0, p0, theta0, t)
 
         successful_steps = 0
         failed_steps = 0
@@ -298,8 +303,9 @@ def _compute_boussinesq(
                 u0.assign(u1)
                 p0.assign(p1)
 
+                _store(outfile, u0, p0, theta0, t + dt)
                 if show:
-                    _store_and_plot(outfile, u0, p0, theta0, t + dt)
+                    _plot(outfile, u0, p0, theta0, t + dt)
 
                 t += dt
                 with Message('Diagnostics...'):
@@ -511,4 +517,4 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
 
 if __name__ == '__main__':
     # test_optimize(num_steps=51, target_time=600.0, show=False)
-    test_boussinesq(target_time=60.0, show=True)
+    test_boussinesq(target_time=60.0, show=False)
