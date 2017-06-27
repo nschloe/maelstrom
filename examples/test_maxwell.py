@@ -84,6 +84,13 @@ def test():
             convections=conv
             )
 
+    ref = 1.953298114870396e-05
+    assert abs(norm(Phi[0], 'L2') - ref) < 1.0e-3 * ref
+    ref = 3.137728472728152e-05
+    assert abs(norm(Phi[1], 'L2') - ref) < 1.0e-3 * ref
+    ref = 55.437580191 - 83.6265642776j
+    assert abs(sum(voltages) - ref) < 1.0e-3 * abs(ref)
+
     # # show current in the first ring of the first coil
     # ii = coils[0]['rings'][0]
     # submesh_coil = SubMesh(mesh, subdomains, ii)
@@ -199,7 +206,8 @@ def test():
     lorentz_fun = project(pl, W2)
     lorentz_fun.rename('F_L', 'Lorentz force')
 
-    assert abs(norm(lorentz_fun, 'L2') - 0.8417945622831131) < 1.0e-3
+    ref = 0.8417945622831131
+    assert abs(norm(lorentz_fun, 'L2') - ref) < 1.0e-3 * ref
 
     # plot(lfun, title='Lorentz force')
     # interactive()
@@ -213,7 +221,8 @@ def test():
     jp = project(joule[problem.wpi], V2)
     jp.rename('s', 'Joule heat source')
 
-    assert abs(norm(jp, 'L2') - 32.232276325879475) < 1.0e-3
+    ref = 32.232276325879475
+    assert abs(norm(jp, 'L2') - ref) < 1.0e-3 * ref
 
     # plot(jp, title='heat source')
     # interactive()
