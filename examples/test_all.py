@@ -64,9 +64,11 @@ def _construct_initial_state(
     # initial guess
     theta_average = 1530.0
     u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
+    u0.rename('u', 'velocity')
     p0 = interpolate(Constant(0.0), P)
+    p0.rename('p', 'pressure')
     theta0 = interpolate(Constant(theta_average), Q)
-    theta0.rename('temperature', 'temperature')
+    theta0.rename('theta', 'temperature')
 
     kappa_const = \
         kappa if isinstance(kappa, float) else kappa(theta_average)
