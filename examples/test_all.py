@@ -13,9 +13,8 @@ Full* simulation of the melt problem.
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
 from dolfin import (
-    parameters, Measure, Function, FunctionSpace, Constant, SubMesh, plot,
-    interactive, project, XDMFFile, DOLFIN_EPS, as_vector, info, norm,
-    assemble, MPI, dx, interpolate, VectorFunctionSpace
+    parameters, Measure, FunctionSpace, Constant, plot, interactive, project,
+    XDMFFile, DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
     )
 
 import numpy
@@ -25,11 +24,11 @@ import parabolic
 from maelstrom.helpers import average
 import maelstrom.navier_stokes as cyl_ns
 import maelstrom.stokes_heat as stokes_heat
-import maelstrom.maxwell as cmx
 import maelstrom.heat as cyl_heat
 from maelstrom.message import Message
 
 import problems
+from test_maxwell import get_lorentz_joule
 
 # We need to allow extrapolation here since otherwise, the equation systems
 # for Maxwell cannot be constructed: They contain the velocity `u` (from
@@ -119,116 +118,6 @@ def _store_and_plot(outfile, u, p, theta, t):
     plot(p, title='pressure', rescale=True)
     # interactive()
     return
-
-
-def _get_lorentz_joule(
-        problem, theta_average, voltages, show=False
-        ):
-    submesh_workpiece = problem.W.mesh()
-
-    subdomain_indices = problem.subdomain_materials.keys()
-
-    info('Input voltages:')
-    info(repr(voltages))
-
-    if voltages is None:
-        return None, Constant(0.0)
-
-    # Merge coil rings with voltages.
-    coils = [
-        {'rings': coil_domain, 'c_type': 'voltage', 'c_value': voltage}
-        for coil_domain, voltage in zip(problem.coil_domains, voltages)
-        ]
-    # Build subdomain parameter dictionaries for Maxwell
-    mu_const = {
-        i: problem.subdomain_materials[i].magnetic_permeability
-        for i in subdomain_indices
-        }
-    sigma_const = {
-        i: problem.subdomain_materials[i].electrical_conductivity
-        for i in subdomain_indices
-        }
-    for i in subdomain_indices:
-        mu_const[i] = \
-            mu_const[i] if isinstance(mu_const[i], float) \
-            else mu_const[i](theta_average)
-        sigma_const[i] = \
-            sigma_const[i] if isinstance(sigma_const[i], float) \
-            else sigma_const[i](theta_average)
-
-    # Do the Maxwell dance
-    # lorentz_wpi, joule_wpi = _compute_lorentz_joule(
-    #         problem.mesh, coils,
-    #         mu_const, sigma_const, problem.omega,
-    #         problem.wpi, submesh_workpiece,
-    #         subdomain_indices,
-    #         problem.subdomains,
-    #         show=show
-    #         )
-
-    # Function space for magnetic scalar potential, Lorentz force etc.
-    V = FunctionSpace(problem.mesh, 'CG', 1)
-    # Compute the magnetic field.
-    # The Maxwell equations depend on two parameters that change during the
-    # computation: (a) the temperature, and (b) the velocity field u0. We
-    # assume though that changes in either of the two will only marginally
-    # influence the magnetic field. Consequently, we precompute all associated
-    # values.
-    dx_subdomains = Measure('dx', subdomain_data=problem.subdomains)
-    with Message('Computing magnetic field...'):
-        Phi, voltages = cmx.compute_potential(
-                coils,
-                V,
-                dx_subdomains,
-                mu_const, sigma_const, problem.omega,
-                convections={}
-                # io_submesh=submesh_workpiece
-                )
-        # Get resulting Lorentz force.
-        lorentz = cmx.compute_lorentz(
-            Phi, problem.omega, sigma_const[problem.wpi]
-            )
-
-        # Show the Lorentz force in the workpiece.
-        # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
-        # First project onto the entire mesh, then onto the submesh; see bug
-        # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
-        W = VectorFunctionSpace(problem.mesh, 'CG', 1)
-        pl = project(lorentz, W)
-        W2 = VectorFunctionSpace(submesh_workpiece, 'CG', 1)
-        pl = project(pl, W2)
-        pl.rename('Lorentz force', 'Lorentz force')
-        with XDMFFile(submesh_workpiece.mpi_comm(), 'lorentz.xdmf') as f:
-            f.parameters['flush_output'] = True
-            f.write(pl)
-
-        if show:
-            plot(pl, title='Lorentz force')
-            interactive()
-
-        # Get Joule heat source.
-        joule = cmx.compute_joule(
-                Phi, voltages,
-                problem.omega, sigma_const, mu_const,
-                subdomain_indices
-                )
-
-        if show:
-            # Show Joule heat source.
-            submesh = SubMesh(problem.mesh, problem.subdomains, problem.wpi)
-            W_submesh = FunctionSpace(submesh, 'CG', 1)
-            jp = Function(W_submesh, name='Joule heat source')
-            jp.assign(project(joule[problem.wpi], W_submesh))
-            plot(jp)
-            interactive()
-
-        joule_wpi = joule[problem.wpi]
-
-    # To work around bug
-    # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
-    # return the projection `pl` and not `lorentz` itself.
-    # TODO remove this workaround
-    return pl, joule_wpi
 
 
 def test_boussinesq(target_time=0.1, show=False):
@@ -610,7 +499,7 @@ def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
         # Scale the voltages
         v = alpha * numpy.array(voltages)
         theta_average = average(theta0)
-        lorentz, joule = _get_lorentz_joule(
+        lorentz, joule = get_lorentz_joule(
                 problem, theta_average, v, show=show
                 )
         _compute_boussinesq(
