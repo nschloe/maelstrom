@@ -66,8 +66,6 @@ def test():
     # Function space for Maxwell.
     V = FunctionSpace(problem.mesh, 'CG', 1)
 
-    omega = 240
-
     # TODO when projected onto submesh, the time harmonic solver bails out
     # V_submesh = FunctionSpace(problem.submesh_workpiece, 'CG', 2)
     # u_1 = Function(V_submesh * V_submesh)
@@ -80,13 +78,13 @@ def test():
             coils,
             V,
             dx,
-            mu, sigma, omega,
+            mu, sigma, problem.omega,
             convections=conv
             )
 
-    ref = 1.953298114870396e-05
+    ref = 1.4627674791126285e-05
     assert abs(norm(Phi[0], 'L2') - ref) < 1.0e-3 * ref
-    ref = 3.137728472728152e-05
+    ref = 3.161363929287592e-05
     assert abs(norm(Phi[1], 'L2') - ref) < 1.0e-3 * ref
     ref = 55.437580191 - 83.6265642776j
     assert abs(sum(voltages) - ref) < 1.0e-3 * abs(ref)
@@ -113,10 +111,10 @@ def test():
             for coil in coils:
                 for ii in coil['rings']:
                     J_r = sigma[ii] * (
-                        voltages[k].real/(2*pi*r) + omega * Phi[1]
+                        voltages[k].real/(2*pi*r) + problem.omega * Phi[1]
                         )
                     J_i = sigma[ii] * (
-                        voltages[k].imag/(2*pi*r) - omega * Phi[0]
+                        voltages[k].imag/(2*pi*r) - problem.omega * Phi[0]
                         )
                     alpha = assemble(J_r * dx(ii))
                     beta = assemble(J_i * dx(ii))
@@ -152,11 +150,13 @@ def test():
         phi = Function(V, name='phi')
         Phi0 = project(Phi[0], V)
         Phi1 = project(Phi[1], V)
-        for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
+        for t in numpy.linspace(
+                0.0, 2*pi/problem.omega, num=100, endpoint=False
+                ):
             # Im(Phi * exp(i*omega*t))
             phi.vector().zero()
-            phi.vector().axpy(sin(omega*t), Phi0.vector())
-            phi.vector().axpy(cos(omega*t), Phi1.vector())
+            phi.vector().axpy(sin(problem.omega*t), Phi0.vector())
+            phi.vector().axpy(cos(problem.omega*t), Phi1.vector())
             xdmf_file.write(phi, t)
 
         # Show the resulting magnetic field
@@ -176,7 +176,7 @@ def test():
         info('Writing out B to %s...' % filename)
         B = Function(VV)
         B.rename('B', 'magnetic field')
-        if abs(omega) < DOLFIN_EPS:
+        if abs(problem.omega) < DOLFIN_EPS:
             B.assign(B_r)
             xdmf_file.write(B)
             # plot(B_r, title='Re(B)')
@@ -184,17 +184,19 @@ def test():
             # interactive()
         else:
             # Write those out to a file.
-            lspace = numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False)
+            lspace = numpy.linspace(
+                0.0, 2*pi/problem.omega, num=100, endpoint=False
+                )
             for t in lspace:
                 # Im(B * exp(i*omega*t))
                 B.vector().zero()
-                B.vector().axpy(sin(omega*t), B_r.vector())
-                B.vector().axpy(cos(omega*t), B_i.vector())
+                B.vector().axpy(sin(problem.omega*t), B_r.vector())
+                B.vector().axpy(cos(problem.omega*t), B_i.vector())
                 xdmf_file.write(B, t)
 
     # Store Lorentz force and Joule heat source in file
     # Get resulting Lorentz force.
-    lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
+    lorentz_wpi = cmx.compute_lorentz(Phi, problem.omega, sigma[problem.wpi])
 
     # Show the Lorentz force in the workpiece.
     # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
@@ -206,7 +208,7 @@ def test():
     lorentz_fun = project(pl, W2)
     lorentz_fun.rename('F_L', 'Lorentz force')
 
-    ref = 0.8417945622831131
+    ref = 12.115309575057681
     assert abs(norm(lorentz_fun, 'L2') - ref) < 1.0e-3 * ref
 
     # plot(lfun, title='Lorentz force')
@@ -214,14 +216,14 @@ def test():
 
     joule = cmx.compute_joule(
             Phi, voltages,
-            omega, sigma, mu,
+            problem.omega, sigma, mu,
             subdomain_indices=[problem.wpi]
             )
     V2 = FunctionSpace(problem.submesh_workpiece, 'CG', 1)
     jp = project(joule[problem.wpi], V2)
     jp.rename('s', 'Joule heat source')
 
-    ref = 32.232276325879475
+    ref = 1406.336109054347
     assert abs(norm(jp, 'L2') - ref) < 1.0e-3 * ref
 
     # plot(jp, title='heat source')
