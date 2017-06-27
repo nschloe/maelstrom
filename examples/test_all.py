@@ -116,7 +116,7 @@ def _store(outfile, u, p, theta, t):
     return
 
 
-def _plot(u, p, theta, t):
+def _plot(u, p, theta):
     plot(theta, title='temperature', rescale=True)
     plot(u, title='velocity', rescale=True)
     plot(p, title='pressure', rescale=True)
@@ -230,7 +230,7 @@ def _compute_boussinesq(
 
         _store(outfile, u0, p0, theta0, t)
         if show:
-            _plot(outfile, u0, p0, theta0, t)
+            _plot(u0, p0, theta0)
 
         successful_steps = 0
         failed_steps = 0
@@ -305,7 +305,7 @@ def _compute_boussinesq(
 
                 _store(outfile, u0, p0, theta0, t + dt)
                 if show:
-                    _plot(outfile, u0, p0, theta0, t + dt)
+                    _plot(u0, p0, theta0)
 
                 t += dt
                 with Message('Diagnostics...'):
