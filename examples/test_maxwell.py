@@ -4,22 +4,22 @@
 from __future__ import print_function
 
 from dolfin import (
-    XDMFFile, Measure, FunctionSpace, begin, end, SubMesh, project, Function,
-    assemble, grad, as_vector, DOLFIN_EPS, info, mpi_comm_world, FiniteElement,
-    SpatialCoordinate, VectorFunctionSpace, norm
+    XDMFFile, Measure, FunctionSpace, SubMesh, project, Function, info,
+    VectorFunctionSpace, norm, Constant, plot, interactive, SpatialCoordinate,
+    grad, FiniteElement, DOLFIN_EPS, as_vector
     )
 import numpy
-from numpy import pi, sin, cos
+from numpy import pi
+from numpy import sin, cos
 
 import maelstrom.maxwell as cmx
+from maelstrom.message import Message
 
 import problems
 
 
-# pylint: disable=too-many-branches
 def test():
     problem = problems.Crucible()
-
     # The voltage is defined as
     #
     #     v(t) = Im(exp(i omega t) v)
@@ -35,121 +35,79 @@ def test():
         25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
         ]
 
-    info('Input voltages:')
-    info('%r' % voltages)
+    lorentz, joule, Phi = get_lorentz_joule(problem, voltages, show=False)
 
-    # Merge coil rings with voltages.
-    coils = []
-    for coil_domain, voltage in zip(problem.coil_domains, voltages):
-        coils.append({
-            'rings': coil_domain,
-            'c_type': 'voltage',
-            'c_value': voltage
-            })
+    # Some assertions
+    ref = 1.4627674791126285e-05
+    assert abs(norm(Phi[0], 'L2') - ref) < 1.0e-3 * ref
+    ref = 3.161363929287592e-05
+    assert abs(norm(Phi[1], 'L2') - ref) < 1.0e-3 * ref
+    #
+    ref = 12.115309575057681
+    assert abs(norm(lorentz, 'L2') - ref) < 1.0e-3 * ref
+    #
+    ref = 1406.336109054347
+    V = FunctionSpace(problem.submesh_workpiece, 'CG', 1)
+    jp = project(joule, V)
+    jp.rename('s', 'Joule heat source')
+    assert abs(norm(jp, 'L2') - ref) < 1.0e-3 * ref
 
-    subdomain_indices = problem.subdomain_materials.keys()
-
-    # Build subdomain parameter dictionaries.
-    mu = {}
-    sigma = {}
-    for i in subdomain_indices:
-        # Take all parameters at background_temp.
-        # background_temp = 1500.0
-        material = problem.subdomain_materials[i]
-        mu[i] = material.magnetic_permeability
-        sigma[i] = material.electrical_conductivity
-
-    dx = Measure('dx')(subdomain_data=problem.subdomains)
-    # boundaries = mesh.domains().facet_domains()
-    # ds = Measure('ds')(subdomain_data=problem.subdomains)
-
-    # Function space for Maxwell.
-    V = FunctionSpace(problem.mesh, 'CG', 1)
-
-    omega = 240
-
-    # TODO when projected onto submesh, the time harmonic solver bails out
-    # V_submesh = FunctionSpace(problem.submesh_workpiece, 'CG', 2)
-    # u_1 = Function(V_submesh * V_submesh)
-    # u_1.vector().zero()
-    # conv = {problem.wpi: u_1}
-
-    conv = {}
-
-    Phi, voltages = cmx.compute_potential(
-            coils,
-            V,
-            dx,
-            mu, sigma, omega,
-            convections=conv
-            )
-
-    # # show current in the first ring of the first coil
-    # ii = coils[0]['rings'][0]
-    # submesh_coil = SubMesh(mesh, subdomains, ii)
-    # V1 = FunctionSpace(submesh_coil, 'CG', ii)
-
-    # #File('phi.xdmf') << project(as_vector((Phi_r, Phi_i)), V*V)
-    # from dolfin import plot
-    # plot(Phi[0], title='Re(Phi)')
-    # plot(Phi[1], title='Im(Phi)')
-    # plot(project(Phi_r, V1), title='Re(Phi)')
-    # plot(project(Phi_i, V1), title='Im(Phi)')
-    # interactive()
-
-    check_currents = False
-    if check_currents:
-        r = SpatialCoordinate(problem.mesh)[0]
-        begin('Currents computed after the fact:')
-        k = 0
-        with XDMFFile('currents.xdmf') as xdmf_file:
-            for coil in coils:
-                for ii in coil['rings']:
-                    J_r = sigma[ii] * (
-                        voltages[k].real/(2*pi*r) + omega * Phi[1]
-                        )
-                    J_i = sigma[ii] * (
-                        voltages[k].imag/(2*pi*r) - omega * Phi[0]
-                        )
-                    alpha = assemble(J_r * dx(ii))
-                    beta = assemble(J_i * dx(ii))
-                    info('J = {:e} + i {:e}'.format(alpha, beta))
-                    info(
-                        '|J|/sqrt(2) = {:e}'.format(
-                            numpy.sqrt(0.5 * (alpha**2 + beta**2))
-                        ))
-                    submesh = SubMesh(problem.mesh, problem.subdomains, ii)
-                    V1 = FunctionSpace(submesh, 'CG', 1)
-                    # Those projections may take *very* long.
-                    # TODO find out why
-                    j_v1 = [
-                        project(J_r, V1),
-                        project(J_i, V1)
-                        ]
-                    # plot(j_v1[0], title='j_r')
-                    # plot(j_v1[1], title='j_i')
-                    # interactive()
-                    current = project(as_vector(j_v1), V1*V1)
-                    current.rename('j{}'.format(ii), 'current {}'.format(ii))
-                    xdmf_file.write(current)
-                    k += 1
-        end()
+    # check_currents = False
+    # if check_currents:
+    #     r = SpatialCoordinate(problem.mesh)[0]
+    #     begin('Currents computed after the fact:')
+    #     k = 0
+    #     with XDMFFile('currents.xdmf') as xdmf_file:
+    #         for coil in coils:
+    #             for ii in coil['rings']:
+    #                 J_r = sigma[ii] * (
+    #                     voltages[k].real/(2*pi*r) + problem.omega * Phi[1]
+    #                     )
+    #                 J_i = sigma[ii] * (
+    #                     voltages[k].imag/(2*pi*r) - problem.omega * Phi[0]
+    #                     )
+    #                 alpha = assemble(J_r * dx(ii))
+    #                 beta = assemble(J_i * dx(ii))
+    #                 info('J = {:e} + i {:e}'.format(alpha, beta))
+    #                 info(
+    #                     '|J|/sqrt(2) = {:e}'.format(
+    #                         numpy.sqrt(0.5 * (alpha**2 + beta**2))
+    #                     ))
+    #                 submesh = SubMesh(problem.mesh, problem.subdomains, ii)
+    #                 V1 = FunctionSpace(submesh, 'CG', 1)
+    #                 # Those projections may take *very* long.
+    #                 # TODO find out why
+    #                 j_v1 = [
+    #                     project(J_r, V1),
+    #                     project(J_i, V1)
+    #                     ]
+    #                 # plot(j_v1[0], title='j_r')
+    #                 # plot(j_v1[1], title='j_i')
+    #                 # interactive()
+    #                 current = project(as_vector(j_v1), V1*V1)
+    #                 current.rename('j{}'.format(ii), 'current {}'.format(ii))
+    #                 xdmf_file.write(current)
+    #                 k += 1
+    #     end()
 
     filename = './maxwell.xdmf'
-    with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+    with XDMFFile(filename) as xdmf_file:
         xdmf_file.parameters['flush_output'] = True
         xdmf_file.parameters['rewrite_function_mesh'] = False
 
         # Store phi
-        info('Writing out Phi to %s...' % filename)
+        info('Writing out Phi to {}...'.format(filename))
+        V = FunctionSpace(problem.mesh, 'CG', 1)
         phi = Function(V, name='phi')
         Phi0 = project(Phi[0], V)
         Phi1 = project(Phi[1], V)
-        for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
+        for t in numpy.linspace(
+                0.0, 2*pi/problem.omega, num=100, endpoint=False
+                ):
             # Im(Phi * exp(i*omega*t))
             phi.vector().zero()
-            phi.vector().axpy(sin(omega*t), Phi0.vector())
-            phi.vector().axpy(cos(omega*t), Phi1.vector())
+            phi.vector().axpy(sin(problem.omega*t), Phi0.vector())
+            phi.vector().axpy(cos(problem.omega*t), Phi1.vector())
             xdmf_file.write(phi, t)
 
         # Show the resulting magnetic field
@@ -159,7 +117,6 @@ def test():
         #
         r = SpatialCoordinate(problem.mesh)[0]
         g = 1.0/r * grad(r*Phi[0])
-
         V_element = FiniteElement('CG', V.mesh().ufl_cell(), 1)
         VV = FunctionSpace(V.mesh(), V_element * V_element)
 
@@ -169,7 +126,7 @@ def test():
         info('Writing out B to %s...' % filename)
         B = Function(VV)
         B.rename('B', 'magnetic field')
-        if abs(omega) < DOLFIN_EPS:
+        if abs(problem.omega) < DOLFIN_EPS:
             B.assign(B_r)
             xdmf_file.write(B)
             # plot(B_r, title='Re(B)')
@@ -177,75 +134,116 @@ def test():
             # interactive()
         else:
             # Write those out to a file.
-            lspace = numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False)
+            lspace = numpy.linspace(
+                0.0, 2*pi/problem.omega, num=100, endpoint=False
+                )
             for t in lspace:
                 # Im(B * exp(i*omega*t))
                 B.vector().zero()
-                B.vector().axpy(sin(omega*t), B_r.vector())
-                B.vector().axpy(cos(omega*t), B_i.vector())
+                B.vector().axpy(sin(problem.omega*t), B_r.vector())
+                B.vector().axpy(cos(problem.omega*t), B_i.vector())
                 xdmf_file.write(B, t)
-
-    # Store Lorentz force and Joule heat source in file
-    # Get resulting Lorentz force.
-    lorentz_wpi = cmx.compute_lorentz(Phi, omega, sigma[problem.wpi])
-
-    # Show the Lorentz force in the workpiece.
-    # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
-    # First project onto the entire mesh, then onto the submesh; see bug
-    # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
-    W = VectorFunctionSpace(problem.mesh, 'CG', 1)
-    pl = project(lorentz_wpi, W)
-    W2 = VectorFunctionSpace(problem.submesh_workpiece, 'CG', 1)
-    lorentz_fun = project(pl, W2)
-    lorentz_fun.rename('F_L', 'Lorentz force')
-
-    assert abs(norm(lorentz_fun, 'L2') - 0.8417945622831131) < 1.0e-3
-
-    # plot(lfun, title='Lorentz force')
-    # interactive()
-
-    joule = cmx.compute_joule(
-            Phi, voltages,
-            omega, sigma, mu,
-            subdomain_indices=[problem.wpi]
-            )
-    V2 = FunctionSpace(problem.submesh_workpiece, 'CG', 1)
-    jp = project(joule[problem.wpi], V2)
-    jp.rename('s', 'Joule heat source')
-
-    assert abs(norm(jp, 'L2') - 32.232276325879475) < 1.0e-3
-
-    # plot(jp, title='heat source')
-    # interactive()
 
     filename = './lorentz-joule.xdmf'
     info('Writing out Lorentz force and Joule heat source to {}...'.format(
         filename
         ))
-    with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
-        # xdmf_file.parameters['flush_output'] = True
-        # xdmf_file.parameters['rewrite_function_mesh'] = False
-        xdmf_file.write(jp, 0.0)
-        xdmf_file.write(lorentz_fun, 0.0)
+    with XDMFFile(filename) as xdmf_file:
+        xdmf_file.write(lorentz, 0.0)
+        # xdmf_file.write(jp, 0.0)
 
-    # # For the lulz: solve heat equation with the Joule source.
-    # u = TrialFunction(V)
-    # v = TestFunction(V)
-    # a = zero() * dx(0)
-    # r = SpatialCoordinate(problem.mesh)[0]
-    # # v/r doesn't hurt: hom. dirichlet boundary for r=0.
-    # for i in subdomain_indices:
-    #     a += dot(kappa[i] * r * grad(u), grad(v/r)) * dx(i)
-    # sol = Function(V)
-    # class OuterBoundary(SubDomain):
-    #     def inside(self, x, on_boundary):
-    #         return on_boundary and abs(x[0]) > DOLFIN_EPS
-    # outer_boundary = OuterBoundary()
-    # bcs = DirichletBC(V, background_temp, outer_boundary)
-    # solve(a == joule, sol, bcs=bcs)
-    # plot(sol)
-    # interactive()
     return
+
+
+def get_lorentz_joule(problem, input_voltages, show=False):
+    submesh_workpiece = problem.W.mesh()
+
+    subdomain_indices = problem.subdomain_materials.keys()
+
+    info('Input voltages:')
+    info(repr(input_voltages))
+
+    if input_voltages is None:
+        return None, Constant(0.0)
+
+    # Merge coil rings with voltages.
+    coils = [
+        {'rings': coil_domain, 'c_type': 'voltage', 'c_value': voltage}
+        for coil_domain, voltage in zip(problem.coil_domains, input_voltages)
+        ]
+    # Build subdomain parameter dictionaries for Maxwell
+    mu_const = {
+        i: problem.subdomain_materials[i].magnetic_permeability
+        for i in subdomain_indices
+        }
+    sigma_const = {
+        i: problem.subdomain_materials[i].electrical_conductivity
+        for i in subdomain_indices
+        }
+
+    # Function space for magnetic scalar potential, Lorentz force etc.
+    V = FunctionSpace(problem.mesh, 'CG', 1)
+    # Compute the magnetic field.
+    # The Maxwell equations depend on two parameters that change during the
+    # computation: (a) the temperature, and (b) the velocity field u0. We
+    # assume though that changes in either of the two will only marginally
+    # influence the magnetic field. Consequently, we precompute all associated
+    # values.
+    dx_subdomains = Measure('dx', subdomain_data=problem.subdomains)
+    with Message('Computing magnetic field...'):
+        Phi, voltages = cmx.compute_potential(
+                coils,
+                V,
+                dx_subdomains,
+                mu_const, sigma_const, problem.omega,
+                convections={}
+                # io_submesh=submesh_workpiece
+                )
+        # Get resulting Lorentz force.
+        lorentz = cmx.compute_lorentz(
+            Phi, problem.omega, sigma_const[problem.wpi]
+            )
+
+        # Show the Lorentz force in the workpiece.
+        # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
+        # First project onto the entire mesh, then onto the submesh; see bug
+        # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+        W = VectorFunctionSpace(problem.mesh, 'CG', 1)
+        pl = project(lorentz, W)
+        W2 = VectorFunctionSpace(submesh_workpiece, 'CG', 1)
+        pl = project(pl, W2)
+        pl.rename('Lorentz force', 'Lorentz force')
+        with XDMFFile(submesh_workpiece.mpi_comm(), 'lorentz.xdmf') as f:
+            f.parameters['flush_output'] = True
+            f.write(pl)
+
+        if show:
+            plot(pl, title='Lorentz force')
+            interactive()
+
+        # Get Joule heat source.
+        joule = cmx.compute_joule(
+                Phi, voltages,
+                problem.omega, sigma_const, mu_const,
+                subdomain_indices
+                )
+
+        if show:
+            # Show Joule heat source.
+            submesh = SubMesh(problem.mesh, problem.subdomains, problem.wpi)
+            W_submesh = FunctionSpace(submesh, 'CG', 1)
+            jp = Function(W_submesh, name='Joule heat source')
+            jp.assign(project(joule[problem.wpi], W_submesh))
+            plot(jp)
+            interactive()
+
+        joule_wpi = joule[problem.wpi]
+
+    # To work around bug
+    # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+    # return the projection `pl` and not `lorentz` itself.
+    # TODO remove this workaround
+    return pl, joule_wpi, Phi
 
 
 if __name__ == '__main__':
