@@ -287,7 +287,7 @@ def _compute_boussinesq(
                                 my_dx=dx(submesh_workpiece)
                                 )
                 except RuntimeError as e:
-                    info(e.message)
+                    info(e.args[0])
                     info(
                         'Navier--Stokes solver failed to converge. '
                         'Decrease time step from {:e} to {:e} and try again.'
