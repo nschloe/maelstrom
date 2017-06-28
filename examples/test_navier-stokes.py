@@ -87,11 +87,11 @@ def test(problem, max_num_steps=2, show=False):
             begin('Time step %e -> %e...' % (t, t+dt))
             try:
                 u1, p1 = stepper.step(
-                        dt,
+                        Constant(dt),
                         {0: u0}, p0,
                         problem.W, problem.P,
                         problem.u_bcs, problem.p_bcs,
-                        rho, mu,
+                        Constant(rho), Constant(mu),
                         f={0: rho*g, 1: rho*g},
                         tol=1.0e-10
                         )
