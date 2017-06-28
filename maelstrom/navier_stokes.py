@@ -45,8 +45,10 @@ from .message import Message
 def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
     '''Weak form of the momentum equation.
     '''
-    assert rho > 0.0
-    assert mu > 0.0
+    # rho and my are Constant() functions
+    assert rho.values()[0] > 0.0
+    assert mu.values()[0] > 0.0
+
     # Skew-symmetric formulation.
     # Don't include the boundary term
     #
@@ -164,7 +166,7 @@ def compute_tentative_velocity(
                     uu, v, p0, ff, rho, mu, stabilization, my_dx
                     )
 
-            self.F0 = rho * dot(ui - u[0], v) / Constant(dt) * 2*pi*r*my_dx
+            self.F0 = rho * dot(ui - u[0], v) / dt * 2*pi*r*my_dx
             if time_step_method == 'forward euler':
                 self.F0 += me(u[0], f[0])
             elif time_step_method == 'backward euler':
@@ -556,8 +558,8 @@ def _step(
     '''General pressure projection scheme as described in section 3.4 of
     :cite:`GMS06`.
     '''
-    # Some initial sanity checkups.
-    assert dt > 0.0
+    # dt is a Constant() function
+    assert dt.values()[0] > 0.0
 
     with Message('Computing tentative velocity'):
         ui = compute_tentative_velocity(
@@ -572,7 +574,7 @@ def _step(
         p1 = compute_pressure(
                 P, p0,
                 mu, ui,
-                rho * ui / Constant(dt),
+                rho * ui / dt,
                 my_dx,
                 p_bcs=p_bcs,
                 rotational_form=rotational_form,
@@ -582,7 +584,7 @@ def _step(
 
     with Message('Computing velocity correction'):
         u1 = compute_velocity_correction(
-            ui, p0, p1, u_bcs, rho, mu, Constant(dt),
+            ui, p0, p1, u_bcs, rho, mu, dt,
             rotational_form, my_dx,
             tol, verbose
             )

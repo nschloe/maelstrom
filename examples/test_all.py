@@ -275,12 +275,13 @@ def _compute_boussinesq(
                             f0 += f
                             f1 += f
                         u1, p1 = ns_stepper.step(
-                                dt,
+                                Constant(dt),
                                 {0: u0}, p0,
                                 problem.W, problem.P,
                                 problem.u_bcs, problem.p_bcs,
-                                rho_wpi(theta0_average),
-                                mu_wpi(theta0_average),
+                                # Make constant TODO
+                                Constant(rho_wpi(theta0_average)),
+                                Constant(mu_wpi(theta0_average)),
                                 f={0: f0, 1: f1},
                                 tol=1.0e-10,
                                 my_dx=dx(submesh_workpiece)
