@@ -91,10 +91,10 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         #
         #     <R, tau*grad(v)*u[0]>
         #
-        # with R being the residual in strong form. The choice of the tau is
+        # with R being the residual in strong form. The choice of tau is
         # subject to research.
         tau = stab.supg2(
-                u.function_space().W.mesh(),
+                u.function_space().mesh(),
                 u,
                 mu / rho,
                 u.function_space().ufl_element().degree()
