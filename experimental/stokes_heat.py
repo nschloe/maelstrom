@@ -115,7 +115,7 @@ def solve(
     u0, p0, theta0 = solve_fixed_point(
         mesh,
         W_element, P_element, Q_element,
-        u0, p0, theta0,
+        theta0,
         kappa, rho, mu, cp,
         g, extra_force,
         heat_source,

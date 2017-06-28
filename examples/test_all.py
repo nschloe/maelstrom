@@ -51,8 +51,6 @@ def _construct_initial_state(
         ):
     '''Construct an initial state for the Navier-Stokes simulation.
     '''
-    W = FunctionSpace(mesh, W_element)
-    P = FunctionSpace(mesh, P_element)
     Q = FunctionSpace(mesh, Q_element)
 
     # Finding a steady-state solution of the coupled Stokes-Heat problem hasn't
@@ -63,12 +61,7 @@ def _construct_initial_state(
 
     # initial guess
     theta_average = 1530.0
-    u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
-    u0.rename('u', 'velocity')
-    p0 = interpolate(Constant(0.0), P)
-    p0.rename('p', 'pressure')
     theta0 = interpolate(Constant(theta_average), Q)
-    theta0.rename('theta', 'temperature')
 
     kappa_const = \
         kappa if isinstance(kappa, float) else kappa(theta_average)
@@ -80,7 +73,7 @@ def _construct_initial_state(
     u0, p0, theta0 = stokes_heat.solve_fixed_point(
         mesh,
         W_element, P_element, Q_element,
-        u0, p0, theta0,
+        theta0,
         kappa_const, rho, mu_const, cp_const,
         g, extra_force,
         heat_source,
@@ -104,6 +97,10 @@ def _construct_initial_state(
     #     theta_bcs_n,
     #     dx_submesh, ds_submesh
     #     )
+
+    u0.rename('u', 'velocity')
+    p0.rename('p', 'pressure')
+    theta0.rename('theta', 'temperature')
 
     # Create a *deep* copy of u0, p0, to be able to deal with them as actually
     # separate entities.
