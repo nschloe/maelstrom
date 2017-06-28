@@ -203,18 +203,6 @@ def _compute_boussinesq(
 
     theta_average = average(theta0)
 
-    # Redefine the heat problem with the new u0.
-    heat_problem = cyl_heat.Heat(
-            problem.Q,
-            kappa=k_wpi, rho=rho_wpi(theta_average), cp=cp_wpi,
-            convection=u0,
-            source=joule,
-            dirichlet_bcs=problem.theta_bcs_d,
-            neumann_bcs=problem.theta_bcs_n,
-            my_dx=dx(submesh_workpiece),
-            my_ds=ds_workpiece
-            )
-
     show_total_force = False
     if show_total_force:
         f = rho_wpi(theta0) * g
@@ -242,6 +230,18 @@ def _compute_boussinesq(
             with Message('Time step {:e} -> {:e}...'.format(t, t + dt)):
                 # Do one heat time step.
                 with Message('Computing heat...'):
+                    # Redefine the heat problem with the new u0.
+                    heat_problem = cyl_heat.Heat(
+                            problem.Q,
+                            kappa=k_wpi, rho=rho_wpi(theta_average), cp=cp_wpi,
+                            convection=u0,
+                            source=joule,
+                            dirichlet_bcs=problem.theta_bcs_d,
+                            neumann_bcs=problem.theta_bcs_n,
+                            my_dx=dx(submesh_workpiece),
+                            my_ds=ds_workpiece
+                            )
+
                     # For time-stepping in buoyancy-driven flows, see
                     #
                     # Numerical solution of buoyancy-driven flows;
