@@ -19,6 +19,11 @@ import sympy
 from maelstrom.message import Message
 
 
+def ccode(*args, **kwargs):
+    # FEniCS needs to have M_PI replaced by pi
+    return sympy.ccode(*args, **kwargs).replace('M_PI', 'pi')
+
+
 def _truncate_degree(degree, max_degree=10):
     if degree > max_degree:
         warnings.warn(
@@ -90,7 +95,7 @@ def compute_numerical_order_of_convergence(Dt, errors):
 
 def assert_time_order(problem, MethodClass):
     mesh_sizes = [8, 16, 32]
-    Dt = [0.5**k for k in range(2)]
+    Dt = [0.5**k for k in range(1, 3)]
     errors = compute_time_errors(problem, MethodClass, mesh_sizes, Dt)
     orders = {
         key: compute_numerical_order_of_convergence(Dt, errors[key].T).T
@@ -126,15 +131,15 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             # Translate data into FEniCS expressions.
             sol_u = Expression(
                     (
-                        sympy.printing.ccode(solution['u']['value'][0]),
-                        sympy.printing.ccode(solution['u']['value'][1])
+                        ccode(solution['u']['value'][0]),
+                        ccode(solution['u']['value'][1])
                     ),
                     degree=_truncate_degree(solution['u']['degree']),
                     t=0.0,
                     domain=mesh
                     )
             sol_p = Expression(
-                    sympy.printing.ccode(solution['p']['value']),
+                    ccode(solution['p']['value']),
                     degree=_truncate_degree(solution['p']['degree']),
                     t=0.0,
                     domain=mesh
@@ -142,8 +147,8 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
 
             fenics_rhs0 = Expression(
                     (
-                        sympy.printing.ccode(f['value'][0]),
-                        sympy.printing.ccode(f['value'][1])
+                        ccode(f['value'][0]),
+                        ccode(f['value'][1])
                     ),
                     degree=_truncate_degree(f['degree']),
                     t=0.0,

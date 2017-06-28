@@ -598,8 +598,7 @@ class IPCS(object):
     '''
     order = {
         'velocity': 1,
-        # TODO fix
-        'pressure': 0,
+        'pressure': 1,
         }
 
     def __init__(self, time_step_method='backward euler', stabilization=False):

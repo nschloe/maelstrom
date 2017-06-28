@@ -100,8 +100,8 @@ def problem_coscos():
             )
     rhs = {
         'value': (
-            Expression(sympy.printing.ccode(rhs_sympy[0]), element=Q),
-            Expression(sympy.printing.ccode(rhs_sympy[1]), element=Q),
+            Expression(helpers.ccode(rhs_sympy[0]), element=Q),
+            Expression(helpers.ccode(rhs_sympy[1]), element=Q),
             ),
         'degree': MAX_DEGREE
         }
@@ -113,11 +113,11 @@ def problem_coscos():
         n = 50
         mesh, _, _ = mesh_generator(n)
         plot(
-            Expression(sympy.printing.ccode(phi[0])),
+            Expression(helpers.ccode(phi[0])),
             mesh=mesh, title='phi.real'
             )
         plot(
-            Expression(sympy.printing.ccode(phi[1])),
+            Expression(helpers.ccode(phi[1])),
             mesh=mesh, title='phi.imag'
             )
         plot(rhs[0], mesh=mesh, title='f.real')
@@ -314,8 +314,8 @@ def _compute_errors(problem, mesh_sizes):
 
     sol = Expression(
             (
-                sympy.printing.ccode(solution['value'][0]),
-                sympy.printing.ccode(solution['value'][1])
+                helpers.ccode(solution['value'][0]),
+                helpers.ccode(solution['value'][1])
             ),
             t=0.0,
             degree=degree,
