@@ -9,7 +9,8 @@ import warnings
 
 from dolfin import (
     Expression, info, assemble, FunctionSpace, interpolate, plot, interactive,
-    errornorm, dx, Function, VectorFunctionSpace, DirichletBC, project
+    errornorm, dx, Function, VectorFunctionSpace, DirichletBC, project,
+    Constant
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -197,11 +198,11 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                 fenics_rhs0.t = 0.0
                 fenics_rhs1.t = dt
                 u1, p1 = method.step(
-                        dt,
+                        Constant(dt),
                         u, p0,
                         W, P,
                         u_bcs, p_bcs,
-                        rho, mu,
+                        Constant(rho), Constant(mu),
                         f={0: fenics_rhs0, 1: fenics_rhs1},
                         verbose=False,
                         tol=1.0e-10

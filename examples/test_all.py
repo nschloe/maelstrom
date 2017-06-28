@@ -51,8 +51,6 @@ def _construct_initial_state(
         ):
     '''Construct an initial state for the Navier-Stokes simulation.
     '''
-    W = FunctionSpace(mesh, W_element)
-    P = FunctionSpace(mesh, P_element)
     Q = FunctionSpace(mesh, Q_element)
 
     # Finding a steady-state solution of the coupled Stokes-Heat problem hasn't
@@ -63,10 +61,7 @@ def _construct_initial_state(
 
     # initial guess
     theta_average = 1530.0
-    u0 = interpolate(Constant((0.0, 0.0, 0.0)), W)
-    p0 = interpolate(Constant(0.0), P)
     theta0 = interpolate(Constant(theta_average), Q)
-    theta0.rename('temperature', 'temperature')
 
     kappa_const = \
         kappa if isinstance(kappa, float) else kappa(theta_average)
@@ -78,7 +73,7 @@ def _construct_initial_state(
     u0, p0, theta0 = stokes_heat.solve_fixed_point(
         mesh,
         W_element, P_element, Q_element,
-        u0, p0, theta0,
+        theta0,
         kappa_const, rho, mu_const, cp_const,
         g, extra_force,
         heat_source,
@@ -102,6 +97,10 @@ def _construct_initial_state(
     #     theta_bcs_n,
     #     dx_submesh, ds_submesh
     #     )
+
+    u0.rename('u', 'velocity')
+    p0.rename('p', 'pressure')
+    theta0.rename('theta', 'temperature')
 
     # Create a *deep* copy of u0, p0, to be able to deal with them as actually
     # separate entities.
@@ -159,7 +158,7 @@ def test_boussinesq(target_time=0.1, show=False):
     assert abs(norm(u1, 'L2') - 0.0010707817987502788) < 1.0e-3
     # p is only defined up to a constant
     # assert abs(norm(p1, 'L2') - 38.1593608825763) < 1.0e-3
-    assert abs(norm(theta1, 'L2') - 86.96314082172579) < 1.0e-3
+    assert abs(norm(theta1, 'L2') - 86.95791969992307) < 1.0e-3
     return
 
 
@@ -204,18 +203,6 @@ def _compute_boussinesq(
 
     theta_average = average(theta0)
 
-    # Redefine the heat problem with the new u0.
-    heat_problem = cyl_heat.Heat(
-            problem.Q,
-            kappa=k_wpi, rho=rho_wpi(theta_average), cp=cp_wpi,
-            convection=u0,
-            source=joule,
-            dirichlet_bcs=problem.theta_bcs_d,
-            neumann_bcs=problem.theta_bcs_n,
-            my_dx=dx(submesh_workpiece),
-            my_ds=ds_workpiece
-            )
-
     show_total_force = False
     if show_total_force:
         f = rho_wpi(theta0) * g
@@ -243,6 +230,18 @@ def _compute_boussinesq(
             with Message('Time step {:e} -> {:e}...'.format(t, t + dt)):
                 # Do one heat time step.
                 with Message('Computing heat...'):
+                    # Redefine the heat problem with the new u0.
+                    heat_problem = cyl_heat.Heat(
+                            problem.Q,
+                            kappa=k_wpi, rho=rho_wpi(theta_average), cp=cp_wpi,
+                            convection=u0,
+                            source=joule,
+                            dirichlet_bcs=problem.theta_bcs_d,
+                            neumann_bcs=problem.theta_bcs_n,
+                            my_dx=dx(submesh_workpiece),
+                            my_ds=ds_workpiece
+                            )
+
                     # For time-stepping in buoyancy-driven flows, see
                     #
                     # Numerical solution of buoyancy-driven flows;
@@ -276,12 +275,13 @@ def _compute_boussinesq(
                             f0 += f
                             f1 += f
                         u1, p1 = ns_stepper.step(
-                                dt,
+                                Constant(dt),
                                 {0: u0}, p0,
                                 problem.W, problem.P,
                                 problem.u_bcs, problem.p_bcs,
-                                rho_wpi(theta0_average),
-                                mu_wpi(theta0_average),
+                                # Make constant TODO
+                                Constant(rho_wpi(theta0_average)),
+                                Constant(mu_wpi(theta0_average)),
                                 f={0: f0, 1: f1},
                                 tol=1.0e-10,
                                 my_dx=dx(submesh_workpiece)
