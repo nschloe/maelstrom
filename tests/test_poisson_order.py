@@ -41,9 +41,14 @@ def problem_sinsin():
 
     # Produce a matching right-hand side.
     phi = solution['value']
+    kappa = 1.0
+    rho = 3.0
+    cp = 5.0
     rhs_sympy = sympy.simplify(
-        - 1.0 / x[0] * sympy.diff(x[0] * sympy.diff(phi, x[0]), x[0])
-        - 1.0 / x[0] * sympy.diff(x[0] * sympy.diff(phi, x[1]), x[1])
+        - 1.0 / x[0]
+        * sympy.diff(kappa * x[0] * sympy.diff(phi, x[0]), x[0])
+        - 1.0 / x[0]
+        * sympy.diff(kappa * x[0] * sympy.diff(phi, x[1]), x[1])
         )
 
     rhs = {
@@ -51,7 +56,7 @@ def problem_sinsin():
         'degree': MAX_DEGREE
         }
 
-    return mesh_generator, solution, rhs, triangle
+    return mesh_generator, solution, rhs, triangle, kappa, rho, cp
 
 
 @pytest.mark.parametrize(
@@ -78,7 +83,7 @@ def test_order(problem):
 
 
 def _compute_errors(problem, mesh_sizes):
-    mesh_generator, solution, f, cell_type = problem()
+    mesh_generator, solution, f, cell_type, kappa, rho, cp = problem()
 
     if solution['degree'] > MAX_DEGREE:
         warnings.warn(
@@ -102,10 +107,9 @@ def _compute_errors(problem, mesh_sizes):
         mesh = mesh_generator(mesh_size)
         hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
         Q = FunctionSpace(mesh, 'CG', 1)
-        # TODO don't hardcode parameters
         prob = heat.Heat(
                 Q,
-                kappa=1.0, rho=1.0, cp=1.0,
+                kappa=kappa, rho=rho, cp=cp,
                 convection=None,
                 source=f['value'],
                 dirichlet_bcs=[DirichletBC(Q, 0.0, 'on_boundary')]
