@@ -58,54 +58,23 @@ def problem_sinsin():
     'problem', [
         problem_sinsin
         ])
-def test_residual(problem):
-    mesh_size = 16
-    mesh_generator, _, f, _ = problem()
-    mesh, dx, _ = mesh_generator(mesh_size)
+def test_order(problem):
+    '''Assert the correct discretization order.
+    '''
+    mesh_sizes = [16, 32, 64]
+    errors, hmax = _compute_errors(problem, mesh_sizes)
 
-    Q = FunctionSpace(mesh, 'CG', 1)
+    # Compute the numerical order of convergence.
+    order = helpers.compute_numerical_order_of_convergence(hmax, errors)
 
-    kappa = 1.0
-    rho = 1.0
-    cp = 1.0
-    convection = None
-    dirichlet = [DirichletBC()]
-    rhs = f['value']
-
-    prob = heat.Heat(
-            Q,
-            kappa, rho, cp,
-            convection,
-            rhs,
-            dirichlet_bcs=dirichlet
-            )
-    sol = prob.solve_stationary()
-
-    assert False
+    # The test is considered passed if the numerical order of convergence
+    # matches the expected order in at least the first step in the coarsest
+    # spatial discretization, and is not getting worse as the spatial
+    # discretizations are refining.
+    tol = 0.1
+    expected_order = 2.0
+    assert (order > expected_order - tol).all()
     return
-
-
-# @pytest.mark.parametrize(
-#     'problem', [
-#         problem_coscos
-#         ])
-# def test_order(problem):
-#     '''Assert the correct discretization order.
-#     '''
-#     mesh_sizes = [16, 32, 64]
-#     errors, hmax = _compute_errors(problem, mesh_sizes)
-#
-#     # Compute the numerical order of convergence.
-#     order = helpers.compute_numerical_order_of_convergence(hmax, errors)
-#
-#     # The test is considered passed if the numerical order of convergence
-#     # matches the expected order in at least the first step in the coarsest
-#     # spatial discretization, and is not getting worse as the spatial
-#     # discretizations are refining.
-#     tol = 0.1
-#     expected_order = 1
-#     assert (order > expected_order - tol).all()
-#     return
 
 
 def _compute_errors(problem, mesh_sizes):
@@ -163,8 +132,7 @@ def _show_order_info(problem, mesh_sizes):
         print('%e    %e' % (hmax[j + 1], errors[j + 1]))
 
     # Plot the actual data.
-    for mesh_size in mesh_sizes:
-        plt.loglog(hmax, errors, '-o', label=mesh_size)
+    plt.loglog(hmax, errors, '-o')
 
     # Compare with order curves.
     plt.autoscale(False)
