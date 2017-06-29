@@ -2,23 +2,14 @@
 #
 '''
 Stabilization techniques for PDEs with dominating convection.
-For an overview of methods, see :cite:`sold` and :cite:`bgs2004`.
+The classical article about SUPG is :cite:`brooks`; for an overview
+of methods, see :cite:`sold` and :cite:`bgs2004`.
 '''
 from dolfin import (
     Expression
     )
 
 
-#
-# SUPG stabilization as in the classical paper
-#
-#     Streamline upwind/Petrov-Galerkin formulations for
-#     convection dominated flows with particular emphasis on the
-#     incompressible Navier-Stokes equations;
-#     A.N. Brooks, T.J.R. Hughes;
-#     1982;
-#     <http://ccpo.odu.edu/~tejada/USACM07/BrooksHughes.pdf>.
-#
 def supg(convection, diffusion, element_degree):
     cppcode = '''#include <dolfin/mesh/Vertex.h>
 
@@ -149,16 +140,6 @@ void eval(Array<double>& b_tau,
     return b_tau
 
 
-#
-# SUPG stabilization as in the classical paper
-#
-#     Streamline upwind/Petrov-Galerkin formulations for
-#     convection dominated flows with particular emphasis on the
-#     incompressible Navier-Stokes equations;
-#     A.N. Brooks, T.J.R. Hughes;
-#     1982;
-#     <http://ccpo.odu.edu/~tejada/USACM07/BrooksHughes.pdf>.
-#
 def supg2(mesh, convection, diffusion_coefficient, element_degree):
     cppcode = '''#include <dolfin/mesh/Vertex.h>
 
