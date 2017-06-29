@@ -4,7 +4,7 @@ from __future__ import print_function
 
 from dolfin import (
     FunctionSpace, errornorm, UnitSquareMesh, triangle, Expression,
-    mpi_comm_world, pi, DirichletBC, MPI
+    mpi_comm_world, pi, DirichletBC, MPI, Constant
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -41,14 +41,15 @@ def problem_sinsin():
 
     # Produce a matching right-hand side.
     phi = solution['value']
-    kappa = 1.0
+    kappa = 2.0
     rho = 3.0
     cp = 5.0
+    conv = [0.0, 100.0]
     rhs_sympy = sympy.simplify(
-        - 1.0 / x[0]
-        * sympy.diff(kappa * x[0] * sympy.diff(phi, x[0]), x[0])
-        - 1.0 / x[0]
-        * sympy.diff(kappa * x[0] * sympy.diff(phi, x[1]), x[1])
+        - 1.0 / x[0] * sympy.diff(kappa * x[0] * sympy.diff(phi, x[0]), x[0])
+        - 1.0 / x[0] * sympy.diff(kappa * x[0] * sympy.diff(phi, x[1]), x[1])
+        + rho * cp * conv[0] * sympy.diff(phi, x[0])
+        + rho * cp * conv[1] * sympy.diff(phi, x[1])
         )
 
     rhs = {
@@ -56,7 +57,8 @@ def problem_sinsin():
         'degree': MAX_DEGREE
         }
 
-    return mesh_generator, solution, rhs, triangle, kappa, rho, cp
+    return \
+        mesh_generator, solution, rhs, triangle, kappa, rho, cp, Constant(conv)
 
 
 @pytest.mark.parametrize(
@@ -83,7 +85,7 @@ def test_order(problem):
 
 
 def _compute_errors(problem, mesh_sizes):
-    mesh_generator, solution, f, cell_type, kappa, rho, cp = problem()
+    mesh_generator, solution, f, cell_type, kappa, rho, cp, conv = problem()
 
     if solution['degree'] > MAX_DEGREE:
         warnings.warn(
@@ -110,7 +112,7 @@ def _compute_errors(problem, mesh_sizes):
         prob = heat.Heat(
                 Q,
                 kappa=kappa, rho=rho, cp=cp,
-                convection=None,
+                convection=conv,
                 source=f['value'],
                 dirichlet_bcs=[DirichletBC(Q, 0.0, 'on_boundary')]
                 )

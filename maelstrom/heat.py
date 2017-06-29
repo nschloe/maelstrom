@@ -45,9 +45,11 @@ def F(u, v, kappa, rho, cp,
     F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
 
     # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
-    b = convection
-    if b:
-        F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
+    if convection is not None:
+        F0 += (
+            + convection[0] * u.dx(0)
+            + convection[1] * u.dx(1)
+            ) * v * 2*pi*r * my_dx
 
     # Joule heat
     F0 -= source * v / rho_cp * 2*pi*r * my_dx
