@@ -2,24 +2,7 @@
 #
 '''
 Stabilization techniques for PDEs with dominating convection.
-For an overview of methods, see
-
-   On spurious oscillations at layers diminishing (SOLD) methods
-   for convection-diffusion equations: Part I - A review;
-   V. John, P. Knobloch;
-   Computer Methods in Applied Mechanics and Engineering,
-   Volume 196, Issues 17-20, 15 March 2007, Pages 2197-2215;
-   <https://www.sciencedirect.com/science/article/pii/S0045782506003926>.
-
-Also:
-
-    Stability of the SUPG finite element method for transient
-    advection-diffusion problems;
-    Bochev, Gunzburger, Shadid;
-    Comput. Methods Appl. Mech. Engrg. 193 (2004) 2301-2323;
-    <http://people.sc.fsu.edu/~mgunzburger/files_papers/gunzburger-stab3.pdf>,
-    <http://www.cs.sandia.gov/~pbboche/papers_pdf/2004CMAME.pdf>.
-
+For an overview of methods, see :cite:`sold` and :cite:`bgs2004`.
 '''
 from dolfin import (
     Expression

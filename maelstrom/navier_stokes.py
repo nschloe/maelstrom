@@ -101,12 +101,6 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
                 mu_val / rho_val,
                 u.function_space().ufl_element().degree()
                 )
-        # We need to deal with the term
-        #
-        #     \int mu * (u2[0]/r**2, 0) * dot(R, grad(v2)*b_tau) 2*pi*r*dx
-        #
-        # somehow. Unfortunately, it's not easy to construct (u2[0]/r**2,
-        # 0), cf.  <https://answers.launchpad.net/dolfin/+question/228353>.
         # Strong residual:
         R = + rho * grad(u) * u * 2*pi*r \
             - mu * div(r * grad(u)) * 2*pi \
@@ -117,7 +111,12 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         gv = tau * grad(v) * u
         F += dot(R, gv) * my_dx
 
-        # Manually add the missing expression e_r u_r/r**2
+        # We need to deal with the term
+        #
+        #     \int mu * (u2[0]/r**2, 0) * dot(R, grad(v2)*b_tau) 2*pi*r*dx
+        #
+        # somehow. Unfortunately, it's not easy to construct (u2[0]/r**2,
+        # 0), cf.  <https://answers.launchpad.net/dolfin/+question/228353>.
         F += mu * u[0] / r * 2*pi * gv[0] * my_dx
         if u.function_space().num_sub_spaces() == 3:
             F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) \
