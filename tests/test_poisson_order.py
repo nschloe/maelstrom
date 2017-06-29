@@ -44,7 +44,7 @@ def problem_sinsin():
     kappa = 2.0
     rho = 3.0
     cp = 5.0
-    conv = [0.0, 100.0]
+    conv = [1.0, 2.0]
     rhs_sympy = sympy.simplify(
         - 1.0 / x[0] * sympy.diff(kappa * x[0] * sympy.diff(phi, x[0]), x[0])
         - 1.0 / x[0] * sympy.diff(kappa * x[0] * sympy.diff(phi, x[1]), x[1])
@@ -151,7 +151,6 @@ def _show_order_info(problem, mesh_sizes):
             )
     plt.xlabel('hmax')
     plt.ylabel('||u-u_h||')
-    plt.legend()
     plt.show()
     return
 
