@@ -28,17 +28,22 @@ def problem_sinsin():
     x = sympy.DeferredVector('x')
 
     # Choose the solution such that the boundary conditions are fulfilled
-    # exactly.
+    # exactly. Also, multiply with x**2 to make sure that the right-hand side
+    # doesn't contain the term 1/x. Although it looks like a singularity at
+    # x=0, this terms is esentially harmless since the volume element 2*pi*x is
+    # used throughout the code, canceling out with the 1/x. However, Dolfin has
+    # problems with this, cf.
+    # <https://bitbucket.org/fenics-project/dolfin/issues/831/some-problems-with-quadrature-expressions>.
     solution = {
-        'value': sympy.sin(pi * x[0]) * sympy.sin(pi * x[1]),
+        'value': x[0]**2 * sympy.sin(pi * x[0]) * sympy.sin(pi * x[1]),
         'degree': MAX_DEGREE
         }
 
     # Produce a matching right-hand side.
     phi = solution['value']
     rhs_sympy = sympy.simplify(
-        - sympy.diff(x[0] * sympy.diff(phi, x[0]), x[0])
-        - sympy.diff(x[0] * sympy.diff(phi, x[1]), x[1])
+        - 1.0 / x[0] * sympy.diff(x[0] * sympy.diff(phi, x[0]), x[0])
+        - 1.0 / x[0] * sympy.diff(x[0] * sympy.diff(phi, x[1]), x[1])
         )
 
     rhs = {
