@@ -713,7 +713,7 @@ def compute_joule(
 
     In a time-harmonic approximation with
 
-    ..math:
+    ..math::
 
         \\begin{align}
         A &= \\Re(a exp(\\text{i} \\omega t)),\\\\
@@ -722,21 +722,21 @@ def compute_joule(
 
     the time-average of :math:`A\\cdot B` over one period is
 
-    ..math:
+    ..math::
 
        \\overline{A\\cdot B} = \\frac{1}{2} \\Re(a \\cdot b^*)
 
     see http://www.ece.rutgers.edu/~orfanidi/ewa/ch01.pdf.
     In particular,
 
-    ..math:
+    ..math::
 
        \\overline{A\\cdot A} = \\frac{1}{2} \\|a\\|^2.
 
     Consequently, we can compute the average source term over one period
     as
 
-    ..math:
+    ..math::
 
         s = \\frac{1}{2} \\|j\\|^2 / \\sigma = \\frac{1}{2} \\|E\\|^2 \\sigma.
 

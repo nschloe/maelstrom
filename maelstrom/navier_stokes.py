@@ -141,7 +141,7 @@ def compute_tentative_velocity(
 
     .. math::
         \\rho (u_0 + (u\\cdot\\nabla)u) =
-            \\mu \\frav{1}{r} \\div(r \\nabla u) + \\rho g.
+            \\mu \\frac{1}{r} \\div(r \\nabla u) + \\rho g.
     '''
 
     class TentativeVelocityProblem(NonlinearProblem):
