@@ -158,7 +158,7 @@ void eval(Array<double>& b_tau,
 };
 '''
     # TODO set degree
-    b_tau = Expression(cppcode)
+    b_tau = Expression(cppcode, degree=5)
     b_tau.convection = convection
     b_tau.mesh = convection.function_space().mesh()
     b_tau.sigma = diffusion
@@ -196,10 +196,10 @@ void eval(Array<double>& tau,
 {
   Array<double> v(x.size());
   convection->eval(v, x, c);
-
-  const double conv_norm = sqrt(
-    std::inner_product(v.begin(), v.end(), v.begin(), 0)
-    );
+  double conv_norm = 0.0;
+  for (uint i = 0; i < v.size(); ++i)
+    conv_norm += v[i]*v[i];
+  conv_norm = sqrt(conv_norm);
 
   if (conv_norm < DOLFIN_EPS) {
     tau[0] = 0.0;
@@ -226,10 +226,8 @@ void eval(Array<double>& tau,
   assert(vertices);
 
   double sum = 0.0;
-  for (int i=0; i<3; i++)
-  {
-    for (int j=i+1; j<3; j++)
-    {
+  for (int i=0; i<3; i++) {
+    for (int j=i+1; j<3; j++) {
       // Get edge coords.
       const dolfin::Vertex v0(*mesh, vertices[i]);
       const dolfin::Vertex v1(*mesh, vertices[j]);
@@ -262,8 +260,7 @@ void eval(Array<double>& tau,
 
   // // Just a little sanity check here.
   // const double eps = 1.0e-12;
-  // if (h > cell.diameter() + eps)
-  // {
+  // if (h > cell.diameter() + eps) {
   //     std::cout << "The directed diameter h (" << h << ") "
   //               << "should not be larger than the actual cell diameter "
   //               << "(" << cell.diameter() << ")."
@@ -273,10 +270,10 @@ void eval(Array<double>& tau,
 
   const double Pe = 0.5*conv_norm * h/(p*sigma);
   assert(Pe > 0.0);
-  # We'd like to compute `xi = 1.0/tanh(Pe) - 1.0/Pe`. This expression can
-  # hardly be evaluated for small Pe, see
-  # <https://stackoverflow.com/a/43279491/353337>. Hence, use its Taylor
-  # expansion around 0.
+  // We'd like to compute `xi = 1.0/tanh(Pe) - 1.0/Pe`. This expression can
+  // hardly be evaluated for small Pe, see
+  // <https://stackoverflow.com/a/43279491/353337>. Hence, use its Taylor
+  // expansion around 0.
   const double xi = Pe > 1.0e-5 ?
       1.0/tanh(Pe) - 1.0/Pe :
       Pe/3.0 - Pe*Pe*Pe / 45.0 + 2.0/945.0 * Pe*Pe*Pe*Pe*Pe;
@@ -297,8 +294,7 @@ void eval(Array<double>& tau,
 }
 };
 '''
-    # TODO set degree
-    tau = Expression(cppcode)
+    tau = Expression(cppcode, degree=1)
     tau.convection = convection
     tau.mesh = mesh  # convection.function_space().mesh()
     tau.sigma = diffusion_coefficient

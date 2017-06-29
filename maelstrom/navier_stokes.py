@@ -93,10 +93,12 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         #
         # with R being the residual in strong form. The choice of tau is
         # subject to research.
+        rho_val = rho.values()[0]
+        mu_val = mu.values()[0]
         tau = stab.supg2(
                 u.function_space().mesh(),
                 u,
-                mu / rho,
+                mu_val / rho_val,
                 u.function_space().ufl_element().degree()
                 )
         # We need to deal with the term
