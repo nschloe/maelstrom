@@ -108,11 +108,11 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         # somehow. Unfortunately, it's not easy to construct (u2[0]/r**2,
         # 0), cf.  <https://answers.launchpad.net/dolfin/+question/228353>.
         # Strong residual:
-        R = + rho * grad(u) * u * 2 * pi * r \
-            - mu * div(r * grad(u)) * 2 * pi \
-            - f * 2 * pi * r
+        R = + rho * grad(u) * u * 2*pi*r \
+            - mu * div(r * grad(u)) * 2*pi \
+            - f * 2*pi*r
         if p:
-            R += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * my_dx
+            R += grad(p) * 2*pi*r
 
         gv = tau * grad(v) * u
         F += dot(R, gv) * my_dx
@@ -213,7 +213,7 @@ def compute_tentative_velocity(
             return
 
     solver = NewtonSolver()
-    solver.parameters['maximum_iterations'] = 5
+    solver.parameters['maximum_iterations'] = 10
     solver.parameters['absolute_tolerance'] = tol
     solver.parameters['relative_tolerance'] = 0.0
     solver.parameters['report'] = True
