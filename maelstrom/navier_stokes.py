@@ -17,14 +17,14 @@ coordinates,
                 - e_r \\frac{u_r}{r^2}
                 \\right)
             + f,\\\\
-        &\\frac{1}{r} \\div(r u) &= 0,
+        &\\frac{1}{r} \\div(r u) = 0,
     \\end{align*}
 
 cf.
 https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Representations_in_3D.
 In the weak formulation, we consider integrals in pseudo 3D, resulting in a
 weighting with :math:`2\\pi r` of the equations. (The volume element is
-:math:`2\\pi r \\text{d}x`.)
+:math:`2\\pi r\\,\\text{d}x`.)
 
 The order of the variables is taken to be :math:`(r, z, \\theta)`. This makes
 sure that for planar domains, the :math:`x`- and :math:`y`-coordinates are
@@ -117,9 +117,8 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         gv = tau * grad(v) * u
         F += dot(R, gv) * my_dx
 
-        # Manually add the parts of the residual which couldn't be cleanly
-        # implemented above.
-        F += mu * u[0] / r * 2 * pi * gv[0] * my_dx
+        # Manually add the missing expression e_r u_r/r**2
+        F += mu * u[0] / r * 2*pi * gv[0] * my_dx
         if u.function_space().num_sub_spaces() == 3:
             F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) \
                     * 2*pi*my_dx
