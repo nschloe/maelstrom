@@ -80,29 +80,6 @@ def F(u, v, kappa, rho, cp,
     else:
         assert stabilization is None
 
-    # #F -= dot(tau*u_1, grad(v)) * Rdx
-    # #F -= tau * inner(u_1, grad(v)) * 2*pi*r*dx(wpi)
-    # #plot(tau, mesh=V.mesh(), title='u_tau')
-    # #interactive()
-    # #F -= tau * v * 2*pi*r*dx(wpi)
-    # #F -= tau * Rdx
-
-    # TODO stabilization
-    # About stabilization for reaction-diffusion-convection:
-    # http://www.ewi.tudelft.nl/fileadmin/Faculteit/EWI/Over_de_faculteit/Afdelingen/Applied_Mathematics/Rapporten/doc/06-03.pdf
-    # http://www.xfem.rwth-aachen.de/Project/PaperDownload/Fries_ReviewStab.pdf
-    # R = u_t \
-    #     + dot(u0, grad(trial)) \
-    #     - 1.0/(rho(293.0)*cp) * div(kappa*grad(trial))
-    # F -= R * dot(tau*u0, grad(v)) * dx
-    #
-    # Stabilization
-    # tau = stab.supg2(
-    #         mesh,
-    #         u0,
-    #         kappa/(rho(293.0)*cp),
-    #         Q.ufl_element().degree()
-    #         )
     return F0
 
 
@@ -126,7 +103,7 @@ class Heat(object):
             robin_bcs=None,
             my_dx=dx,
             my_ds=ds,
-            stabilization='supg'
+            stabilization=None
             ):
         super(Heat, self).__init__()
         self.Q = Q
