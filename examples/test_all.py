@@ -13,8 +13,8 @@ Full* simulation of the melt problem.
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
 from dolfin import (
-    parameters, Measure, FunctionSpace, Constant, plot, interactive, project,
-    XDMFFile, DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
+    parameters, Measure, FunctionSpace, Constant, plot, interactive, XDMFFile,
+    DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
     )
 
 import numpy
@@ -123,7 +123,7 @@ def _plot(u, p, theta):
     return
 
 
-def test_boussinesq(target_time=0.1, show=False):
+def test_boussinesq(target_time=0.1, with_voltage=False, show=False):
     '''Simple boussinesq test; no Maxwell involved.
     '''
     problem = problems.Crucible()
@@ -150,15 +150,30 @@ def test_boussinesq(target_time=0.1, show=False):
         g,
         extra_force=None
         )
+
+    if with_voltage:
+        voltages = [
+            38.0 * numpy.exp(-1j * 2 * pi * 2 * 70.0 / 360.0),
+            38.0 * numpy.exp(-1j * 2 * pi * 1 * 70.0 / 360.0),
+            38.0 * numpy.exp(-1j * 2 * pi * 0 * 70.0 / 360.0),
+            25.0 * numpy.exp(-1j * 2 * pi * 0 * 70.0 / 360.0),
+            25.0 * numpy.exp(-1j * 2 * pi * 1 * 70.0 / 360.0)
+            ]
+        lorentz, joule, _ = get_lorentz_joule(problem, voltages, show=show)
+    else:
+        lorentz = None
+        joule = Constant(0.0)
+
     u1, _, theta1 = _compute_boussinesq(
         problem, u0, p0, theta0,
-        lorentz=None, joule=Constant(0.0), target_time=target_time, show=show
+        lorentz=lorentz, joule=joule, target_time=target_time, show=show
         )
 
-    assert abs(norm(u1, 'L2') - 0.0010707817987502788) < 1.0e-3
-    # p is only defined up to a constant
-    # assert abs(norm(p1, 'L2') - 38.1593608825763) < 1.0e-3
-    assert abs(norm(theta1, 'L2') - 86.95791969992307) < 1.0e-3
+    if not with_voltage:
+        assert abs(norm(u1, 'L2') - 0.0010707817987502788) < 1.0e-3
+        # p is only defined up to a constant
+        # assert abs(norm(p1, 'L2') - 38.1593608825763) < 1.0e-3
+        assert abs(norm(theta1, 'L2') - 86.95791969992307) < 1.0e-3
     return
 
 
@@ -426,95 +441,5 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
     return volume_expansion * deltaT * char_length ** 3 * grav / nu ** 2
 
 
-def test_optimize(num_steps=1, target_time=1.0e-2, show=False):
-    # The voltage is defined as
-    #
-    #     v(t) = Im(exp(i omega t) v)
-    #          = Im(exp(i (omega t + arg(v)))) |v|
-    #          = sin(omega t + arg(v)) |v|.
-    #
-    # Hence, for a lagging voltage, arg(v) needs to be negative.
-    # voltages = None
-    #
-    Alpha = numpy.linspace(0.0, 2.0, num_steps)
-    voltages = [
-        38.0 * numpy.exp(-1j * 2 * pi * 2 * 70.0 / 360.0),
-        38.0 * numpy.exp(-1j * 2 * pi * 1 * 70.0 / 360.0),
-        38.0 * numpy.exp(-1j * 2 * pi * 0 * 70.0 / 360.0),
-        25.0 * numpy.exp(-1j * 2 * pi * 0 * 70.0 / 360.0),
-        25.0 * numpy.exp(-1j * 2 * pi * 1 * 70.0 / 360.0)
-        ]
-
-    # voltages = [0.0, 0.0, 0.0, 0.0, 0.0]
-    #
-    # voltages = [
-    #         25.0 * numpy.exp(-1j * 2*pi * 2 * 70.0/360.0),
-    #         25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0),
-    #         25.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #         38.0 * numpy.exp(-1j * 2*pi * 0 * 70.0/360.0),
-    #         38.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
-    #         ]
-    #
-    # voltages = [
-    #         38.0 * numpy.exp(+1j * 2*pi * 2 * 70.0/360.0),
-    #         38.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0),
-    #         38.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #         25.0 * numpy.exp(+1j * 2*pi * 0 * 70.0/360.0),
-    #         25.0 * numpy.exp(+1j * 2*pi * 1 * 70.0/360.0)
-    #         ]
-
-    problem = problems.Crucible()
-
-    # Solve construct initial state without Lorentz force and Joule heat.
-    m = problem.subdomain_materials[problem.wpi]
-    k_wpi = m.thermal_conductivity
-    cp_wpi = m.specific_heat_capacity
-    rho_wpi = m.density
-    mu_wpi = m.dynamic_viscosity
-
-    g = Constant((0.0, -9.80665, 0.0))
-    submesh_workpiece = problem.W.mesh()
-    ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
-    u0, p0, theta0 = _construct_initial_state(
-        submesh_workpiece,
-        problem.W_element, problem.P_element, problem.Q_element,
-        k_wpi, cp_wpi, rho_wpi, mu_wpi,
-        Constant(0.0),
-        problem.u_bcs, problem.p_bcs,
-        problem.theta_bcs_d, problem.theta_bcs_n,
-        dx(submesh_workpiece),
-        ds_workpiece,
-        g,
-        extra_force=None
-        )
-
-    project(u0, problem.W)
-
-    if show:
-        plot(u0, title='u')
-        plot(p0, title='p')
-        plot(theta0, title='theta')
-        interactive()
-
-    # Rename the states for plotting and such.
-    u0.rename('u', 'velocity')
-    p0.rename('p', 'pressure')
-    theta0.rename('theta', 'temperature')
-
-    for alpha in Alpha:
-        # Scale the voltages
-        v = alpha * numpy.array(voltages)
-        lorentz, joule, _ = get_lorentz_joule(problem, v, show=show)
-        _compute_boussinesq(
-            problem, u0, p0, theta0,
-            lorentz, joule, target_time=0.1, show=show
-            )
-
-        # From the second iteration on, only go for at most 60 secs
-        target_time = min(60.0, target_time)
-    return
-
-
 if __name__ == '__main__':
-    # test_optimize(num_steps=51, target_time=600.0, show=False)
-    test_boussinesq(target_time=60.0, show=False)
+    test_boussinesq(target_time=60.0, with_voltage=True, show=False)

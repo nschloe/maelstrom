@@ -14,6 +14,7 @@ def supg(mesh, convection, diffusion, element_degree):
     '''For each cell, this function return the expression
 
     ..math::
+
         \\begin{align*}
         \\tau &= \\frac{h}{2\\|b\\|}
         \\left(\\frac{1}{\\tanh Pe} - \\frac{1}{Pe}\\right)\\\\
@@ -28,6 +29,7 @@ def supg(mesh, convection, diffusion, element_degree):
     since
 
     ..math::
+
         \\frac{1}{\\tanh Pe} - \\frac{1}{Pe} = \\frac{1}{3}Pe + O(Pe^3)
 
     for :math:`Pe\\approx 0`. This Taylor expansion (with a few more terms) is
