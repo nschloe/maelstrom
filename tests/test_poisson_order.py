@@ -2,6 +2,8 @@
 #
 from __future__ import print_function
 
+import warnings
+
 from dolfin import (
     FunctionSpace, errornorm, UnitSquareMesh, triangle, Expression,
     mpi_comm_world, pi, DirichletBC, MPI, Constant
@@ -10,7 +12,6 @@ import matplotlib.pyplot as plt
 import numpy
 import pytest
 import sympy
-import warnings
 
 from maelstrom import heat
 
