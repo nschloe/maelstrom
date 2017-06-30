@@ -3,7 +3,7 @@
 '''
 Stabilization techniques for PDEs with dominating convection.
 The classical article about SUPG is :cite:`brooks`; for an overview
-of methods, see :cite:`sold` and :cite:`bgs2004`.
+of methods, see :cite:`sold1`, :cite:`sold2`, and :cite:`bgs2004`.
 '''
 from dolfin import (
     Expression
