@@ -61,15 +61,13 @@ def problem_sinsin():
         mesh_generator, solution, rhs, triangle, kappa, rho, cp, Constant(conv)
 
 
-@pytest.mark.parametrize(
-    'problem', [
-        problem_sinsin
-        ])
-def test_order(problem):
+@pytest.mark.parametrize('problem', [problem_sinsin])
+@pytest.mark.parametrize('stabilization', [None, 'supg'])
+def test_order(problem, stabilization):
     '''Assert the correct discretization order.
     '''
     mesh_sizes = [16, 32, 64]
-    errors, hmax = _compute_errors(problem, mesh_sizes)
+    errors, hmax = _compute_errors(problem, mesh_sizes, stabilization)
 
     # Compute the numerical order of convergence.
     order = helpers.compute_numerical_order_of_convergence(hmax, errors)
@@ -84,7 +82,7 @@ def test_order(problem):
     return
 
 
-def _compute_errors(problem, mesh_sizes):
+def _compute_errors(problem, mesh_sizes, stabilization):
     mesh_generator, solution, f, cell_type, kappa, rho, cp, conv = problem()
 
     if solution['degree'] > MAX_DEGREE:
@@ -114,7 +112,8 @@ def _compute_errors(problem, mesh_sizes):
                 kappa=kappa, rho=rho, cp=cp,
                 convection=conv,
                 source=f['value'],
-                dirichlet_bcs=[DirichletBC(Q, 0.0, 'on_boundary')]
+                dirichlet_bcs=[DirichletBC(Q, 0.0, 'on_boundary')],
+                stabilization=stabilization
                 )
         phi_approx = prob.solve_stationary()
         errors[k] = errornorm(sol, phi_approx)
@@ -122,11 +121,11 @@ def _compute_errors(problem, mesh_sizes):
     return errors, hmax
 
 
-def _show_order_info(problem, mesh_sizes):
+def _show_order_info(problem, mesh_sizes, stabilization):
     '''Performs consistency check for the given problem/method combination and
     show some information about it. Useful for debugging.
     '''
-    errors, hmax = _compute_errors(problem, mesh_sizes)
+    errors, hmax = _compute_errors(problem, mesh_sizes, stabilization)
     order = helpers.compute_numerical_order_of_convergence(hmax, errors)
 
     # Print the data
@@ -157,4 +156,4 @@ def _show_order_info(problem, mesh_sizes):
 
 if __name__ == '__main__':
     mesh_sizes_ = [16, 32, 64, 128]
-    _show_order_info(problem_sinsin, mesh_sizes_)
+    _show_order_info(problem_sinsin, mesh_sizes_, None)
