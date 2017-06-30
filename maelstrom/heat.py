@@ -73,8 +73,10 @@ def F(u, v, kappa, rho, cp,
             + dot(c, grad(u)) * 2*pi*r
             - source / rho_cp * 2*pi*r
             )
-        tau = stab.supg(convection, diffusion, element_degree)
-        F0 += R * tau * dot(c, grad(v)) * my_dx
+        mesh = v.function_space().mesh()
+        element_degree = v.ufl_element().degree()
+        tau = stab.supg(mesh, convection, kappa, element_degree)
+        F0 += R * tau * dot(convection, grad(v)) * my_dx
     else:
         assert stabilization is None
 
@@ -124,7 +126,7 @@ class Heat(object):
             robin_bcs=None,
             my_dx=dx,
             my_ds=ds,
-            stabilization=None
+            stabilization='supg'
             ):
         super(Heat, self).__init__()
         self.Q = Q
