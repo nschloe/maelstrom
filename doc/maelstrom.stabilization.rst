@@ -1,4 +1,4 @@
-:mod:`maelstrom.heat`
+:mod:`maelstrom.stabilization`
 ===================================
 
 .. automodule:: maelstrom.stabilization
