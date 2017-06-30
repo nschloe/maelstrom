@@ -11,17 +11,15 @@ from dolfin import (
 
 
 def supg(mesh, convection, diffusion, element_degree):
-    '''For each cell :math:`K`, this function return the expression
+    '''For each cell, this function return the expression
 
     ..math::
-    \\begin{align*}
-        \\tau &= \\frac{h}{2\\|b\\|} \\left(
-                        \\frac{1}{\\tanh Pe} - \\frac{1}{Pe}
-                        \\right)\\\\
-              & = \\frac{h^2}{4\\varepsilon} \\frac{1}{Pe} \\left(
-                       \\frac{1}{\\tanh Pe} - \\frac{1}{Pe}
-                       \\right)
-    \\end{align*}
+        \\begin{align*}
+        \\tau &= \\frac{h}{2\\|b\\|}
+        \\left(\\frac{1}{\\tanh Pe} - \\frac{1}{Pe}\\right)\\\\
+        & = \\frac{h^2}{4\\varepsilon} \\frac{1}{Pe}
+        \\left(\\frac{1}{\\tanh Pe} - \\frac{1}{Pe}\\right)
+        \\end{align*}
 
     with the element diameter in the direction of the convection vector
     :math:`b` and the Péclet number :math:`Pe = \\frac{\\|b\\|
