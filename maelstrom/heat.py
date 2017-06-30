@@ -3,8 +3,10 @@
 from dolfin import (
     dx, ds, dot, grad, pi, assemble, lhs, rhs, SpatialCoordinate,
     TrialFunction, TestFunction, KrylovSolver, Function, assemble_system,
-    LUSolver
+    LUSolver, div, as_vector
     )
+
+from . import stabilization as stab
 
 
 def F(u, v, kappa, rho, cp,
@@ -14,7 +16,8 @@ def F(u, v, kappa, rho, cp,
       neumann_bcs,
       robin_bcs,
       my_dx,
-      my_ds
+      my_ds,
+      stabilization
       ):
     '''
     Compute
@@ -45,9 +48,9 @@ def F(u, v, kappa, rho, cp,
     F0 = kappa * r * dot(grad(u), grad(v / rho_cp)) * 2*pi * my_dx
 
     # F -= dot(b, grad(u)) * v * 2*pi*r * dx_workpiece(0)
-    b = convection
-    if b:
-        F0 += (b[0] * u.dx(0) + b[1] * u.dx(1)) * v * 2*pi*r * my_dx
+    if convection is not None:
+        c = as_vector([convection[0], convection[1]])
+        F0 += dot(c, grad(u)) * v * 2*pi*r * my_dx
 
     # Joule heat
     F0 -= source * v / rho_cp * 2*pi*r * my_dx
@@ -61,36 +64,22 @@ def F(u, v, kappa, rho, cp,
         alpha, u0 = value
         F0 -= r * kappa * alpha * (u - u0) * v / rho_cp * 2*pi * my_ds(k)
 
-    # # Add SUPG stabilization.
-    # rho_cp = rho[wpi](background_temp)*cp[wpi]
-    # k = kappa[wpi](background_temp)
-    # Rdx = u_t * 2*pi*r*dx(wpi) \
-    #     + dot(u_1, grad(trial)) * 2*pi*r*dx(wpi) \
-    #     - 1.0/(rho_cp) * div(k*r*grad(trial)) * 2*pi*dx(wpi)
-    # #F -= dot(tau*u_1, grad(v)) * Rdx
-    # #F -= tau * inner(u_1, grad(v)) * 2*pi*r*dx(wpi)
-    # #plot(tau, mesh=V.mesh(), title='u_tau')
-    # #interactive()
-    # #F -= tau * v * 2*pi*r*dx(wpi)
-    # #F -= tau * Rdx
+    if stabilization == 'supg':
+        # Add SUPG stabilization.
+        assert convection is not None
+        # TODO u_t?
+        R = (
+            - div(kappa * r * grad(u)) / rho_cp * 2*pi
+            + dot(c, grad(u)) * 2*pi*r
+            - source / rho_cp * 2*pi*r
+            )
+        mesh = v.function_space().mesh()
+        element_degree = v.ufl_element().degree()
+        tau = stab.supg(mesh, convection, kappa, element_degree)
+        F0 += R * tau * dot(convection, grad(v)) * my_dx
+    else:
+        assert stabilization is None
 
-    # TODO stabilization
-    # About stabilization for reaction-diffusion-convection:
-    # http://www.ewi.tudelft.nl/fileadmin/Faculteit/EWI/Over_de_faculteit/Afdelingen/Applied_Mathematics/Rapporten/doc/06-03.pdf
-    # http://www.xfem.rwth-aachen.de/Project/PaperDownload/Fries_ReviewStab.pdf
-    #
-    # R = u_t \
-    #     + dot(u0, grad(trial)) \
-    #     - 1.0/(rho(293.0)*cp) * div(kappa*grad(trial))
-    # F -= R * dot(tau*u0, grad(v)) * dx
-    #
-    # Stabilization
-    # tau = stab.supg2(
-    #         mesh,
-    #         u0,
-    #         kappa/(rho(293.0)*cp),
-    #         Q.ufl_element().degree()
-    #         )
     return F0
 
 
@@ -113,7 +102,8 @@ class Heat(object):
             neumann_bcs=None,
             robin_bcs=None,
             my_dx=dx,
-            my_ds=ds
+            my_ds=ds,
+            stabilization=None
             ):
         super(Heat, self).__init__()
         self.Q = Q
@@ -153,7 +143,8 @@ class Heat(object):
                 neumann_bcs,
                 robin_bcs,
                 my_dx,
-                my_ds
+                my_ds,
+                stabilization
                 )
 
         self.dirichlet_bcs = dirichlet_bcs

@@ -4,10 +4,11 @@ import maelstrom.navier_stokes as ns_cyl
 import helpers
 
 from dolfin import (
-    Expression, UnitSquareMesh, triangle, plot, interactive, RectangleMesh, pi,
+    Expression, UnitSquareMesh, triangle, plot, interactive, RectangleMesh,
     Point
     )
 import numpy
+from numpy import pi
 import pytest
 import sympy
 
@@ -71,7 +72,7 @@ def problem_whirl_cylindrical():
     plot_solution = False
     if plot_solution:
         sol_u = Expression(
-            (sympy.printing.ccode(u[0]), sympy.printing.ccode(u[1])),
+            (helpers.ccode(u[0]), helpers.ccode(u[1])),
             degree=numpy.infty,
             t=0.0,
             cell=cell_type,
@@ -164,8 +165,8 @@ def problem_taylor_cylindrical():
 
 @pytest.mark.parametrize('problem', [
     # problem_flat_cylindrical,
-    problem_whirl_cylindrical,
-    # problem_guermond1_cylindrical,
+    # problem_whirl_cylindrical,
+    problem_guermond1_cylindrical,
     # problem_taylor_cylindrical,
     ])
 @pytest.mark.parametrize('method', [
@@ -259,13 +260,13 @@ def _get_navier_stokes_rhs_cylindrical(u, p):
 
 
 if __name__ == '__main__':
-    mesh_sizes = [8, 16, 32]
+    mesh_sizes = [8, 16, 32, 64]
     # mesh_sizes = [10, 20, 40, 80]
-    Dt = [0.5**k for k in range(20)]
+    Dt = [0.5**k for k in range(12)]
     errors = helpers.compute_time_errors(
-        problem_flat_cylindrical,
+        # problem_flat_cylindrical,
         # problem_whirl_cylindrical,
-        # problem_guermond1_cylindrical,
+        problem_guermond1_cylindrical,
         # problem_taylor_cylindrical,
         ns_cyl.IPCS,
         mesh_sizes, Dt

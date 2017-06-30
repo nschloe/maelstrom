@@ -17,14 +17,14 @@ coordinates,
                 - e_r \\frac{u_r}{r^2}
                 \\right)
             + f,\\\\
-        &\\frac{1}{r} \\div(r u) &= 0,
+        &\\frac{1}{r} \\div(r u) = 0,
     \\end{align*}
 
 cf.
 https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations#Representations_in_3D.
 In the weak formulation, we consider integrals in pseudo 3D, resulting in a
 weighting with :math:`2\\pi r` of the equations. (The volume element is
-:math:`2\\pi r \\text{d}x`.)
+:math:`2\\pi r\\,\\text{d}x`.)
 
 The order of the variables is taken to be :math:`(r, z, \\theta)`. This makes
 sure that for planar domains, the :math:`x`- and :math:`y`-coordinates are
@@ -91,33 +91,33 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         #
         #     <R, tau*grad(v)*u[0]>
         #
-        # with R being the residual in strong form. The choice of the tau is
+        # with R being the residual in strong form. The choice of tau is
         # subject to research.
-        tau = stab.supg2(
-                u.function_space().W.mesh(),
+        rho_val = rho.values()[0]
+        mu_val = mu.values()[0]
+        tau = stab.supg(
+                u.function_space().mesh(),
                 u,
-                mu / rho,
+                mu_val / rho_val,
                 u.function_space().ufl_element().degree()
                 )
+        # Strong residual:
+        R = + rho * grad(u) * u * 2*pi*r \
+            - mu * div(r * grad(u)) * 2*pi \
+            - f * 2*pi*r
+        if p:
+            R += grad(p) * 2*pi*r
+
+        gv = tau * grad(v) * u
+        F += dot(R, gv) * my_dx
+
         # We need to deal with the term
         #
         #     \int mu * (u2[0]/r**2, 0) * dot(R, grad(v2)*b_tau) 2*pi*r*dx
         #
         # somehow. Unfortunately, it's not easy to construct (u2[0]/r**2,
         # 0), cf.  <https://answers.launchpad.net/dolfin/+question/228353>.
-        # Strong residual:
-        R = + rho * grad(u) * u * 2 * pi * r \
-            - mu * div(r * grad(u)) * 2 * pi \
-            - f * 2 * pi * r
-        if p:
-            R += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * my_dx
-
-        gv = tau * grad(v) * u
-        F += dot(R, gv) * my_dx
-
-        # Manually add the parts of the residual which couldn't be cleanly
-        # implemented above.
-        F += mu * u[0] / r * 2 * pi * gv[0] * my_dx
+        F += mu * u[0] / r * 2*pi * gv[0] * my_dx
         if u.function_space().num_sub_spaces() == 3:
             F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) \
                     * 2*pi*my_dx
@@ -139,7 +139,7 @@ def compute_tentative_velocity(
 
     .. math::
         \\rho (u_0 + (u\\cdot\\nabla)u) =
-            \\mu \\frav{1}{r} \\div(r \\nabla u) + \\rho g.
+            \\mu \\frac{1}{r} \\div(r \\nabla u) + \\rho g.
     '''
 
     class TentativeVelocityProblem(NonlinearProblem):
@@ -211,7 +211,7 @@ def compute_tentative_velocity(
             return
 
     solver = NewtonSolver()
-    solver.parameters['maximum_iterations'] = 5
+    solver.parameters['maximum_iterations'] = 10
     solver.parameters['absolute_tolerance'] = tol
     solver.parameters['relative_tolerance'] = 0.0
     solver.parameters['report'] = True
@@ -598,8 +598,7 @@ class IPCS(object):
     '''
     order = {
         'velocity': 1,
-        # TODO fix
-        'pressure': 0,
+        'pressure': 1,
         }
 
     def __init__(self, time_step_method='backward euler', stabilization=False):
