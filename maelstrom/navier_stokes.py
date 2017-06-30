@@ -95,7 +95,7 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         # subject to research.
         rho_val = rho.values()[0]
         mu_val = mu.values()[0]
-        tau = stab.supg2(
+        tau = stab.supg(
                 u.function_space().mesh(),
                 u,
                 mu_val / rho_val,
