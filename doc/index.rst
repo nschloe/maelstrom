@@ -14,6 +14,7 @@ Relevant publications are :cite:`KP2003TNI`, :cite:`Derby89`,
 
    maelstrom.heat
    maelstrom.maxwell
+   maelstrom.stabilization
    maelstrom.stokes
    maelstrom.navier_stokes
 
