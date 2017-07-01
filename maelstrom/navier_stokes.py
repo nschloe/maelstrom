@@ -133,7 +133,7 @@ def compute_tentative_velocity(
         u, p0, dt, u_bcs, f, W,
         my_dx,
         stabilization,
-        verbose, tol
+        tol
         ):
     '''Compute the tentative velocity via
 
@@ -564,7 +564,7 @@ def _step(
                 u, p0, dt, u_bcs, f, W,
                 my_dx,
                 stabilization,
-                verbose, tol
+                tol
                 )
 
     with Message('Computing pressure correction'):
