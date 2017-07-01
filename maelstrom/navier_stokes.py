@@ -219,9 +219,11 @@ def compute_tentative_velocity(
     # the time step slows down convergence dramatically in some cases. This
     # make the step fail, and the adaptive time stepper will decrease the step
     # size. This size can be _very_ small such that simulation take forever.
-    # For now, just use a direct solver.
+    # For now, just use a direct solver. Choose UMFPACK over SuperLU since the
+    # docker image doesn't contain SuperLU yet, cf.
+    # <https://bitbucket.org/fenics-project/docker/issues/64/add-superlu>.
     # TODO come up with an appropriate GMRES preconditioner here
-    solver.parameters['linear_solver'] = 'superlu'
+    solver.parameters['linear_solver'] = 'umfpack'
 
     ui = Function(W)
     step_problem = TentativeVelocityProblem(
