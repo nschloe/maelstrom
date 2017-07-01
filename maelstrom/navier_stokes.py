@@ -215,16 +215,13 @@ def compute_tentative_velocity(
     solver.parameters['absolute_tolerance'] = tol
     solver.parameters['relative_tolerance'] = 0.0
     solver.parameters['report'] = True
-    # The nonlinear term makes the problem generally nonsymmetric.
-    solver.parameters['linear_solver'] = 'gmres'
-    # If the nonsymmetry is too strong, e.g., if u[0] is large, then AMG
-    # preconditioning might not work very well.
-    # Use HYPRE-Euclid instead of ILU for parallel computation.
-    solver.parameters['preconditioner'] = 'hypre_euclid'
-    solver.parameters['krylov_solver']['relative_tolerance'] = tol
-    solver.parameters['krylov_solver']['absolute_tolerance'] = 0.0
-    solver.parameters['krylov_solver']['maximum_iterations'] = 1000
-    solver.parameters['krylov_solver']['monitor_convergence'] = verbose
+    # While GMRES+ILU converges if the time step is small enough, increasing
+    # the time step slows down convergence dramatically in some cases. This
+    # make the step fail, and the adaptive time stepper will decrease the step
+    # size. This size can be _very_ small such that simulation take forever.
+    # For now, just use a direct solver.
+    # TODO come up with an appropriate GMRES preconditioner here
+    solver.parameters['linear_solver'] = 'superlu'
 
     ui = Function(W)
     step_problem = TentativeVelocityProblem(
