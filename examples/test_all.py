@@ -20,6 +20,7 @@ from dolfin import (
 import numpy
 from numpy import pi
 import parabolic
+import pytest
 
 from maelstrom.helpers import average
 import maelstrom.navier_stokes as cyl_ns
@@ -123,7 +124,8 @@ def _plot(u, p, theta):
     return
 
 
-def test_boussinesq(target_time=0.1, with_voltage=False, show=False):
+@pytest.mark.parametrize('with_voltage', [False, True])
+def test_boussinesq(with_voltage, target_time=1.0e-2, show=False):
     '''Simple boussinesq test; no Maxwell involved.
     '''
     problem = problems.Crucible()
@@ -169,11 +171,18 @@ def test_boussinesq(target_time=0.1, with_voltage=False, show=False):
         lorentz=lorentz, joule=joule, target_time=target_time, show=show
         )
 
-    if not with_voltage:
-        assert abs(norm(u1, 'L2') - 0.0010707817987502788) < 1.0e-3
+    if with_voltage:
         # p is only defined up to a constant
-        # assert abs(norm(p1, 'L2') - 38.1593608825763) < 1.0e-3
-        assert abs(norm(theta1, 'L2') - 86.95791969992307) < 1.0e-3
+        ref = 0.001069306823450495
+        assert abs(norm(u1, 'L2') - ref) < 1.0e-3 * ref
+        ref = 86.96271240592199
+        assert abs(norm(theta1, 'L2') - ref) < 1.0e-3 * ref
+    else:
+        ref = 0.001069283700624996
+        assert abs(norm(u1, 'L2') - ref) < 1.0e-3 * ref
+        ref = 86.96274092197706
+        assert abs(norm(theta1, 'L2') - ref) < 1.0e-3 * ref
+
     return
 
 
