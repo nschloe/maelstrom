@@ -78,8 +78,7 @@ def test(problem, max_num_steps=2, show=False):
             xdmf_file.write(p0, t)
 
         stepper = cyl_ns.IPCS(
-                time_step_method='backward euler',
-                stabilization=None
+                time_step_method='backward euler'
                 )
         steps = 0
         while t < T + DOLFIN_EPS and steps < max_num_steps:

@@ -37,17 +37,16 @@ method.
 '''
 
 from dolfin import (
-    TestFunction, Function, Constant, dot, grad, inner, pi, dx, div, solve,
+    TestFunction, Function, Constant, dot, grad, inner, pi, dx, solve,
     derivative, TrialFunction, PETScPreconditioner, PETScKrylovSolver,
     as_backend_type, info, assemble, norm, FacetNormal, sqrt, ds, as_vector,
     NonlinearProblem, NewtonSolver, SpatialCoordinate, project
     )
 
-from . import stabilization as stab
 from .message import Message
 
 
-def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
+def _momentum_equation(u, v, p, f, rho, mu, my_dx):
     '''Weak form of the momentum equation.
     '''
     # rho and my are Constant() functions
@@ -89,47 +88,6 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         F += rho * (-u[2] * u[2] * v[0] + u[0] * u[2] * v[2]) * 2*pi * my_dx
         F += mu * u[2] / r * v[2] * 2 * pi * my_dx
 
-    if stabilization == 'SUPG':
-        # TODO check this part of the code
-        #
-        # SUPG stabilization has the form
-        #
-        #     <R, tau*grad(v)*u[0]>
-        #
-        # with R being the residual in strong form. The choice of tau is
-        # subject to research.
-        rho_val = rho.values()[0]
-        mu_val = mu.values()[0]
-        tau = stab.supg(
-                u.function_space().mesh(),
-                u,
-                mu_val / rho_val,
-                u.function_space().ufl_element().degree()
-                )
-        # Strong residual:
-        R = + rho * grad(u) * u * 2*pi*r \
-            - mu * div(r * grad(u)) * 2*pi \
-            - f * 2*pi*r
-        if p:
-            R += grad(p) * 2*pi*r
-
-        gv = tau * grad(v) * u
-        F += dot(R, gv) * my_dx
-
-        # We need to deal with the term
-        #
-        #     \int mu * (u2[0]/r**2, 0) * dot(R, grad(v2)*b_tau) 2*pi*r*dx
-        #
-        # somehow. Unfortunately, it's not easy to construct (u2[0]/r**2,
-        # 0), cf.  <https://answers.launchpad.net/dolfin/+question/228353>.
-        F += mu * u[0] / r * 2*pi * gv[0] * my_dx
-        if u.function_space().num_sub_spaces() == 3:
-            F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) \
-                    * 2*pi*my_dx
-            F += mu * u[2] / r * gv[2] * 2*pi * my_dx
-    else:
-        assert stabilization is None
-
     return F
 
 
@@ -137,7 +95,6 @@ def compute_tentative_velocity(
         time_step_method, rho, mu,
         u, p0, dt, u_bcs, f, W,
         my_dx,
-        stabilization,
         tol
         ):
     '''Compute the tentative velocity via
@@ -155,7 +112,6 @@ def compute_tentative_velocity(
                 bcs,
                 f,
                 my_dx,
-                stabilization=False
                 ):
             super(TentativeVelocityProblem, self).__init__()
 
@@ -168,7 +124,7 @@ def compute_tentative_velocity(
 
             def me(uu, ff):
                 return _momentum_equation(
-                    uu, v, p0, ff, rho, mu, stabilization, my_dx
+                    uu, v, p0, ff, rho, mu, my_dx
                     )
 
             self.F0 = rho * dot(ui - u[0], v) / dt * 2*pi*r*my_dx
@@ -238,8 +194,7 @@ def compute_tentative_velocity(
             u, p0, dt,
             u_bcs,
             f,
-            my_dx,
-            stabilization
+            my_dx
             )
 
     # Take u[0] as initial guess.
@@ -551,7 +506,6 @@ def _step(
         W, P,
         u_bcs, p_bcs,
         rho, mu,
-        stabilization,
         time_step_method,
         f,
         my_dx,
@@ -570,7 +524,6 @@ def _step(
                 time_step_method, rho, mu,
                 u, p0, dt, u_bcs, f, W,
                 my_dx,
-                stabilization,
                 tol
                 )
 
@@ -605,9 +558,8 @@ class IPCS(object):
         'pressure': 1,
         }
 
-    def __init__(self, time_step_method='backward euler', stabilization=False):
+    def __init__(self, time_step_method='backward euler'):
         self.time_step_method = time_step_method
-        self.stabilization = stabilization
         return
 
     def step(
@@ -628,7 +580,6 @@ class IPCS(object):
             W, P,
             u_bcs, p_bcs,
             rho, mu,
-            self.stabilization,
             self.time_step_method,
             f,
             verbose=verbose,

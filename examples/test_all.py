@@ -279,8 +279,7 @@ def _compute_boussinesq(
                     heat_stepper = parabolic.ImplicitEuler(heat_problem)
 
                     ns_stepper = cyl_ns.IPCS(
-                            time_step_method='backward euler',
-                            stabilization=None
+                            time_step_method='backward euler'
                             )
                     theta1 = heat_stepper.step(theta0, t, dt)
 
