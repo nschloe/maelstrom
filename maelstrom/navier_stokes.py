@@ -29,6 +29,11 @@ weighting with :math:`2\\pi r` of the equations. (The volume element is
 The order of the variables is taken to be :math:`(r, z, \\theta)`. This makes
 sure that for planar domains, the :math:`x`- and :math:`y`-coordinates are
 interpreted as :math:`r`, :math:`z`.
+
+Note that :cite:`fenicsbook` contains a chapter with an extensive comparison of
+solution methods for the transient Navier--Stokes equations for many different
+problems. It is found that IPCS is the best (fastest, most accurate) solution
+method.
 '''
 
 from dolfin import (
