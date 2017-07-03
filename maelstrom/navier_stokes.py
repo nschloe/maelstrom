@@ -36,7 +36,7 @@ problems. It is found that IPCS is the best (fastest, most accurate) solution
 method.
 
 An overview of projection methods for incompressible flow can be found in
-:cite:`guermond`.
+:cite:`guermond` and :cite:`bookjohn`.
 '''
 
 from dolfin import (
