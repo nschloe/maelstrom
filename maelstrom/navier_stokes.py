@@ -34,6 +34,9 @@ Note that :cite:`fenicsbook` contains a chapter with an extensive comparison of
 solution methods for the transient Navier--Stokes equations for many different
 problems. It is found that IPCS is the best (fastest, most accurate) solution
 method.
+
+An overview of projection methods for incompressible flow can be found in
+:cite:`guermond`.
 '''
 
 from dolfin import (
