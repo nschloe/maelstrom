@@ -13,7 +13,7 @@ Full* simulation of the melt problem.
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
 from dolfin import (
-    parameters, Measure, FunctionSpace, Constant, plot, interactive, XDMFFile,
+    parameters, Measure, FunctionSpace, Constant, plot, XDMFFile,
     DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
     )
 
@@ -120,7 +120,6 @@ def _plot(u, p, theta):
     plot(theta, title='temperature', rescale=True)
     plot(u, title='velocity', rescale=True)
     plot(p, title='pressure', rescale=True)
-    # interactive()
     return
 
 
@@ -233,7 +232,6 @@ def _compute_boussinesq(
         if lorentz:
             f += as_vector((lorentz[0], lorentz[1], 0.0))
         plot(f, mesh=submesh_workpiece, title='Total external force')
-        interactive()
 
     with XDMFFile(submesh_workpiece.mpi_comm(), 'all.xdmf') as outfile:
         outfile.parameters['flush_output'] = True

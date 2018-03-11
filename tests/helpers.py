@@ -8,9 +8,8 @@ from __future__ import print_function
 import warnings
 
 from dolfin import (
-    Expression, info, assemble, FunctionSpace, interpolate, plot, interactive,
-    errornorm, dx, Function, VectorFunctionSpace, DirichletBC, project,
-    Constant
+    Expression, info, assemble, FunctionSpace, interpolate, plot, errornorm,
+    dx, Function, VectorFunctionSpace, DirichletBC, project, Constant
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -257,5 +256,4 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                     # divu1 = 1 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
                     divu1.assign(project(u1[0].dx(0) + u1[1].dx(1), P))
                     plot(divu1, title='div(u1)')
-                    interactive()
     return errors

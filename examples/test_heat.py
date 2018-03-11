@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 from dolfin import (
-    plot, interactive, dx, Constant, Measure, Function, project, XDMFFile
+    plot, dx, Constant, Measure, Function, project, XDMFFile
     )
 
 import problems
@@ -74,7 +74,6 @@ def _parameter_quest():
         else:
             theta_1.assign(theta)
         plot(theta_1, rescale=True)
-        interactive()
     return
 
 
@@ -114,7 +113,6 @@ def test_stationary_solve(show=False):
         #     f.parameters['rewrite_function_mesh'] = False
         #     f.write(theta_reference)
         plot(theta_reference)
-        interactive()
 
     assert abs(
         maelstrom.helpers.average(theta_reference) - 1551.0097749549102

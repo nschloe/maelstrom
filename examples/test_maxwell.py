@@ -5,8 +5,8 @@ from __future__ import print_function
 
 from dolfin import (
     XDMFFile, Measure, FunctionSpace, SubMesh, project, Function, info,
-    VectorFunctionSpace, norm, Constant, plot, interactive, SpatialCoordinate,
-    grad, FiniteElement, DOLFIN_EPS, as_vector
+    VectorFunctionSpace, norm, Constant, plot, SpatialCoordinate, grad,
+    FiniteElement, DOLFIN_EPS, as_vector
     )
 import numpy
 from numpy import pi
@@ -83,7 +83,6 @@ def test():
     #                     ]
     #                 # plot(j_v1[0], title='j_r')
     #                 # plot(j_v1[1], title='j_i')
-    #                 # interactive()
     #                 current = project(as_vector(j_v1), V1*V1)
     #                 current.rename('j{}'.format(ii), 'current {}'.format(ii))
     #                 xdmf_file.write(current)
@@ -131,7 +130,6 @@ def test():
             xdmf_file.write(B)
             # plot(B_r, title='Re(B)')
             # plot(B_i, title='Im(B)')
-            # interactive()
         else:
             # Write those out to a file.
             lspace = numpy.linspace(
@@ -219,7 +217,6 @@ def get_lorentz_joule(problem, input_voltages, show=False):
 
         if show:
             plot(pl, title='Lorentz force')
-            interactive()
 
         # Get Joule heat source.
         joule = cmx.compute_joule(
@@ -235,7 +232,6 @@ def get_lorentz_joule(problem, input_voltages, show=False):
             jp = Function(W_submesh, name='Joule heat source')
             jp.assign(project(joule[problem.wpi], W_submesh))
             plot(jp)
-            interactive()
 
         joule_wpi = joule[problem.wpi]
 

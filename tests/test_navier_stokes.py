@@ -4,8 +4,7 @@ import maelstrom.navier_stokes as ns_cyl
 import helpers
 
 from dolfin import (
-    Expression, UnitSquareMesh, triangle, plot, interactive, RectangleMesh,
-    Point
+    Expression, UnitSquareMesh, triangle, plot, RectangleMesh, Point
     )
 import numpy
 from numpy import pi
@@ -78,7 +77,6 @@ def problem_whirl_cylindrical():
             cell=cell_type,
             )
         plot(sol_u, mesh=mesh_generator(20))
-        interactive()
     f = {
         'value': _get_navier_stokes_rhs_cylindrical(u, p),
         'degree': numpy.infty
