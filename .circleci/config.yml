@@ -16,7 +16,7 @@ jobs:
       - run: sudo -H pip3 install pytest pytest-cov pylint Sphinx
       - checkout
       # lint
-      - run: pylint maelstrom/ examples test/*.py
+      - run: pylint maelstrom/ examples/*.py test/*.py
       # check if documentation builds
       - run: sudo -H pip3 install -r doc/requirements.txt
       - run: cd doc && PYTHONPATH=~/maelstrom/:$PYTHONPATH make html
