@@ -177,7 +177,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             method = MethodClass(
                     time_step_method='backward euler',
                     # time_step_method='crank-nicolson',
-                    stabilization=None
+                    # stabilization=None
                     # stabilization='SUPG'
                     )
             u1 = Function(W)

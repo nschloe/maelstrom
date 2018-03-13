@@ -6,10 +6,9 @@ import warnings
 
 from dolfin import (
     FunctionSpace, errornorm, UnitSquareMesh, Measure, CellFunction,
-    FacetFunction, triangle, Expression, MPI, mpi_comm_world,
-    dot, TestFunction, TrialFunction, grad, pi, Function, solve,
-    DirichletBC, DOLFIN_EPS, norm, Constant, FiniteElement, sqrt,
-    SpatialCoordinate
+    MeshFunction, triangle, Expression, MPI, mpi_comm_world, dot, TestFunction,
+    TrialFunction, grad, pi, Function, solve, DirichletBC, DOLFIN_EPS, norm,
+    Constant, FiniteElement, sqrt, SpatialCoordinate
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -36,10 +35,11 @@ def problem_coscos():
     '''
     def mesh_generator(n):
         mesh = UnitSquareMesh(n, n, 'left/right')
-        domains = CellFunction('uint', mesh)
+        dim = mesh.topology().dim()
+        domains = MeshFunction('size_t', mesh, dim)
         domains.set_all(0)
         dx = Measure('dx', subdomain_data=domains)
-        boundaries = FacetFunction('uint', mesh)
+        boundaries = MeshFunction('size_t', mesh, dim-1)
         boundaries.set_all(0)
         ds = Measure('ds', subdomain_data=boundaries)
         return mesh, dx, ds

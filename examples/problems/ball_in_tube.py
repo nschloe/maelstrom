@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 #
+import os
+
 from . import meshes
 
 import dolfin
