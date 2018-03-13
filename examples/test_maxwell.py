@@ -100,9 +100,8 @@ def test():
         phi = Function(V, name='phi')
         Phi0 = project(Phi[0], V)
         Phi1 = project(Phi[1], V)
-        for t in numpy.linspace(
-                0.0, 2*pi/problem.omega, num=100, endpoint=False
-                ):
+        omega = problem.omega
+        for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
             # Im(Phi * exp(i*omega*t))
             phi.vector().zero()
             phi.vector().axpy(sin(problem.omega*t), Phi0.vector())
@@ -190,13 +189,13 @@ def get_lorentz_joule(problem, input_voltages, show=False):
     dx_subdomains = Measure('dx', subdomain_data=problem.subdomains)
     with Message('Computing magnetic field...'):
         Phi, voltages = cmx.compute_potential(
-                coils,
-                V,
-                dx_subdomains,
-                mu_const, sigma_const, problem.omega,
-                convections={}
-                # io_submesh=submesh_workpiece
-                )
+            coils,
+            V,
+            dx_subdomains,
+            mu_const, sigma_const, problem.omega,
+            convections={}
+            # io_submesh=submesh_workpiece
+            )
         # Get resulting Lorentz force.
         lorentz = cmx.compute_lorentz(
             Phi, problem.omega, sigma_const[problem.wpi]
@@ -220,10 +219,10 @@ def get_lorentz_joule(problem, input_voltages, show=False):
 
         # Get Joule heat source.
         joule = cmx.compute_joule(
-                Phi, voltages,
-                problem.omega, sigma_const, mu_const,
-                subdomain_indices
-                )
+            Phi, voltages,
+            problem.omega, sigma_const, mu_const,
+            subdomain_indices
+            )
 
         if show:
             # Show Joule heat source.
