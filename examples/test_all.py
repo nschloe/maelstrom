@@ -19,8 +19,8 @@ from dolfin import (
 
 import numpy
 from numpy import pi
-import parabolic
 import pytest
+import parabolic
 
 from maelstrom.helpers import average
 import maelstrom.navier_stokes as cyl_ns

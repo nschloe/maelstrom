@@ -46,7 +46,7 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
     # Print the data to the screen
     for i, mesh_size in enumerate(mesh_sizes):
         print()
-        print('Mesh size %d:' % mesh_size)
+        print('Mesh size {}:'.format(mesh_size))
         print('dt = %e' % Dt[0])
         for label, e in errors.items():
             print('   err_%s = %e' % (label, e[i][0]))
@@ -73,10 +73,10 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
         e0 = err[-1][0]
         for o in range(7):
             plt.loglog(
-                    [Dt[0], Dt[-1]],
-                    [e0, e0 * (Dt[-1] / Dt[0]) ** o],
-                    color='0.7'
-                    )
+                [Dt[0], Dt[-1]],
+                [e0, e0 * (Dt[-1] / Dt[0]) ** o],
+                color='0.7'
+                )
         plt.xlabel('dt')
         plt.ylabel('||%s-%s_h||' % (label, label))
         # plt.title('Method: %s' % method['name'])
@@ -129,57 +129,57 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             #
             # Translate data into FEniCS expressions.
             sol_u = Expression(
-                    (
-                        ccode(solution['u']['value'][0]),
-                        ccode(solution['u']['value'][1])
-                    ),
-                    degree=_truncate_degree(solution['u']['degree']),
-                    t=0.0,
-                    domain=mesh
-                    )
+                (
+                    ccode(solution['u']['value'][0]),
+                    ccode(solution['u']['value'][1])
+                ),
+                degree=_truncate_degree(solution['u']['degree']),
+                t=0.0,
+                domain=mesh
+                )
             sol_p = Expression(
-                    ccode(solution['p']['value']),
-                    degree=_truncate_degree(solution['p']['degree']),
-                    t=0.0,
-                    domain=mesh
-                    )
+                ccode(solution['p']['value']),
+                degree=_truncate_degree(solution['p']['degree']),
+                t=0.0,
+                domain=mesh
+                )
 
             fenics_rhs0 = Expression(
-                    (
-                        ccode(f['value'][0]),
-                        ccode(f['value'][1])
-                    ),
-                    degree=_truncate_degree(f['degree']),
-                    t=0.0,
-                    mu=mu, rho=rho,
-                    domain=mesh
-                    )
+                (
+                    ccode(f['value'][0]),
+                    ccode(f['value'][1])
+                ),
+                degree=_truncate_degree(f['degree']),
+                t=0.0,
+                mu=mu, rho=rho,
+                domain=mesh
+                )
             # Deep-copy expression to be able to provide f0, f1 for the
             # Dirichlet boundary conditions later on.
             fenics_rhs1 = Expression(
-                    fenics_rhs0.cppcode,
-                    degree=_truncate_degree(f['degree']),
-                    t=0.0,
-                    mu=mu, rho=rho,
-                    domain=mesh
-                    )
+                fenics_rhs0.cppcode,
+                degree=_truncate_degree(f['degree']),
+                t=0.0,
+                mu=mu, rho=rho,
+                domain=mesh
+                )
             # Create initial states.
             W = VectorFunctionSpace(mesh, 'CG', 2)
             P = FunctionSpace(mesh, 'CG', 1)
             p0 = Expression(
-                    sol_p.cppcode,
-                    degree=_truncate_degree(solution['p']['degree']),
-                    t=0.0,
-                    domain=mesh
-                    )
+                sol_p.cppcode,
+                degree=_truncate_degree(solution['p']['degree']),
+                t=0.0,
+                domain=mesh
+                )
 
             mesh_area = assemble(1.0 * dx(mesh))
             method = MethodClass(
-                    time_step_method='backward euler',
-                    # time_step_method='crank-nicolson',
-                    # stabilization=None
-                    # stabilization='SUPG'
-                    )
+                time_step_method='backward euler',
+                # time_step_method='crank-nicolson',
+                # stabilization=None
+                # stabilization='SUPG'
+                )
             u1 = Function(W)
             p1 = Function(P)
             err_p = Function(P)
@@ -202,15 +202,15 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
                 fenics_rhs0.t = 0.0
                 fenics_rhs1.t = dt
                 u1, p1 = method.step(
-                        Constant(dt),
-                        u, p0,
-                        W, P,
-                        u_bcs, p_bcs,
-                        Constant(rho), Constant(mu),
-                        f={0: fenics_rhs0, 1: fenics_rhs1},
-                        verbose=False,
-                        tol=1.0e-10
-                        )
+                    Constant(dt),
+                    u, p0,
+                    W, P,
+                    u_bcs, p_bcs,
+                    Constant(rho), Constant(mu),
+                    f={0: fenics_rhs0, 1: fenics_rhs1},
+                    verbose=False,
+                    tol=1.0e-10
+                    )
 
                 sol_u.t = dt
                 sol_p.t = dt

@@ -94,12 +94,10 @@ def _momentum_equation(u, v, p, f, rho, mu, my_dx):
     return F
 
 
-def compute_tentative_velocity(
-        time_step_method, rho, mu,
-        u, p0, dt, u_bcs, f, W,
-        my_dx,
-        tol
-        ):
+def compute_tentative_velocity(time_step_method, rho, mu,
+                               u, p0, dt, u_bcs, f, W,
+                               my_dx,
+                               tol):
     '''Compute the tentative velocity via
 
     .. math::
@@ -108,14 +106,12 @@ def compute_tentative_velocity(
     '''
 
     class TentativeVelocityProblem(NonlinearProblem):
-        def __init__(
-                self, ui, time_step_method,
-                rho, mu,
-                u, p0, dt,
-                bcs,
-                f,
-                my_dx,
-                ):
+        def __init__(self, ui, time_step_method,
+                     rho, mu,
+                     u, p0, dt,
+                     bcs,
+                     f,
+                     my_dx):
             super(TentativeVelocityProblem, self).__init__()
 
             W = ui.function_space()
@@ -191,14 +187,14 @@ def compute_tentative_velocity(
 
     ui = Function(W)
     step_problem = TentativeVelocityProblem(
-            ui,
-            time_step_method,
-            rho, mu,
-            u, p0, dt,
-            u_bcs,
-            f,
-            my_dx
-            )
+        ui,
+        time_step_method,
+        rho, mu,
+        u, p0, dt,
+        u_bcs,
+        f,
+        my_dx
+        )
 
     # Take u[0] as initial guess.
     ui.assign(u[0])
@@ -211,16 +207,14 @@ def compute_tentative_velocity(
     return ui
 
 
-def compute_pressure(
-        P, p0,
-        mu, ui,
-        u,
-        my_dx,
-        p_bcs=None,
-        rotational_form=False,
-        tol=1.0e-10,
-        verbose=True
-        ):
+def compute_pressure(P, p0,
+                     mu, ui,
+                     u,
+                     my_dx,
+                     p_bcs=None,
+                     rotational_form=False,
+                     tol=1.0e-10,
+                     verbose=True):
     '''Solve the pressure Poisson equation
 
     .. math::
@@ -452,11 +446,9 @@ def compute_pressure(
     return p1
 
 
-def compute_velocity_correction(
-        ui, p0, p1, u_bcs, rho, mu, dt,
-        rotational_form, my_dx,
-        tol, verbose
-        ):
+def compute_velocity_correction(ui, p0, p1, u_bcs, rho, mu, dt,
+                                rotational_form, my_dx,
+                                tol, verbose):
     '''Compute the velocity correction according to
 
     .. math::
@@ -503,19 +495,17 @@ def compute_velocity_correction(
     return u1
 
 
-def _step(
-        dt,
-        u, p0,
-        W, P,
-        u_bcs, p_bcs,
-        rho, mu,
-        time_step_method,
-        f,
-        my_dx,
-        rotational_form=False,
-        verbose=True,
-        tol=1.0e-10,
-        ):
+def _step(dt,
+          u, p0,
+          W, P,
+          u_bcs, p_bcs,
+          rho, mu,
+          time_step_method,
+          f,
+          my_dx,
+          rotational_form=False,
+          verbose=True,
+          tol=1.0e-10):
     '''General pressure projection scheme as described in section 3.4 of
     :cite:`GMS06`.
     '''
@@ -524,23 +514,23 @@ def _step(
 
     with Message('Computing tentative velocity'):
         ui = compute_tentative_velocity(
-                time_step_method, rho, mu,
-                u, p0, dt, u_bcs, f, W,
-                my_dx,
-                tol
-                )
+            time_step_method, rho, mu,
+            u, p0, dt, u_bcs, f, W,
+            my_dx,
+            tol
+            )
 
     with Message('Computing pressure correction'):
         p1 = compute_pressure(
-                P, p0,
-                mu, ui,
-                rho * ui / dt,
-                my_dx,
-                p_bcs=p_bcs,
-                rotational_form=rotational_form,
-                tol=tol,
-                verbose=verbose
-                )
+            P, p0,
+            mu, ui,
+            rho * ui / dt,
+            my_dx,
+            p_bcs=p_bcs,
+            rotational_form=rotational_form,
+            tol=tol,
+            verbose=verbose
+            )
 
     with Message('Computing velocity correction'):
         u1 = compute_velocity_correction(
@@ -565,18 +555,16 @@ class IPCS(object):
         self.time_step_method = time_step_method
         return
 
-    def step(
-            self,
-            dt,
-            u, p0,
-            W, P,
-            u_bcs, p_bcs,
-            rho, mu,
-            f,
-            verbose=True,
-            tol=1.0e-10,
-            my_dx=dx
-            ):
+    def step(self,
+             dt,
+             u, p0,
+             W, P,
+             u_bcs, p_bcs,
+             rho, mu,
+             f,
+             verbose=True,
+             tol=1.0e-10,
+             my_dx=dx):
         return _step(
             dt,
             u, p0,

@@ -5,10 +5,10 @@ from __future__ import print_function
 import warnings
 
 from dolfin import (
-    FunctionSpace, errornorm, UnitSquareMesh, Measure, CellFunction,
-    MeshFunction, triangle, Expression, MPI, mpi_comm_world, dot, TestFunction,
-    TrialFunction, grad, pi, Function, solve, DirichletBC, DOLFIN_EPS, norm,
-    Constant, FiniteElement, sqrt, SpatialCoordinate
+    FunctionSpace, errornorm, UnitSquareMesh, Measure, MeshFunction, triangle,
+    Expression, MPI, mpi_comm_world, dot, TestFunction, TrialFunction, grad,
+    pi, Function, solve, DirichletBC, DOLFIN_EPS, norm, Constant,
+    FiniteElement, sqrt, SpatialCoordinate
     )
 import matplotlib.pyplot as plt
 import numpy
@@ -93,11 +93,11 @@ def problem_coscos():
     # <https://bitbucket.org/fenics-project/dolfin/issues/831/some-problems-with-quadrature-expressions>.
     # for a workaround.
     Q = FiniteElement(
-            'Quadrature',
-            triangle,
-            degree=MAX_DEGREE,
-            quad_scheme='default'
-            )
+        'Quadrature',
+        triangle,
+        degree=MAX_DEGREE,
+        quad_scheme='default'
+        )
     rhs = {
         'value': (
             Expression(helpers.ccode(rhs_sympy[0]), element=Q),
@@ -126,9 +126,8 @@ def problem_coscos():
     return mesh_generator, solution, rhs, triangle
 
 
-def _build_residuals(
-        V, dx, phi, omega, Mu, Sigma, convections, Rhs, rhs_degree
-        ):
+def _build_residuals(V, dx, phi, omega, Mu, Sigma, convections, Rhs,
+                     rhs_degree):
     r = SpatialCoordinate(V.mesh())[0]
 
     subdomain_indices = Mu.keys()
@@ -250,23 +249,23 @@ def test_residual(problem):
 
     # solve equation system
     phi_list = maxwell.solve(
-            V, dx,
-            Mu=Mu,
-            Sigma=Sigma,
-            omega=omega,
-            f_list=[rhs],
-            f_degree=f['degree'],
-            convections=convections,
-            tol=1.0e-15,
-            bcs=None,
-            verbose=False
-            )
+        V, dx,
+        Mu=Mu,
+        Sigma=Sigma,
+        omega=omega,
+        f_list=[rhs],
+        f_degree=f['degree'],
+        convections=convections,
+        tol=1.0e-15,
+        bcs=None,
+        verbose=False
+        )
     phi = phi_list[0]
 
     # build residuals
     Res_r, Res_i, Rhs_r, Rhs_i = _build_residuals(
-            V, dx, phi, omega, Mu, Sigma, convections, rhs, f['degree']
-            )
+        V, dx, phi, omega, Mu, Sigma, convections, rhs, f['degree']
+        )
 
     # Assert that the norm of the residual is smaller than a tolerance times
     # the norm of the right-hand side. This is a typical Krylov criterion.
@@ -305,22 +304,22 @@ def _compute_errors(problem, mesh_sizes):
 
     if solution['degree'] > MAX_DEGREE:
         warnings.warn(
-            'Expression degree (%r) > maximum degree (%d). Truncating.'
-            % (solution['degree'], MAX_DEGREE)
-            )
+            'Expression degree ({}) > maximum degree ({}). Truncating.'.format(
+                solution['degree'], MAX_DEGREE
+                ))
         degree = MAX_DEGREE
     else:
         degree = solution['degree']
 
     sol = Expression(
-            (
-                helpers.ccode(solution['value'][0]),
-                helpers.ccode(solution['value'][1])
-            ),
-            t=0.0,
-            degree=degree,
-            cell=cell_type
-            )
+        (
+            helpers.ccode(solution['value'][0]),
+            helpers.ccode(solution['value'][1])
+        ),
+        t=0.0,
+        degree=degree,
+        cell=cell_type
+        )
 
     errors = numpy.empty(len(mesh_sizes))
     hmax = numpy.empty(len(mesh_sizes))
@@ -330,17 +329,17 @@ def _compute_errors(problem, mesh_sizes):
         V = FunctionSpace(mesh, 'CG', 1)
         # TODO don't hardcode Mu, Sigma, ...
         phi_approx = maxwell.solve(
-                V, dx,
-                Mu={0: 1.0},
-                Sigma={0: 1.0},
-                omega=1.0,
-                f_list=[{0: f['value']}],
-                f_degree=f['degree'],
-                convections={},
-                tol=1.0e-12,
-                bcs=None,
-                verbose=False
-                )
+            V, dx,
+            Mu={0: 1.0},
+            Sigma={0: 1.0},
+            omega=1.0,
+            f_list=[{0: f['value']}],
+            f_degree=f['degree'],
+            convections={},
+            tol=1.0e-12,
+            bcs=None,
+            verbose=False
+            )
         # plot(sol0, mesh=mesh, title='sol')
         # plot(phi_approx[0][0], title='approx')
         # #plot(fenics_sol - theta_approx, title='diff')

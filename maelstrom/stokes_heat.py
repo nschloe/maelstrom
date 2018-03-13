@@ -8,20 +8,18 @@ from . import heat
 from . import stokes
 
 
-def solve_fixed_point(
-        mesh,
-        W_element, P_element, Q_element,
-        theta0,
-        kappa, rho, mu, cp,
-        g, extra_force,
-        heat_source,
-        u_bcs, p_bcs,
-        theta_dirichlet_bcs,
-        theta_neumann_bcs,
-        my_dx, my_ds,
-        max_iter,
-        tol
-        ):
+def solve_fixed_point(mesh,
+                      W_element, P_element, Q_element,
+                      theta0,
+                      kappa, rho, mu, cp,
+                      g, extra_force,
+                      heat_source,
+                      u_bcs, p_bcs,
+                      theta_dirichlet_bcs,
+                      theta_neumann_bcs,
+                      my_dx, my_ds,
+                      max_iter,
+                      tol):
     # Solve the coupled heat-Stokes equation approximately. Do this
     # iteratively by solving the heat equation, then solving Stokes with the
     # updated heat, the heat equation with the updated velocity and so forth

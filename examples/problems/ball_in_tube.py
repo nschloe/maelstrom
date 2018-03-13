@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 #
 import os
+from tempfile import TemporaryDirectory
 
-from . import meshes
-
-import dolfin
 from dolfin import (
     Mesh, FunctionSpace, SubDomain, DirichletBC, FiniteElement
     )
 import meshio
-from tempfile import TemporaryDirectory
+
+from . import meshes
 
 
 GMSH_EPS = 1.0e-15
@@ -18,7 +17,7 @@ GMSH_EPS = 1.0e-15
 class Ball_in_tube(object):
     def __init__(self):
         # https://fenicsproject.org/qa/12891/initialize-mesh-from-vertices-connectivities-at-once
-        points, cells, point_data, cell_data, _ = \
+        points, cells, _, cell_data, _ = \
             meshes.ball_in_tube_cyl.generate()
         # 2018.1
         # self.mesh = Mesh(
@@ -41,25 +40,30 @@ class Ball_in_tube(object):
 
         # Define mesh and boundaries.
         class LeftBoundary(SubDomain):
+            # pylint: disable=no-self-use
             def inside(self, x, on_boundary):
                 return on_boundary and x[0] < GMSH_EPS
         left_boundary = LeftBoundary()
 
         class RightBoundary(SubDomain):
+            # pylint: disable=no-self-use
             def inside(self, x, on_boundary):
                 return on_boundary and x[0] > 1.0 - GMSH_EPS
         right_boundary = RightBoundary()
 
         class LowerBoundary(SubDomain):
+            # pylint: disable=no-self-use
             def inside(self, x, on_boundary):
                 return on_boundary and x[1] < GMSH_EPS
         lower_boundary = LowerBoundary()
 
-        class UpperBoundary(SubDomain):
-            def inside(self, x, on_boundary):
-                return on_boundary and x[1] > 5.0-GMSH_EPS
+        # class UpperBoundary(SubDomain):
+        #     # pylint: disable=no-self-use
+        #     def inside(self, x, on_boundary):
+        #         return on_boundary and x[1] > 5.0-GMSH_EPS
 
         class CoilBoundary(SubDomain):
+            # pylint: disable=no-self-use
             def inside(self, x, on_boundary):
                 # One has to pay a little bit of attention when defining the
                 # coil boundary; it's easy to miss the edges closest to x[0]=0.
