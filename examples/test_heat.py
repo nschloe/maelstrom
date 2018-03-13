@@ -118,8 +118,8 @@ def test_stationary_solve(show=False):
         plt.show()
 
     assert abs(
-        maelstrom.helpers.average(theta_reference) - 1551.0097749549102
-        ) < 1.0e-5
+        maelstrom.helpers.average(theta_reference) - 1551.0
+        ) < 1.0e-1
 
     return theta_reference
 
@@ -184,8 +184,8 @@ def test_time_step():
             f.write(theta0, t)
 
     assert abs(
-        maelstrom.helpers.average(theta0) - 1519.812086239581
-        ) < 1.0e-3
+        maelstrom.helpers.average(theta0) - 1519.81
+        ) < 1.0e-2
 
     return
 
