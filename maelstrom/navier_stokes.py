@@ -36,7 +36,7 @@ problems. It is found that IPCS is the best (fastest, most accurate) solution
 method.
 
 An overview of projection methods for incompressible flow can be found in
-:cite:`guermond` and :cite:`bookjohn`.
+:cite:`GMS06` and :cite:`bookjohn`.
 '''
 
 from dolfin import (
@@ -507,7 +507,6 @@ def _step(dt,
           verbose=True,
           tol=1.0e-10):
     '''General pressure projection scheme as described in section 3.4 of
-    :cite:`GMS06`.
     '''
     # dt is a Constant() function
     assert dt.values()[0] > 0.0
