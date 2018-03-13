@@ -115,7 +115,7 @@ def _store(outfile, u, p, theta, t):
     return
 
 
-def _plot(u, p, theta):
+def _plot(p, theta):
     plot(theta, title='temperature', rescale=True)
     # matplotlib can only show 2d plots; this does not include 3d vector fields
     # plot(u, title='velocity', rescale=True)
@@ -239,7 +239,7 @@ def _compute_boussinesq(problem, u0, p0, theta0,
 
         _store(outfile, u0, p0, theta0, t)
         if show:
-            _plot(u0, p0, theta0)
+            _plot(p0, theta0)
             plt.show()
 
         successful_steps = 0
@@ -327,7 +327,8 @@ def _compute_boussinesq(problem, u0, p0, theta0,
 
                 _store(outfile, u0, p0, theta0, t + dt)
                 if show:
-                    _plot(u0, p0, theta0)
+                    _plot(p0, theta0)
+                    plt.show()
 
                 t += dt
                 with Message('Diagnostics...'):
