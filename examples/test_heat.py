@@ -6,6 +6,7 @@ from __future__ import print_function
 from dolfin import (
     plot, dx, Constant, Measure, Function, project, XDMFFile
     )
+import matplotlib.pyplot as plt
 import numpy
 
 import problems
@@ -112,7 +113,9 @@ def test_stationary_solve(show=False):
         #     f.parameters['flush_output'] = True
         #     f.parameters['rewrite_function_mesh'] = False
         #     f.write(theta_reference)
-        plot(theta_reference)
+        tri = plot(theta_reference)
+        plt.colorbar(tri)
+        plt.show()
 
     assert abs(
         maelstrom.helpers.average(theta_reference) - 1551.0097749549102

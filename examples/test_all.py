@@ -17,6 +17,7 @@ from dolfin import (
     DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
     )
 
+import matplotlib.pyplot as plt
 import numpy
 from numpy import pi
 import pytest
@@ -116,7 +117,8 @@ def _store(outfile, u, p, theta, t):
 
 def _plot(u, p, theta):
     plot(theta, title='temperature', rescale=True)
-    plot(u, title='velocity', rescale=True)
+    # matplotlib can only show 2d plots; this does not include 3d vector fields
+    # plot(u, title='velocity', rescale=True)
     plot(p, title='pressure', rescale=True)
     return
 
@@ -222,12 +224,14 @@ def _compute_boussinesq(problem, u0, p0, theta0,
 
     theta_average = average(theta0)
 
-    show_total_force = False
-    if show_total_force:
-        f = rho_wpi(theta0) * g
-        if lorentz:
-            f += as_vector((lorentz[0], lorentz[1], 0.0))
-        plot(f, mesh=submesh_workpiece, title='Total external force')
+    # show_total_force = True
+    # if show_total_force:
+    #     f = rho_wpi(theta0) * g
+    #     if lorentz:
+    #         f += as_vector((lorentz[0], lorentz[1], 0.0))
+    #     tri = plot(f, mesh=submesh_workpiece, title='Total external force')
+    #     plt.colorbar(tri)
+    #     plt.show()
 
     with XDMFFile(submesh_workpiece.mpi_comm(), 'all.xdmf') as outfile:
         outfile.parameters['flush_output'] = True
@@ -236,6 +240,7 @@ def _compute_boussinesq(problem, u0, p0, theta0,
         _store(outfile, u0, p0, theta0, t)
         if show:
             _plot(u0, p0, theta0)
+            plt.show()
 
         successful_steps = 0
         failed_steps = 0
@@ -443,4 +448,4 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
 
 
 if __name__ == '__main__':
-    test_boussinesq(target_time=60.0, with_voltage=True, show=False)
+    test_boussinesq(target_time=60.0, with_voltage=True, show=True)

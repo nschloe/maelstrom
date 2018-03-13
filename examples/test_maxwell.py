@@ -8,6 +8,7 @@ from dolfin import (
     VectorFunctionSpace, norm, Constant, plot, SpatialCoordinate, grad,
     FiniteElement, DOLFIN_EPS, as_vector
     )
+import matplotlib.pyplot as plt
 import numpy
 from numpy import pi
 from numpy import sin, cos
@@ -18,7 +19,7 @@ from maelstrom.message import Message
 import problems
 
 
-def test():
+def test(show=False):
     problem = problems.Crucible()
     # The voltage is defined as
     #
@@ -35,7 +36,7 @@ def test():
         25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
         ]
 
-    lorentz, joule, Phi = get_lorentz_joule(problem, voltages, show=False)
+    lorentz, joule, Phi = get_lorentz_joule(problem, voltages, show=show)
 
     # Some assertions
     ref = 1.4627674791126285e-05
@@ -81,7 +82,7 @@ def test():
     #                     project(J_r, V1),
     #                     project(J_i, V1)
     #                     ]
-    #                 # plot(j_v1[0], title='j_r')
+    #                 # show=Trueplot(j_v1[0], title='j_r')
     #                 # plot(j_v1[1], title='j_i')
     #                 current = project(as_vector(j_v1), V1*V1)
     #                 current.rename('j{}'.format(ii), 'current {}'.format(ii))
@@ -215,7 +216,9 @@ def get_lorentz_joule(problem, input_voltages, show=False):
             f.write(pl)
 
         if show:
-            plot(pl, title='Lorentz force')
+            tri = plot(pl, title='Lorentz force')
+            plt.colorbar(tri)
+            plt.show()
 
         # Get Joule heat source.
         joule = cmx.compute_joule(
@@ -230,7 +233,10 @@ def get_lorentz_joule(problem, input_voltages, show=False):
             W_submesh = FunctionSpace(submesh, 'CG', 1)
             jp = Function(W_submesh, name='Joule heat source')
             jp.assign(project(joule[problem.wpi], W_submesh))
-            plot(jp)
+            tri = plot(jp)
+            plt.title('Joule heat source')
+            plt.colorbar(tri)
+            plt.show()
 
         joule_wpi = joule[problem.wpi]
 
@@ -242,4 +248,4 @@ def get_lorentz_joule(problem, input_voltages, show=False):
 
 
 if __name__ == '__main__':
-    test()
+    test(show=True)
