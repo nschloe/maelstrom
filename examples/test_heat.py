@@ -6,6 +6,7 @@ from __future__ import print_function
 from dolfin import (
     plot, dx, Constant, Measure, Function, project, XDMFFile
     )
+import numpy
 
 import problems
 
@@ -17,7 +18,6 @@ import parabolic
 def _parameter_quest():
     '''Find parameter sets fitting crucible data.
     '''
-    import numpy as np
 
     # Create the set of parameter values to search.
     flux0 = [500.0*k for k in range(11)]
@@ -51,21 +51,21 @@ def _parameter_quest():
         theta = test_stationary_solve(flux)
 
         # Check if temperature values match with crucible blueprint.
-        dev = np.array([theta(c[0]) - c[1] for c in control_values])
+        dev = numpy.array([theta(c[0]) - c[1] for c in control_values])
         print('Deviations from control temperatures:')
         print(dev)
-        dev_norm = np.linalg.norm(dev)
+        dev_norm = numpy.linalg.norm(dev)
         if not best_match or dev_norm < best_match_norm:
-            print('New best match! %r (||dev|| = %e)' % (p, dev_norm))
+            print('New best match! {} (||dev|| = {:e})'.format(p, dev_norm))
             best_match = p
             best_match_norm = dev_norm
 
         if all(abs(dev) < tol):
-            print('Success! %r' % p)
+            print('Success! {}'.format(p))
             print('Temperature at control points (with reference values):')
             for c in control_values:
-                print('(%e, %e):  %e   (%e)'
-                      % (c[0][0], c[0][1], theta(c[0]), c[1]))
+                print('({:e}, {:e}):  {:e}   ({:e})'.format(
+                    c[0][0], c[0][1], theta(c[0]), c[1]))
         print()
 
         if first:
