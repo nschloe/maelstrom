@@ -9,3 +9,4 @@
 *.pos
 .cache/
 jitfailure-*/
+.pytest_cache/
