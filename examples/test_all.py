@@ -13,14 +13,15 @@ Full* simulation of the melt problem.
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
 from dolfin import (
-    parameters, Measure, FunctionSpace, Constant, plot, interactive, XDMFFile,
+    parameters, Measure, FunctionSpace, Constant, plot, XDMFFile,
     DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
     )
 
+import matplotlib.pyplot as plt
 import numpy
 from numpy import pi
-import parabolic
 import pytest
+import parabolic
 
 from maelstrom.helpers import average
 import maelstrom.navier_stokes as cyl_ns
@@ -39,17 +40,15 @@ parameters['allow_extrapolation'] = True
 parameters['std_out_all_processes'] = False
 
 
-def _construct_initial_state(
-        mesh,
-        W_element, P_element, Q_element,
-        kappa, cp, rho, mu,
-        heat_source,
-        u_bcs, p_bcs,
-        theta_dirichlet_bcs, theta_neumann_bcs,
-        dx_submesh,
-        ds_submesh,
-        g, extra_force
-        ):
+def _construct_initial_state(mesh,
+                             W_element, P_element, Q_element,
+                             kappa, cp, rho, mu,
+                             heat_source,
+                             u_bcs, p_bcs,
+                             theta_dirichlet_bcs, theta_neumann_bcs,
+                             dx_submesh,
+                             ds_submesh,
+                             g, extra_force):
     '''Construct an initial state for the Navier-Stokes simulation.
     '''
     Q = FunctionSpace(mesh, Q_element)
@@ -116,11 +115,11 @@ def _store(outfile, u, p, theta, t):
     return
 
 
-def _plot(u, p, theta):
+def _plot(p, theta):
     plot(theta, title='temperature', rescale=True)
-    plot(u, title='velocity', rescale=True)
+    # matplotlib can only show 2d plots; this does not include 3d vector fields
+    # plot(u, title='velocity', rescale=True)
     plot(p, title='pressure', rescale=True)
-    # interactive()
     return
 
 
@@ -186,10 +185,8 @@ def test_boussinesq(with_voltage, target_time=1.0e-2, show=False):
     return
 
 
-def _compute_boussinesq(
-        problem, u0, p0, theta0,
-        lorentz, joule, target_time=0.1, show=False
-        ):
+def _compute_boussinesq(problem, u0, p0, theta0,
+                        lorentz, joule, target_time=0.1, show=False):
     # Define a facet measure on the boundaries. See discussion on
     # <https://bitbucket.org/fenics-project/dolfin/issue/249/facet-specification-doesnt-work-on-ds>.
     ds_workpiece = Measure('ds', subdomain_data=problem.wp_boundaries)
@@ -210,8 +207,8 @@ def _compute_boussinesq(
     wpi_area = assemble(1.0 * dx(submesh_workpiece))
     # mesh.hmax() is a local function; get the global hmax.
     hmax_workpiece = MPI.max(
-            submesh_workpiece.mpi_comm(), submesh_workpiece.hmax()
-            )
+        submesh_workpiece.mpi_comm(), submesh_workpiece.hmax()
+        )
 
     # Take the maximum length in x-direction as characteristic length of the
     # domain.
@@ -227,13 +224,14 @@ def _compute_boussinesq(
 
     theta_average = average(theta0)
 
-    show_total_force = False
-    if show_total_force:
-        f = rho_wpi(theta0) * g
-        if lorentz:
-            f += as_vector((lorentz[0], lorentz[1], 0.0))
-        plot(f, mesh=submesh_workpiece, title='Total external force')
-        interactive()
+    # show_total_force = True
+    # if show_total_force:
+    #     f = rho_wpi(theta0) * g
+    #     if lorentz:
+    #         f += as_vector((lorentz[0], lorentz[1], 0.0))
+    #     tri = plot(f, mesh=submesh_workpiece, title='Total external force')
+    #     plt.colorbar(tri)
+    #     plt.show()
 
     with XDMFFile(submesh_workpiece.mpi_comm(), 'all.xdmf') as outfile:
         outfile.parameters['flush_output'] = True
@@ -241,30 +239,31 @@ def _compute_boussinesq(
 
         _store(outfile, u0, p0, theta0, t)
         if show:
-            _plot(u0, p0, theta0)
+            _plot(p0, theta0)
+            plt.show()
 
         successful_steps = 0
         failed_steps = 0
         while t < target_time + DOLFIN_EPS:
             info('Successful steps: {}    (failed: {}, total: {})'.format(
-                    successful_steps,
-                    failed_steps,
-                    successful_steps + failed_steps
-                 ))
+                successful_steps,
+                failed_steps,
+                successful_steps + failed_steps
+                ))
             with Message('Time step {:e} -> {:e}...'.format(t, t + dt)):
                 # Do one heat time step.
                 with Message('Computing heat...'):
                     # Redefine the heat problem with the new u0.
                     heat_problem = cyl_heat.Heat(
-                            problem.Q,
-                            kappa=k_wpi, rho=rho_wpi(theta_average), cp=cp_wpi,
-                            convection=u0,
-                            source=joule,
-                            dirichlet_bcs=problem.theta_bcs_d,
-                            neumann_bcs=problem.theta_bcs_n,
-                            my_dx=dx(submesh_workpiece),
-                            my_ds=ds_workpiece
-                            )
+                        problem.Q,
+                        kappa=k_wpi, rho=rho_wpi(theta_average), cp=cp_wpi,
+                        convection=u0,
+                        source=joule,
+                        dirichlet_bcs=problem.theta_bcs_d,
+                        neumann_bcs=problem.theta_bcs_n,
+                        my_dx=dx(submesh_workpiece),
+                        my_ds=ds_workpiece
+                        )
 
                     # For time-stepping in buoyancy-driven flows, see
                     #
@@ -279,9 +278,8 @@ def _compute_boussinesq(
                     heat_stepper = parabolic.ImplicitEuler(heat_problem)
 
                     ns_stepper = cyl_ns.IPCS(
-                            time_step_method='backward euler',
-                            stabilization=None
-                            )
+                        time_step_method='backward euler'
+                        )
                     theta1 = heat_stepper.step(theta0, t, dt)
 
                 theta0_average = average(theta0)
@@ -299,17 +297,17 @@ def _compute_boussinesq(
                             f0 += f
                             f1 += f
                         u1, p1 = ns_stepper.step(
-                                Constant(dt),
-                                {0: u0}, p0,
-                                problem.W, problem.P,
-                                problem.u_bcs, problem.p_bcs,
-                                # Make constant TODO
-                                Constant(rho_wpi(theta0_average)),
-                                Constant(mu_wpi(theta0_average)),
-                                f={0: f0, 1: f1},
-                                tol=1.0e-10,
-                                my_dx=dx(submesh_workpiece)
-                                )
+                            Constant(dt),
+                            {0: u0}, p0,
+                            problem.W, problem.P,
+                            problem.u_bcs, problem.p_bcs,
+                            # Make constant TODO
+                            Constant(rho_wpi(theta0_average)),
+                            Constant(mu_wpi(theta0_average)),
+                            f={0: f0, 1: f1},
+                            tol=1.0e-10,
+                            my_dx=dx(submesh_workpiece)
+                            )
                 except RuntimeError as e:
                     info(e.args[0])
                     info(
@@ -329,7 +327,8 @@ def _compute_boussinesq(
 
                 _store(outfile, u0, p0, theta0, t + dt)
                 if show:
-                    _plot(u0, p0, theta0)
+                    _plot(p0, theta0)
+                    plt.show()
 
                 t += dt
                 with Message('Diagnostics...'):
@@ -354,10 +353,11 @@ def _compute_boussinesq(
                     # by |1-agg|. Hence, if agg==1 then dt_next==target_dt.
                     # Otherwise target_dt is approached more slowly.
                     agg = 0.5
-                    dt = min(dt_max,
-                             # At most double the step size from step to step.
-                             dt * min(2.0, 1.0 + agg * (target_dt - dt) / dt)
-                             )
+                    dt = min(
+                        dt_max,
+                        # At most double the step size from step to step.
+                        dt * min(2.0, 1.0 + agg * (target_dt - dt) / dt)
+                        )
                     info('new dt:    {:e}'.format(dt))
                     info('')
                 info('')
@@ -377,17 +377,15 @@ def get_umax(u):
     return numpy.sqrt(norm(vec, 'linf'))
 
 
-def _print_diagnostics(
-        theta0, umax,
-        submesh_workpiece,
-        wpi_area,
-        subdomain_materials,
-        wpi,
-        rho,
-        mu,
-        char_length,
-        grav
-        ):
+def _print_diagnostics(theta0, umax,
+                       submesh_workpiece,
+                       wpi_area,
+                       subdomain_materials,
+                       wpi,
+                       rho,
+                       mu,
+                       char_length,
+                       grav):
     av_temperature = assemble(theta0 * dx(submesh_workpiece)) / wpi_area
     vec = theta0.vector()
     temperature_difference = vec.max() - vec.min()
@@ -417,11 +415,11 @@ def _print_diagnostics(
         _get_reynolds(rho_const, mu_const, char_length, char_velocity)
         ))
     info('Grashof number: {:e}'.format(
-         _get_grashof(
-             rho, mu_const, grav,
-             av_temperature, char_length, temperature_difference
-             )
-         ))
+        _get_grashof(
+            rho, mu_const, grav,
+            av_temperature, char_length, temperature_difference
+            )
+        ))
     return
 
 
@@ -451,4 +449,4 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
 
 
 if __name__ == '__main__':
-    test_boussinesq(target_time=60.0, with_voltage=True, show=False)
+    test_boussinesq(target_time=60.0, with_voltage=True, show=True)

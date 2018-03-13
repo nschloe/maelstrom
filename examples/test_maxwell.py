@@ -5,9 +5,10 @@ from __future__ import print_function
 
 from dolfin import (
     XDMFFile, Measure, FunctionSpace, SubMesh, project, Function, info,
-    VectorFunctionSpace, norm, Constant, plot, interactive, SpatialCoordinate,
-    grad, FiniteElement, DOLFIN_EPS, as_vector
+    VectorFunctionSpace, norm, Constant, plot, SpatialCoordinate, grad,
+    FiniteElement, DOLFIN_EPS, as_vector
     )
+import matplotlib.pyplot as plt
 import numpy
 from numpy import pi
 from numpy import sin, cos
@@ -18,7 +19,7 @@ from maelstrom.message import Message
 import problems
 
 
-def test():
+def test(show=False):
     problem = problems.Crucible()
     # The voltage is defined as
     #
@@ -35,7 +36,7 @@ def test():
         25.0 * numpy.exp(-1j * 2*pi * 1 * 70.0/360.0)
         ]
 
-    lorentz, joule, Phi = get_lorentz_joule(problem, voltages, show=False)
+    lorentz, joule, Phi = get_lorentz_joule(problem, voltages, show=show)
 
     # Some assertions
     ref = 1.4627674791126285e-05
@@ -81,9 +82,8 @@ def test():
     #                     project(J_r, V1),
     #                     project(J_i, V1)
     #                     ]
-    #                 # plot(j_v1[0], title='j_r')
+    #                 # show=Trueplot(j_v1[0], title='j_r')
     #                 # plot(j_v1[1], title='j_i')
-    #                 # interactive()
     #                 current = project(as_vector(j_v1), V1*V1)
     #                 current.rename('j{}'.format(ii), 'current {}'.format(ii))
     #                 xdmf_file.write(current)
@@ -101,9 +101,8 @@ def test():
         phi = Function(V, name='phi')
         Phi0 = project(Phi[0], V)
         Phi1 = project(Phi[1], V)
-        for t in numpy.linspace(
-                0.0, 2*pi/problem.omega, num=100, endpoint=False
-                ):
+        omega = problem.omega
+        for t in numpy.linspace(0.0, 2*pi/omega, num=100, endpoint=False):
             # Im(Phi * exp(i*omega*t))
             phi.vector().zero()
             phi.vector().axpy(sin(problem.omega*t), Phi0.vector())
@@ -131,7 +130,6 @@ def test():
             xdmf_file.write(B)
             # plot(B_r, title='Re(B)')
             # plot(B_i, title='Im(B)')
-            # interactive()
         else:
             # Write those out to a file.
             lspace = numpy.linspace(
@@ -192,13 +190,13 @@ def get_lorentz_joule(problem, input_voltages, show=False):
     dx_subdomains = Measure('dx', subdomain_data=problem.subdomains)
     with Message('Computing magnetic field...'):
         Phi, voltages = cmx.compute_potential(
-                coils,
-                V,
-                dx_subdomains,
-                mu_const, sigma_const, problem.omega,
-                convections={}
-                # io_submesh=submesh_workpiece
-                )
+            coils,
+            V,
+            dx_subdomains,
+            mu_const, sigma_const, problem.omega,
+            convections={}
+            # io_submesh=submesh_workpiece
+            )
         # Get resulting Lorentz force.
         lorentz = cmx.compute_lorentz(
             Phi, problem.omega, sigma_const[problem.wpi]
@@ -218,15 +216,16 @@ def get_lorentz_joule(problem, input_voltages, show=False):
             f.write(pl)
 
         if show:
-            plot(pl, title='Lorentz force')
-            interactive()
+            tri = plot(pl, title='Lorentz force')
+            plt.colorbar(tri)
+            plt.show()
 
         # Get Joule heat source.
         joule = cmx.compute_joule(
-                Phi, voltages,
-                problem.omega, sigma_const, mu_const,
-                subdomain_indices
-                )
+            Phi, voltages,
+            problem.omega, sigma_const, mu_const,
+            subdomain_indices
+            )
 
         if show:
             # Show Joule heat source.
@@ -234,8 +233,10 @@ def get_lorentz_joule(problem, input_voltages, show=False):
             W_submesh = FunctionSpace(submesh, 'CG', 1)
             jp = Function(W_submesh, name='Joule heat source')
             jp.assign(project(joule[problem.wpi], W_submesh))
-            plot(jp)
-            interactive()
+            tri = plot(jp)
+            plt.title('Joule heat source')
+            plt.colorbar(tri)
+            plt.show()
 
         joule_wpi = joule[problem.wpi]
 
@@ -247,4 +248,4 @@ def get_lorentz_joule(problem, input_voltages, show=False):
 
 
 if __name__ == '__main__':
-    test()
+    test(show=True)

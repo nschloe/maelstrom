@@ -36,13 +36,11 @@ def F(u, p, v, q, f, r, mu, my_dx):
     return F0
 
 
-def stokes_solve(
-        up_out,
-        mu,
-        u_bcs, p_bcs,
-        f,
-        my_dx=dx
-        ):
+def stokes_solve(up_out,
+                 mu,
+                 u_bcs, p_bcs,
+                 f,
+                 my_dx=dx):
     # Some initial sanity checks.
     assert mu > 0.0
 

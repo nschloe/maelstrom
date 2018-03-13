@@ -81,17 +81,15 @@ from dolfin import (
 import numpy
 
 
-def solve(
-        V, dx,
-        Mu, Sigma,  # dictionaries
-        omega,
-        f_list,  # list of dictionaries
-        convections,  # dictionary
-        f_degree=None,
-        bcs=None,
-        tol=1.0e-12,
-        verbose=False
-        ):
+def solve(V, dx,
+          Mu, Sigma,  # dictionaries
+          omega,
+          f_list,  # list of dictionaries
+          convections,  # dictionary
+          f_degree=None,
+          bcs=None,
+          tol=1.0e-12,
+          verbose=False):
     '''Solve the complex-valued time-harmonic Maxwell system in 2D cylindrical
     coordinates
 
@@ -223,14 +221,14 @@ def solve(
     # For more details, see documentation in build_system().
     #
     A, P, b_list, _, W = build_system(
-            V, dx,
-            Mu, Sigma,
-            omega,
-            f_list,
-            f_degree,
-            convections,
-            bcs
-            )
+        V, dx,
+        Mu, Sigma,
+        omega,
+        f_list,
+        f_degree,
+        convections,
+        bcs
+        )
 
     # prepare solver
     # Don't use 'amg', since that defaults to `ml_amg` if available which
@@ -259,15 +257,13 @@ def solve(
     return phi_list
 
 
-def build_system(
-        V, dx,
-        Mu, Sigma,
-        omega,
-        f_list,
-        f_degree,
-        convections,
-        bcs
-        ):
+def build_system(V, dx,
+                 Mu, Sigma,
+                 omega,
+                 f_list,
+                 f_degree,
+                 convections,
+                 bcs):
     '''Build FEM system for
 
     .. math::
@@ -496,11 +492,9 @@ def prescribe_voltage(A, b, coil_rings, voltage, v_ref, J):
 #     return A, b
 
 
-def compute_potential(
-        coils, V, dx, mu, sigma, omega, convections,
-        verbose=True,
-        io_submesh=None
-        ):
+def compute_potential(coils, V, dx, mu, sigma, omega, convections,
+                      verbose=True,
+                      io_submesh=None):
     '''Compute the magnetic potential :math:`\\Phi` with
     :math:`A = \\exp(\\text{i} \\omega t) \\Phi e_{\\theta}` for a number of
     coils.
@@ -530,14 +524,14 @@ def compute_potential(
         f_list.append({k: (v_ref * sigma[k] / (2 * pi * r), Constant(0.0))})
     # Solve.
     phi_list = solve(
-            V, dx,
-            mu, sigma,
-            omega,
-            f_list,
-            convections,
-            tol=1.0e-12,
-            verbose=True
-            )
+        V, dx,
+        mu, sigma,
+        omega,
+        f_list,
+        convections,
+        tol=1.0e-12,
+        verbose=True
+        )
 
     # Write out these `phi`s to files.
     if io_submesh:
@@ -557,11 +551,11 @@ def compute_potential(
     # Compute weights for the individual coils.
     # First get the voltage--coil-current mapping.
     J = get_voltage_current_matrix(
-            phi_list, physical_indices, dx,
-            sigma,
-            omega,
-            v_ref
-            )
+        phi_list, physical_indices, dx,
+        sigma,
+        omega,
+        v_ref
+        )
 
     num_coil_rings = len(phi_list)
     A = numpy.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
@@ -663,12 +657,10 @@ def compute_potential(
     return Phi, voltages
 
 
-def get_voltage_current_matrix(
-        phi, physical_indices, dx,
-        Sigma,
-        omega,
-        v_ref
-        ):
+def get_voltage_current_matrix(phi, physical_indices, dx,
+                               Sigma,
+                               omega,
+                               v_ref):
     '''Compute the matrix that relates the voltages with the currents in the
     coil rings. (The relationship is indeed linear.)
 
@@ -703,11 +695,9 @@ def get_voltage_current_matrix(
 
 
 # pylint: disable=unused-argument
-def compute_joule(
-        Phi, voltages,
-        omega, Sigma, Mu,
-        subdomain_indices
-        ):
+def compute_joule(Phi, voltages,
+                  omega, Sigma, Mu,
+                  subdomain_indices):
     '''
     See, e.g., equation (2.17) in :cite:`Cha97`.
 
@@ -888,6 +878,6 @@ def compute_lorentz(Phi, omega, sigma):
     mesh = Phi[0].function_space().mesh()
     r = SpatialCoordinate(mesh)[0]
     return 0.5 * sigma * omega / r * (
-            + Phi[1] * grad(r * Phi[0])
-            - Phi[0] * grad(r * Phi[1])
-            )
+        + Phi[1] * grad(r * Phi[0])
+        - Phi[0] * grad(r * Phi[1])
+        )

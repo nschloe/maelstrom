@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 #
-import maelstrom.navier_stokes as ns_cyl
-import helpers
-
 from dolfin import (
-    Expression, UnitSquareMesh, triangle, plot, interactive, RectangleMesh,
-    Point
+    Expression, UnitSquareMesh, triangle, plot, RectangleMesh, Point
     )
 import numpy
 from numpy import pi
 import pytest
 import sympy
+
+import maelstrom.navier_stokes as ns_cyl
+import helpers
 
 # Turn down the log level to only error messages.
 # set_log_level(WARNING)
@@ -51,9 +50,9 @@ def problem_whirl_cylindrical():
     def mesh_generator(n):
         # return UnitSquareMesh(n, n, 'left/right')
         return RectangleMesh(
-                Point(alpha, 0.0), Point(1.0 + alpha, 1.0),
-                n, n, 'left/right'
-                )
+            Point(alpha, 0.0), Point(1.0 + alpha, 1.0),
+            n, n, 'left/right'
+            )
     cell_type = triangle
     x = sympy.DeferredVector('x')
     # Note that the exact solution is indeed div-free.
@@ -78,7 +77,6 @@ def problem_whirl_cylindrical():
             cell=cell_type,
             )
         plot(sol_u, mesh=mesh_generator(20))
-        interactive()
     f = {
         'value': _get_navier_stokes_rhs_cylindrical(u, p),
         'degree': numpy.infty
@@ -237,12 +235,12 @@ def _get_navier_stokes_rhs_cylindrical(u, p):
             )
 
     f2 = rho * (
-            + sympy.diff(u[2], t)
-            + u[0] * sympy.diff(u[2], x[0])
-            + u[1] * sympy.diff(u[2], x[1])
-            + u[2]/x[0] * sympy.diff(u[2], x[2])
-            + u[0]*u[2]/x[0]
-            ) \
+        + sympy.diff(u[2], t)
+        + u[0] * sympy.diff(u[2], x[0])
+        + u[1] * sympy.diff(u[2], x[1])
+        + u[2]/x[0] * sympy.diff(u[2], x[2])
+        + u[0]*u[2]/x[0]
+        ) \
         + 1/x[0] * sympy.diff(p, x[2]) \
         - mu * (
             + 1/x[0] * sympy.diff(x[0] * sympy.diff(u[2], x[0]), x[0])

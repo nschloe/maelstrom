@@ -54,13 +54,13 @@ def test(problem, max_num_steps=2, show=False):
     initial_stokes = False
     if initial_stokes:
         u0, p0 = cyl_stokes.solve(
-                problem.W, problem.P,
-                mu, rho,
-                problem.u_bcs, problem.p_bcs,
-                f=rho * g,
-                tol=1.0e-10,
-                maxiter=2000
-                )
+            problem.W, problem.P,
+            mu, rho,
+            problem.u_bcs, problem.p_bcs,
+            f=rho * g,
+            tol=1.0e-10,
+            maxiter=2000
+            )
     else:
         # Initial states.
         u0 = Function(problem.W, name='velocity')
@@ -77,29 +77,26 @@ def test(problem, max_num_steps=2, show=False):
             xdmf_file.write(u0, t)
             xdmf_file.write(p0, t)
 
-        stepper = cyl_ns.IPCS(
-                time_step_method='backward euler',
-                stabilization=None
-                )
+        stepper = cyl_ns.IPCS(time_step_method='backward euler')
         steps = 0
         while t < T + DOLFIN_EPS and steps < max_num_steps:
             steps += 1
-            begin('Time step %e -> %e...' % (t, t+dt))
+            begin('Time step {:e} -> {:e}...'.format(t, t+dt))
             try:
                 u1, p1 = stepper.step(
-                        Constant(dt),
-                        {0: u0}, p0,
-                        problem.W, problem.P,
-                        problem.u_bcs, problem.p_bcs,
-                        Constant(rho), Constant(mu),
-                        f={0: rho*g, 1: rho*g},
-                        tol=1.0e-10
-                        )
+                    Constant(dt),
+                    {0: u0}, p0,
+                    problem.W, problem.P,
+                    problem.u_bcs, problem.p_bcs,
+                    Constant(rho), Constant(mu),
+                    f={0: rho*g, 1: rho*g},
+                    tol=1.0e-10
+                    )
             except RuntimeError:
                 print('Navier--Stokes solver failed to converge. '
                       'Decrease time step from {} to {} and try again.'.format(
                           dt, 0.5*dt
-                      ))
+                          ))
                 dt *= 0.5
                 end()
                 end()
@@ -124,26 +121,27 @@ def test(problem, max_num_steps=2, show=False):
             #                 form_compiler_parameters={'quadrature_degree': 4}
             #                 )
             unorm = project(
-                    norm(u1),
-                    problem.P,
-                    form_compiler_parameters={'quadrature_degree': 4}
-                    )
+                norm(u1),
+                problem.P,
+                form_compiler_parameters={'quadrature_degree': 4}
+                )
             unorm = norm(unorm.vector(), 'linf')
             # print('||u||_inf = %e' % unorm)
             # Some smooth step-size adaption.
             target_dt = 0.2 * problem.mesh.hmax() / unorm
-            print('current dt: %e' % dt)
-            print('target dt:  %e' % target_dt)
+            print('current dt: {:e}'.format(dt))
+            print('target dt:  {:e}'.format(target_dt))
             # alpha is the aggressiveness factor. The distance between the
             # current step size and the target step size is reduced by
             # |1-alpha|. Hence, if alpha==1 then dt_next==target_dt. Otherwise
             # target_dt is approached slowlier.
             alpha = 0.5
-            dt = min(dt_max,
-                     # At most double the step size from step to step.
-                     dt * min(2.0, 1.0 + alpha*(target_dt - dt)/dt)
-                     )
-            print('next dt:    %e' % dt)
+            dt = min(
+                dt_max,
+                # At most double the step size from step to step.
+                dt * min(2.0, 1.0 + alpha*(target_dt - dt)/dt)
+                )
+            print('next dt:    {:e}'.format(dt))
             t += dt
             end()
             end()

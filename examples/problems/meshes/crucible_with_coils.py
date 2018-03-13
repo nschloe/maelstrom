@@ -90,7 +90,7 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
 
 
 def _define():
-    geom = pygmsh.Geometry()
+    geom = pygmsh.built_in.Geometry()
 
     line_loops = []
     fields = []

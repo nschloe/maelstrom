@@ -17,8 +17,7 @@ def F(u, v, kappa, rho, cp,
       robin_bcs,
       my_dx,
       my_ds,
-      stabilization
-      ):
+      stabilization):
     '''
     Compute
 
@@ -93,18 +92,16 @@ class Heat(object):
     to oscillations whenever the temperature gradient is sharp. See
     :cite:`GR2007` for background.
     '''
-    def __init__(
-            self, Q,
-            kappa, rho, cp,
-            convection,
-            source,
-            dirichlet_bcs=None,
-            neumann_bcs=None,
-            robin_bcs=None,
-            my_dx=dx,
-            my_ds=ds,
-            stabilization=None
-            ):
+    def __init__(self, Q,
+                 kappa, rho, cp,
+                 convection,
+                 source,
+                 dirichlet_bcs=None,
+                 neumann_bcs=None,
+                 robin_bcs=None,
+                 my_dx=dx,
+                 my_ds=ds,
+                 stabilization=None):
         super(Heat, self).__init__()
         self.Q = Q
 
@@ -126,26 +123,26 @@ class Heat(object):
         # Check
         # https://bitbucket.org/fenics-project/ffc/issues/145/uflacs-error-for-vertex-quadrature-scheme
         self.M = assemble(
-              u * v * dx,
-              form_compiler_parameters={
-                  'quadrature_rule': 'vertex',
-                  'representation': 'quadrature'
-                  }
-              )
+            u * v * dx,
+            form_compiler_parameters={
+                'quadrature_rule': 'vertex',
+                'representation': 'quadrature'
+                }
+            )
 
         mesh = Q.mesh()
         r = SpatialCoordinate(mesh)[0]
         self.F0 = F(
-                u, v, kappa, rho, cp,
-                convection,
-                source,
-                r,
-                neumann_bcs,
-                robin_bcs,
-                my_dx,
-                my_ds,
-                stabilization
-                )
+            u, v, kappa, rho, cp,
+            convection,
+            source,
+            r,
+            neumann_bcs,
+            robin_bcs,
+            my_dx,
+            my_ds,
+            stabilization
+            )
 
         self.dirichlet_bcs = dirichlet_bcs
 

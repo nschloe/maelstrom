@@ -16,6 +16,8 @@ import meshio
 import numpy
 import os
 import warnings
+from tempfile import TemporaryDirectory
+
 
 DEBUG = False
 
@@ -37,15 +39,16 @@ class Crucible():
                 cell_data[k0][k1] = \
                     numpy.array(cell_data[k0][k1], dtype=numpy.dtype('uint'))
 
-        tmp_filename = 'test.xml'
-        meshio.write(
+        with TemporaryDirectory() as temp_dir:
+            tmp_filename = os.path.join(temp_dir, 'test.xml')
+            meshio.write(
                 tmp_filename, points, cells, cell_data=cell_data,
                 file_format='dolfin-xml'
                 )
-
-        self.mesh = Mesh('test.xml')
-        self.subdomains = MeshFunction(
-                'size_t', self.mesh, 'test_physical.xml'
+            self.mesh = Mesh(tmp_filename)
+            self.subdomains = MeshFunction(
+                'size_t', self.mesh,
+                os.path.join(temp_dir, 'test_gmsh:physical.xml')
                 )
 
         self.subdomain_materials = {

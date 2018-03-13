@@ -16,11 +16,11 @@ def dbcs_to_productspace(W, bcs_list):
             else:
                 assert len(C) == 1, 'Illegal number of subspace components.'
                 new_bcs.append(
-                        DirichletBC(
-                            W.sub(k).sub(int(C[0])),
-                            bc.value(),
-                            bc.domain_args[0]
-                            ))
+                    DirichletBC(
+                        W.sub(k).sub(int(C[0])),
+                        bc.value(),
+                        bc.domain_args[0]
+                        ))
 
     return new_bcs
 

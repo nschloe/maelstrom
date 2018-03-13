@@ -7,7 +7,7 @@ import pygmsh
 
 
 def _define():
-    geom = pygmsh.Geometry()
+    geom = pygmsh.built_in.Geometry()
 
     z = 0
     lcar = 4.0e-2

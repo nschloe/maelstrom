@@ -29,20 +29,27 @@ weighting with :math:`2\\pi r` of the equations. (The volume element is
 The order of the variables is taken to be :math:`(r, z, \\theta)`. This makes
 sure that for planar domains, the :math:`x`- and :math:`y`-coordinates are
 interpreted as :math:`r`, :math:`z`.
+
+Note that :cite:`fenicsbook` contains a chapter with an extensive comparison of
+solution methods for the transient Navier--Stokes equations for many different
+problems. It is found that IPCS is the best (fastest, most accurate) solution
+method.
+
+An overview of projection methods for incompressible flow can be found in
+:cite:`GMS06` and :cite:`bookjohn`.
 '''
 
 from dolfin import (
-    TestFunction, Function, Constant, dot, grad, inner, pi, dx, div, solve,
+    TestFunction, Function, Constant, dot, grad, inner, pi, dx, solve,
     derivative, TrialFunction, PETScPreconditioner, PETScKrylovSolver,
     as_backend_type, info, assemble, norm, FacetNormal, sqrt, ds, as_vector,
     NonlinearProblem, NewtonSolver, SpatialCoordinate, project
     )
 
-from . import stabilization as stab
 from .message import Message
 
 
-def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
+def _momentum_equation(u, v, p, f, rho, mu, my_dx):
     '''Weak form of the momentum equation.
     '''
     # rho and my are Constant() functions
@@ -84,57 +91,13 @@ def _momentum_equation(u, v, p, f, rho, mu, stabilization, my_dx):
         F += rho * (-u[2] * u[2] * v[0] + u[0] * u[2] * v[2]) * 2*pi * my_dx
         F += mu * u[2] / r * v[2] * 2 * pi * my_dx
 
-    if stabilization == 'SUPG':
-        # TODO check this part of the code
-        #
-        # SUPG stabilization has the form
-        #
-        #     <R, tau*grad(v)*u[0]>
-        #
-        # with R being the residual in strong form. The choice of tau is
-        # subject to research.
-        rho_val = rho.values()[0]
-        mu_val = mu.values()[0]
-        tau = stab.supg(
-                u.function_space().mesh(),
-                u,
-                mu_val / rho_val,
-                u.function_space().ufl_element().degree()
-                )
-        # Strong residual:
-        R = + rho * grad(u) * u * 2*pi*r \
-            - mu * div(r * grad(u)) * 2*pi \
-            - f * 2*pi*r
-        if p:
-            R += grad(p) * 2*pi*r
-
-        gv = tau * grad(v) * u
-        F += dot(R, gv) * my_dx
-
-        # We need to deal with the term
-        #
-        #     \int mu * (u2[0]/r**2, 0) * dot(R, grad(v2)*b_tau) 2*pi*r*dx
-        #
-        # somehow. Unfortunately, it's not easy to construct (u2[0]/r**2,
-        # 0), cf.  <https://answers.launchpad.net/dolfin/+question/228353>.
-        F += mu * u[0] / r * 2*pi * gv[0] * my_dx
-        if u.function_space().num_sub_spaces() == 3:
-            F += rho * (-u[2] * u[2] * gv[0] + u[0] * u[2] * gv[2]) \
-                    * 2*pi*my_dx
-            F += mu * u[2] / r * gv[2] * 2*pi * my_dx
-    else:
-        assert stabilization is None
-
     return F
 
 
-def compute_tentative_velocity(
-        time_step_method, rho, mu,
-        u, p0, dt, u_bcs, f, W,
-        my_dx,
-        stabilization,
-        tol
-        ):
+def compute_tentative_velocity(time_step_method, rho, mu,
+                               u, p0, dt, u_bcs, f, W,
+                               my_dx,
+                               tol):
     '''Compute the tentative velocity via
 
     .. math::
@@ -143,15 +106,12 @@ def compute_tentative_velocity(
     '''
 
     class TentativeVelocityProblem(NonlinearProblem):
-        def __init__(
-                self, ui, time_step_method,
-                rho, mu,
-                u, p0, dt,
-                bcs,
-                f,
-                my_dx,
-                stabilization=False
-                ):
+        def __init__(self, ui, time_step_method,
+                     rho, mu,
+                     u, p0, dt,
+                     bcs,
+                     f,
+                     my_dx):
             super(TentativeVelocityProblem, self).__init__()
 
             W = ui.function_space()
@@ -163,7 +123,7 @@ def compute_tentative_velocity(
 
             def me(uu, ff):
                 return _momentum_equation(
-                    uu, v, p0, ff, rho, mu, stabilization, my_dx
+                    uu, v, p0, ff, rho, mu, my_dx
                     )
 
             self.F0 = rho * dot(ui - u[0], v) / dt * 2*pi*r*my_dx
@@ -227,15 +187,14 @@ def compute_tentative_velocity(
 
     ui = Function(W)
     step_problem = TentativeVelocityProblem(
-            ui,
-            time_step_method,
-            rho, mu,
-            u, p0, dt,
-            u_bcs,
-            f,
-            my_dx,
-            stabilization
-            )
+        ui,
+        time_step_method,
+        rho, mu,
+        u, p0, dt,
+        u_bcs,
+        f,
+        my_dx
+        )
 
     # Take u[0] as initial guess.
     ui.assign(u[0])
@@ -248,16 +207,14 @@ def compute_tentative_velocity(
     return ui
 
 
-def compute_pressure(
-        P, p0,
-        mu, ui,
-        u,
-        my_dx,
-        p_bcs=None,
-        rotational_form=False,
-        tol=1.0e-10,
-        verbose=True
-        ):
+def compute_pressure(P, p0,
+                     mu, ui,
+                     u,
+                     my_dx,
+                     p_bcs=None,
+                     rotational_form=False,
+                     tol=1.0e-10,
+                     verbose=True):
     '''Solve the pressure Poisson equation
 
     .. math::
@@ -489,11 +446,9 @@ def compute_pressure(
     return p1
 
 
-def compute_velocity_correction(
-        ui, p0, p1, u_bcs, rho, mu, dt,
-        rotational_form, my_dx,
-        tol, verbose
-        ):
+def compute_velocity_correction(ui, p0, p1, u_bcs, rho, mu, dt,
+                                rotational_form, my_dx,
+                                tol, verbose):
     '''Compute the velocity correction according to
 
     .. math::
@@ -540,46 +495,41 @@ def compute_velocity_correction(
     return u1
 
 
-def _step(
-        dt,
-        u, p0,
-        W, P,
-        u_bcs, p_bcs,
-        rho, mu,
-        stabilization,
-        time_step_method,
-        f,
-        my_dx,
-        rotational_form=False,
-        verbose=True,
-        tol=1.0e-10,
-        ):
+def _step(dt,
+          u, p0,
+          W, P,
+          u_bcs, p_bcs,
+          rho, mu,
+          time_step_method,
+          f,
+          my_dx,
+          rotational_form=False,
+          verbose=True,
+          tol=1.0e-10):
     '''General pressure projection scheme as described in section 3.4 of
-    :cite:`GMS06`.
     '''
     # dt is a Constant() function
     assert dt.values()[0] > 0.0
 
     with Message('Computing tentative velocity'):
         ui = compute_tentative_velocity(
-                time_step_method, rho, mu,
-                u, p0, dt, u_bcs, f, W,
-                my_dx,
-                stabilization,
-                tol
-                )
+            time_step_method, rho, mu,
+            u, p0, dt, u_bcs, f, W,
+            my_dx,
+            tol
+            )
 
     with Message('Computing pressure correction'):
         p1 = compute_pressure(
-                P, p0,
-                mu, ui,
-                rho * ui / dt,
-                my_dx,
-                p_bcs=p_bcs,
-                rotational_form=rotational_form,
-                tol=tol,
-                verbose=verbose
-                )
+            P, p0,
+            mu, ui,
+            rho * ui / dt,
+            my_dx,
+            p_bcs=p_bcs,
+            rotational_form=rotational_form,
+            tol=tol,
+            verbose=verbose
+            )
 
     with Message('Computing velocity correction'):
         u1 = compute_velocity_correction(
@@ -600,30 +550,26 @@ class IPCS(object):
         'pressure': 1,
         }
 
-    def __init__(self, time_step_method='backward euler', stabilization=False):
+    def __init__(self, time_step_method='backward euler'):
         self.time_step_method = time_step_method
-        self.stabilization = stabilization
         return
 
-    def step(
-            self,
-            dt,
-            u, p0,
-            W, P,
-            u_bcs, p_bcs,
-            rho, mu,
-            f,
-            verbose=True,
-            tol=1.0e-10,
-            my_dx=dx
-            ):
+    def step(self,
+             dt,
+             u, p0,
+             W, P,
+             u_bcs, p_bcs,
+             rho, mu,
+             f,
+             verbose=True,
+             tol=1.0e-10,
+             my_dx=dx):
         return _step(
             dt,
             u, p0,
             W, P,
             u_bcs, p_bcs,
             rho, mu,
-            self.stabilization,
             self.time_step_method,
             f,
             verbose=verbose,

@@ -96,11 +96,11 @@ def _compute_errors(problem, mesh_sizes, stabilization):
         degree = solution['degree']
 
     sol = Expression(
-            helpers.ccode(solution['value']),
-            t=0.0,
-            degree=degree,
-            cell=cell_type
-            )
+        helpers.ccode(solution['value']),
+        t=0.0,
+        degree=degree,
+        cell=cell_type
+        )
 
     errors = numpy.empty(len(mesh_sizes))
     hmax = numpy.empty(len(mesh_sizes))
@@ -109,13 +109,13 @@ def _compute_errors(problem, mesh_sizes, stabilization):
         hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
         Q = FunctionSpace(mesh, 'CG', 1)
         prob = heat.Heat(
-                Q,
-                kappa=kappa, rho=rho, cp=cp,
-                convection=conv,
-                source=f['value'],
-                dirichlet_bcs=[DirichletBC(Q, 0.0, 'on_boundary')],
-                stabilization=stabilization
-                )
+            Q,
+            kappa=kappa, rho=rho, cp=cp,
+            convection=conv,
+            source=f['value'],
+            dirichlet_bcs=[DirichletBC(Q, 0.0, 'on_boundary')],
+            stabilization=stabilization
+            )
         phi_approx = prob.solve_stationary()
         errors[k] = errornorm(sol, phi_approx)
 
