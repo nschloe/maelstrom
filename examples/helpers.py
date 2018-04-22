@@ -11,7 +11,7 @@ def show_matrix(A):
 
     # colormap
     cmap = plt.cm.gray_r
-    A_dense = A_matrix.todense()
+    A_dense = A_matrix.toarray()
     # A_r = A_dense[0::2][0::2]
     # A_i = A_dense[1::2][0::2]
     cmap.set_bad('r')
@@ -27,4 +27,4 @@ def show_matrix(A):
 def get_eigenvalues(A):
     A = as_backend_type(A)
     A_matrix = A.sparray()
-    return scipy.linalg.eigvals(A_matrix.todense())
+    return scipy.linalg.eigvals(A_matrix.toarray())

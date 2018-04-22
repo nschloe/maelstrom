@@ -177,7 +177,7 @@ def compute_tentative_velocity(time_step_method, rho, mu,
     solver.parameters['report'] = True
     # While GMRES+ILU converges if the time step is small enough, increasing
     # the time step slows down convergence dramatically in some cases. This
-    # make the step fail, and the adaptive time stepper will decrease the step
+    # makes the step fail, and the adaptive time stepper will decrease the step
     # size. This size can be _very_ small such that simulation take forever.
     # For now, just use a direct solver. Choose UMFPACK over SuperLU since the
     # docker image doesn't contain SuperLU yet, cf.
