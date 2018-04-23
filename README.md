@@ -51,6 +51,15 @@ Maxwell's equations are solved is much larger.
 The Joule heat source (blue/red) and the Lorentz force (arrows) generated from
 the above magnetic field.
 
+
+![](https://nschloe.github.io/maelstrom/full.gif)
+
+The temperature in the first 60 seconds of the full simulation. The Maxwell
+equations are solved first, from this one gets the above Joule heat source and
+the Lorentz force. These are added as external fources to the Boussinesq
+simulation that we see here.
+
+
 ### Testing
 
 To run the voropy unit tests, check out this repository and type
