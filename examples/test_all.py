@@ -12,9 +12,14 @@ Full* simulation of the melt problem.
 
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
+import warnings
+
 from dolfin import (
     parameters, Measure, FunctionSpace, Constant, plot, XDMFFile,
     DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
+    )
+from ffc.quadrature.deprecation import (
+    QuadratureRepresentationDeprecationWarning
     )
 
 import matplotlib.pyplot as plt
@@ -31,6 +36,12 @@ from maelstrom.message import Message
 
 import problems
 from test_maxwell import get_lorentz_joule
+
+# Ignore the deprecation warning, see
+# https://www.allanswered.com/post/lknbq/assemble-quadrature-representation-vs-uflacs/
+warnings.simplefilter(
+    'once', QuadratureRepresentationDeprecationWarning
+    )
 
 # We need to allow extrapolation here since otherwise, the equation systems
 # for Maxwell cannot be constructed: They contain the velocity `u` (from
@@ -449,4 +460,4 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
 
 
 if __name__ == '__main__':
-    test_boussinesq(target_time=60.0, with_voltage=True, show=True)
+    test_boussinesq(target_time=60.0, with_voltage=True, show=False)

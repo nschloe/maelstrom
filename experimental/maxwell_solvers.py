@@ -41,7 +41,7 @@ def _convert_to_complex(A):
     elif beta < 1.0e-10:
         ReA = ReA0
     else:
-        raise ValueError('||ReA0 - ReA1||_fro = %e' % alpha)
+        raise ValueError('||ReA0 - ReA1||_fro = {:e}'.format(alpha))
 
     ImA0 = A[I0[:, numpy.newaxis], I1]
     ImA1 = A[I1[:, numpy.newaxis], I0]
@@ -55,7 +55,7 @@ def _convert_to_complex(A):
     elif beta < 1.0e-10:
         ImA = ImA0
     else:
-        raise ValueError('||ImA0 - ImA1||_fro = %e' % alpha)
+        raise ValueError('||ImA0 - ImA1||_fro = {:e}'.format(alpha))
     # Now form the complex-valued matrix.
     return ReA + 1j * ImA
 
@@ -141,9 +141,9 @@ def _pyamg_test(V, dx, Mu, Sigma, omega, coils):
                               M=ml.aspreconditioner(cycle='V')
                               )
         if out['info'] != 0:
-            print('Preconditioner did not converge; last residual: %g'
-                  % out['relresvec'][-1]
-                  )
+            print('Preconditioner did not converge; last residual: {:g}'.format(
+                  out['relresvec'][-1]
+                  ))
         # # Forget about the cycle used to gauge the residual norm.
         # self.tot_amg_cycles += [len(out['relresvec']) - 1]
         return out['xk']
@@ -194,10 +194,12 @@ def _pyamg_test(V, dx, Mu, Sigma, omega, coils):
                 out['relresvec'], '.-',
                 label=cycles,
                 color=ch(alpha)
-                # color = '%e' % alpha
+                # color = '{:e}'.format(alpha)
                 )
     plt.legend(title='Number of AMG cycles for P^{~1}')
-    plt.title('GMRES convergence history for P^{~1}A (%d x %d)' % Ac.shape)
+    plt.title(
+        'GMRES convergence history for P^{~1}A ({:d} x {:d})'.format(Ac.shape)
+        )
     plt.show()
     return
 

@@ -177,7 +177,7 @@ def compute_tentative_velocity(time_step_method, rho, mu,
     solver.parameters['report'] = True
     # While GMRES+ILU converges if the time step is small enough, increasing
     # the time step slows down convergence dramatically in some cases. This
-    # make the step fail, and the adaptive time stepper will decrease the step
+    # makes the step fail, and the adaptive time stepper will decrease the step
     # size. This size can be _very_ small such that simulation take forever.
     # For now, just use a direct solver. Choose UMFPACK over SuperLU since the
     # docker image doesn't contain SuperLU yet, cf.
@@ -384,15 +384,16 @@ def compute_pressure(P, p0,
         if abs(alpha) > normB * 1.0e-12:
             # divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
             adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * my_dx)
-            info('\\int 1/r * div(r*u) * 2*pi*r  =  %e' % adivu)
+            info('\\int 1/r * div(r*u) * 2*pi*r  =  {:e}'.format(adivu))
             n = FacetNormal(P.mesh())
             boundary_integral = assemble((n[0] * u[0] + n[1] * u[1])
                                          * 2 * pi * r * ds)
-            info('\\int_Gamma n.u * 2*pi*r = %e' % boundary_integral)
+            info('\\int_Gamma n.u * 2*pi*r = {:e}'.format(boundary_integral))
             message = (
                 'System not consistent! '
-                '<b,e> = %g, ||b|| = %g, <b,e>/||b|| = %e.') \
-                % (alpha, normB, alpha / normB)
+                '<b,e> = {:g}, ||b|| = {:g}, <b,e>/||b|| = {:e}.'.format(
+                    alpha, normB, alpha / normB
+                    ))
             info(message)
             # # Plot the stuff, and project it to a finer mesh with linear
             # # elements for the purpose.

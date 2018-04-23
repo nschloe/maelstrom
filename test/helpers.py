@@ -26,9 +26,9 @@ def ccode(*args, **kwargs):
 def _truncate_degree(degree, max_degree=10):
     if degree > max_degree:
         warnings.warn(
-            'Expression degree (%r) > maximum degree (%d). Truncating.'
-            % (degree, max_degree)
-            )
+            'Expression degree ({}) > maximum degree ({}). Truncating.'.format(
+                degree, max_degree
+                ))
         return max_degree
     return degree
 
@@ -47,18 +47,18 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
     for i, mesh_size in enumerate(mesh_sizes):
         print()
         print('Mesh size {}:'.format(mesh_size))
-        print('dt = %e' % Dt[0])
+        print('dt = {:e}'.format(Dt[0]))
         for label, e in errors.items():
-            print('   err_%s = %e' % (label, e[i][0]))
+            print('   err_{} = {:e}'.format(label, e[i][0]))
         print()
         for j in range(len(Dt) - 1):
             print('                 ')
             for label, o in orders.items():
-                print('   ord_%s = %e' % (label, o[i][j]))
+                print('   ord_{} = {:e}'.format(label, o[i][j]))
             print()
-            print('dt = %e' % Dt[j+1])
+            print('dt = {:e}'.format(Dt[j+1]))
             for label, e in errors.items():
-                print('   err_%s = %e' % (label, e[i][j+1]))
+                print('   err_{} = {:e}'.format(label, e[i][j+1]))
             print()
 
     # Create a figure
@@ -78,8 +78,8 @@ def show_timeorder_info(Dt, mesh_sizes, errors):
                 color='0.7'
                 )
         plt.xlabel('dt')
-        plt.ylabel('||%s-%s_h||' % (label, label))
-        # plt.title('Method: %s' % method['name'])
+        plt.ylabel('||{}-{}_h||'.format(label, label))
+        # plt.title('Method: {}'.format(method['name']))
         plt.legend()
     plt.show()
     return
@@ -121,7 +121,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
     for k, mesh_size in enumerate(mesh_sizes):
         info('')
         info('')
-        with Message('Computing for mesh size %r...' % mesh_size):
+        with Message('Computing for mesh size {}...'.format(mesh_size)):
             mesh = mesh_generator(mesh_size)
 
             # Define all expression with `domain`, see

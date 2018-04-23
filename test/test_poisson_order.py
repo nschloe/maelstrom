@@ -88,9 +88,9 @@ def _compute_errors(problem, mesh_sizes, stabilization):
 
     if solution['degree'] > MAX_DEGREE:
         warnings.warn(
-            'Expression degree (%r) > maximum degree (%d). Truncating.'
-            % (solution['degree'], MAX_DEGREE)
-            )
+            'Expression degree ({}) > maximum degree ({}). Truncating.'.format(
+                solution['degree'], MAX_DEGREE
+                ))
         degree = MAX_DEGREE
     else:
         degree = solution['degree']
@@ -132,10 +132,10 @@ def _show_order_info(problem, mesh_sizes, stabilization):
     # Print the data
     print()
     print('hmax            ||u - u_h||     conv. order')
-    print('%e    %e' % (hmax[0], errors[0]))
+    print('{:e}    {:e}'.format(hmax[0], errors[0]))
     for j in range(len(errors) - 1):
-        print(32 * ' ' + '%2.5f' % order[j])
-        print('%e    %e' % (hmax[j + 1], errors[j + 1]))
+        print(32 * ' ' + '{:2.5f}'.format(order[j]))
+        print('{:e}    {:e}'.format(hmax[j + 1], errors[j + 1]))
 
     # Plot the actual data.
     plt.loglog(hmax, errors, '-o')

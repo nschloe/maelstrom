@@ -11,6 +11,7 @@ disable=
     too-many-arguments,
     too-many-locals,
     too-many-statements,
+    unsubscriptable-object,
     #
     no-name-in-module,
     invalid-unary-operand-type,

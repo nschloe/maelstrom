@@ -122,7 +122,7 @@ def test(show=False):
         B_r = project(as_vector((-g[1], g[0])), VV)
         g = 1/r * grad(r*Phi[1])
         B_i = project(as_vector((-g[1], g[0])), VV)
-        info('Writing out B to %s...' % filename)
+        info('Writing out B to {}...'.format(filename))
         B = Function(VV)
         B.rename('B', 'magnetic field')
         if abs(problem.omega) < DOLFIN_EPS:

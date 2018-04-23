@@ -49,7 +49,9 @@ def test(problem, max_num_steps=2, show=False):
         # g = Constant((0.0, 0.0, 0.0))
         g = Constant((0.0, -9.81, 0.0))
     else:
-        raise RuntimeError('Illegal number of subspaces (%d).' % num_subspaces)
+        raise RuntimeError(
+            'Illegal number of subspaces ({}).'.format(num_subspaces)
+            )
 
     initial_stokes = False
     if initial_stokes:
@@ -126,7 +128,7 @@ def test(problem, max_num_steps=2, show=False):
                 form_compiler_parameters={'quadrature_degree': 4}
                 )
             unorm = norm(unorm.vector(), 'linf')
-            # print('||u||_inf = %e' % unorm)
+            # print('||u||_inf = {:e}'.format(unorm))
             # Some smooth step-size adaption.
             target_dt = 0.2 * problem.mesh.hmax() / unorm
             print('current dt: {:e}'.format(dt))

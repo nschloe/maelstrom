@@ -48,9 +48,9 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     k = 50
     lcar_b = min(lcar_coil, w_b0/k)
 
-    print('lcar_coil: %f' % lcar_coil)
-    print('lcar boundary: %f' % lcar_b)
-    print('Coil boundary layer width: %f' % w_b0)
+    print('lcar_coil: {:f}'.format(lcar_coil))
+    print('lcar boundary: {:f}'.format(lcar_b))
+    print('Coil boundary layer width: {:f}'.format(w_b0))
 
     # Coils to the right.
     step = 0.0132
@@ -74,7 +74,7 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
         xmin, xmax, ymin, ymax = data
         rect = geom.add_rectangle(xmin, xmax, ymin, ymax, z, lcar_coil)
         line_loops.append(rect.line_loop)
-        geom.add_physical_surface(rect.surface, 'coil %d' % k)
+        geom.add_physical_surface(rect.surface, 'coil {}'.format(k))
         # Refinement around the boundaries.
         b_id = geom.add_boundary_layer(
            edges_list=rect.line_loop.lines,
@@ -280,9 +280,9 @@ def _define():
     w_heat = numpy.sqrt(1.0 / (reynolds*prandtl))
     w_navier = numpy.sqrt(1.0 / reynolds)
     print('Melt boundary layer widths:')
-    print('    Maxwell: %f' % w_maxwell)
-    print('    heat eq: %f' % w_heat)
-    print('    Navier:  %f' % w_navier)
+    print('    Maxwell: {}'.format(w_maxwell))
+    print('    heat eq: {}'.format(w_heat))
+    print('    Navier:  {}'.format(w_navier))
 
     w_b0 = min([w_maxwell, w_heat, w_navier])
 

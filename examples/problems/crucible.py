@@ -7,9 +7,9 @@ from . import tecplot_reader
 from maelstrom import heat as cyl_heat
 
 from dolfin import (
-    Mesh, SubMesh, SubDomain, FacetFunction, DirichletBC, dot, grad,
+    Mesh, SubMesh, SubDomain, MeshFunction, DirichletBC, dot, grad,
     FunctionSpace, Expression, FacetNormal, pi, Function, Constant,
-    MeshFunction, FiniteElement, MixedElement
+    FiniteElement, MixedElement
     )
 import materials
 import meshio
@@ -89,9 +89,9 @@ class Crucible():
         #     filename = base + '.xml'
         #     if not os.path.isfile(filename):
         #         warnings.warn(
-        #             'Submesh file \'%s\' does not exist. Creating... '
-        #             % filename
-        #             )
+        #             'Submesh file \'{}\' does not exist. Creating... '.format(
+        #             filename
+        #             ))
         #         if MPI.size(mpi_comm_world()) > 1:
         #             raise RuntimeError(
         #                 'Can only write submesh in serial mode.'
@@ -172,7 +172,10 @@ class Crucible():
         upper_left = UpperLeft()
         upper_right = UpperRight()
 
-        self.wp_boundaries = FacetFunction('size_t', self.submesh_workpiece)
+        self.wp_boundaries = MeshFunction(
+            'size_t', self.submesh_workpiece,
+            self.submesh_workpiece.topology().dim() - 1
+            )
         self.wp_boundaries.set_all(0)
         left.mark(self.wp_boundaries, 1)
         crucible.mark(self.wp_boundaries, 2)
@@ -302,7 +305,7 @@ class Crucible():
                     # pp.plot(x[0], x[1], 'xr')
                     # pp.show()
                     # raise RuntimeError('Input coordinate '
-                    #                    '%r is not on boundary.' % x)
+                    #                    '{} is not on boundary.'.format(x))
                 return
 
         tecplot_dbc = TecplotDirichletBC(degree=5)
