@@ -194,7 +194,10 @@ def solve(V, dx,
         # class OuterBoundary(SubDomain):
         #     def inside(self, x, on_boundary):
         #         return on_boundary and abs(x[0]) > DOLFIN_EPS
-        # boundaries = FacetFunction('size_t', mesh)
+        # boundaries = MeshFunction(
+        #     'size_t', mesh,
+        #     mesh.topology().dim() - 1
+        #     )
         # boundaries.set_all(0)
         # outer_boundary = OuterBoundary()
         # outer_boundary.mark(boundaries, 1)

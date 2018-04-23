@@ -7,9 +7,9 @@ from . import tecplot_reader
 from maelstrom import heat as cyl_heat
 
 from dolfin import (
-    Mesh, SubMesh, SubDomain, FacetFunction, DirichletBC, dot, grad,
+    Mesh, SubMesh, SubDomain, MeshFunction, DirichletBC, dot, grad,
     FunctionSpace, Expression, FacetNormal, pi, Function, Constant,
-    MeshFunction, FiniteElement, MixedElement
+    FiniteElement, MixedElement
     )
 import materials
 import meshio
@@ -172,7 +172,10 @@ class Crucible():
         upper_left = UpperLeft()
         upper_right = UpperRight()
 
-        self.wp_boundaries = FacetFunction('size_t', self.submesh_workpiece)
+        self.wp_boundaries = MeshFunction(
+            'size_t', self.submesh_workpiece,
+            self.submesh_workpiece.topology().dim() - 1
+            )
         self.wp_boundaries.set_all(0)
         left.mark(self.wp_boundaries, 1)
         crucible.mark(self.wp_boundaries, 2)

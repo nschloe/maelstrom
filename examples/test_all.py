@@ -460,4 +460,4 @@ def _get_grashof(rho, mu, grav, theta_average, char_length, deltaT):
 
 
 if __name__ == '__main__':
-    test_boussinesq(target_time=60.0, with_voltage=True, show=True)
+    test_boussinesq(target_time=1.0, with_voltage=True, show=False)

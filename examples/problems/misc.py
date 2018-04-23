@@ -6,8 +6,8 @@ Collection of (test) problems.
 from dolfin import (
     Mesh, MeshFunction, pi, SubMesh, SubDomain, FunctionSpace,
     MixedFunctionSpace, DirichletBC, Expression, VectorFunctionSpace,
-    FacetFunction, UnitSquareMesh, DOLFIN_EPS, Constant, RectangleMesh, near,
-    between, CellFunction
+    UnitSquareMesh, DOLFIN_EPS, Constant, RectangleMesh, near, between,
+    CellFunction
     )
 
 import numpy
@@ -322,7 +322,10 @@ def peter():
     stamp_boundary = StampBoundary()
 
     # Define workpiece boundaries.
-    wp_boundaries = FacetFunction('size_t', submesh_workpiece)
+    wp_boundaries = MeshFunction(
+        'size_t', submesh_workpiece,
+        self.submesh_workpiece.topology().dim() - 1
+        )
     wp_boundaries.set_all(0)
     left_boundary.mark(wp_boundaries, 1)
     lower_boundary.mark(wp_boundaries, 2)
@@ -541,7 +544,10 @@ def square_with_obstacle():
     obstacle.mark(domains, 1)
 
     # Initialize mesh function for boundary domains
-    boundaries = FacetFunction('size_t', mesh)
+    boundaries = MeshFunction(
+        'size_t', mesh,
+        mesh.topology().dim() - 1
+        )
     boundaries.set_all(0)
     left.mark(boundaries, 1)
     top.mark(boundaries, 2)
@@ -606,7 +612,10 @@ def coil_in_box():
     boundaries['lower'] = lower_boundary
     boundaries['coil'] = coil_boundary
 
-    boundaries = FacetFunction('size_t', mesh)
+    boundaries = MeshFunction(
+        'size_t', mesh,
+        mesh.topology().dim() - 1
+        )
     boundaries.set_all(0)
     left_boundary.mark(boundaries, 1)
     right_boundary.mark(boundaries, 2)
