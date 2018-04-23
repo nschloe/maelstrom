@@ -12,6 +12,8 @@ Full* simulation of the melt problem.
 
 A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 '''
+import warnings
+
 from dolfin import (
     parameters, Measure, FunctionSpace, Constant, plot, XDMFFile,
     DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
@@ -31,6 +33,12 @@ from maelstrom.message import Message
 
 import problems
 from test_maxwell import get_lorentz_joule
+
+# Ignore the deprecation warning, see
+# https://www.allanswered.com/post/lknbq/assemble-quadrature-representation-vs-uflacs/
+warnings.simplefilter(
+    'once', QuadratureRepresentationDeprecationWarning
+    )
 
 # We need to allow extrapolation here since otherwise, the equation systems
 # for Maxwell cannot be constructed: They contain the velocity `u` (from

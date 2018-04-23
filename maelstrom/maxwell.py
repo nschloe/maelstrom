@@ -251,7 +251,7 @@ def solve(V, dx,
     phi_list = []
     for k, b in enumerate(b_list):
         phi_list.append(Function(W))
-        phi_list[-1].rename('phi%d' % k, 'phi%d' % k)
+        phi_list[-1].rename('phi{}'.format(k), 'phi{}'.format(k))
         solver.solve(phi_list[-1].vector(), b)
 
     return phi_list
@@ -541,9 +541,9 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
         for k, phi in enumerate(phi_list):
             # Restrict to workpiece submesh.
             phi_out = interpolate(phi, W_submesh)
-            phi_out.rename('phi%02d' % k, 'phi%02d' % k)
+            phi_out.rename('phi{:02d}'.format(k), 'phi{:02d}'.format(k))
             # Write to file
-            with XDMFFile(mpi_comm_world(), 'phi%02d.xdmf' % k) as xdmf_file:
+            with XDMFFile(mpi_comm_world(), 'phi{:02d}.xdmf'.format(k)) as xdmf_file:
                 xdmf_file.write(phi_out)
             # plot(phi_out)
             # interactive()
@@ -603,10 +603,10 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
         info('')
         info('Resulting voltages,   V/sqrt(2):')
         voltages = v_ref * weights
-        info('   %r' % (abs(voltages) / numpy.sqrt(2)))
+        info('   {}'.format(abs(voltages) / numpy.sqrt(2)))
         info('Resulting currents,   I/sqrt(2):')
         currents = numpy.dot(J, weights)
-        info('   %r' % (abs(currents) / numpy.sqrt(2)))
+        info('   {}'.format(abs(currents) / numpy.sqrt(2)))
         info('Resulting apparent powers (per coil):')
         for coil_loops in new_coils:
             # With
@@ -624,7 +624,7 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
             alpha = sum(voltages[coil_loops]) \
                 * currents[coil_loops[0]].conjugate()
             power = 0.5 * alpha.real
-            info('   %r' % power)
+            info('   {}'.format(power))
         info('')
 
     # Compute Phi as the linear combination \sum C_i*phi_i.

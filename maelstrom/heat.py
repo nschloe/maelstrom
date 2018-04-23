@@ -1,12 +1,23 @@
 # -*- coding: utf-8 -*-
 #
+import warnings
+
 from dolfin import (
     dx, ds, dot, grad, pi, assemble, lhs, rhs, SpatialCoordinate,
     TrialFunction, TestFunction, KrylovSolver, Function, assemble_system,
     LUSolver, div, as_vector
     )
+from ffc.quadrature.deprecation import (
+    QuadratureRepresentationDeprecationWarning
+    )
 
 from . import stabilization as stab
+
+# Ignore the deprecation warning, see
+# https://www.allanswered.com/post/lknbq/assemble-quadrature-representation-vs-uflacs/
+warnings.simplefilter(
+    'once', QuadratureRepresentationDeprecationWarning
+    )
 
 
 def F(u, v, kappa, rho, cp,
@@ -122,11 +133,12 @@ class Heat(object):
         # matrix part.
         # Check
         # https://bitbucket.org/fenics-project/ffc/issues/145/uflacs-error-for-vertex-quadrature-scheme
+        #
         self.M = assemble(
             u * v * dx,
             form_compiler_parameters={
+                'representation': 'quadrature',
                 'quadrature_rule': 'vertex',
-                'representation': 'quadrature'
                 }
             )
 

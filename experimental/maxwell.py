@@ -6,7 +6,7 @@ def _adaptive_mesh_refinement(dx, phi, mu, sigma, omega, conv, voltages):
     TOL = 1.0e-4
     E = sum([e * e for e in eta])
     E = sqrt(MPI.sum(E))
-    info('Level %d: E = %g (TOL = %g)' % (level, E, TOL))
+    info('Level {:d}: E = {:g} (TOL = {:g})'.format(level, E, TOL))
     # Mark cells for refinement
     REFINE_RATIO = 0.5
     cell_markers = MeshFunction('bool', mesh, mesh.topology().dim())
@@ -68,7 +68,7 @@ def _error_estimator(dx, phi, mu, sigma, omega, conv, voltages):
         plot(R2, title='||R||^2')
         interactive()
     K = r.array()
-    info('%r' % K)
+    info('{:r}'.format(K))
     h = numpy.array([c.diameter() for c in cells(mesh)])
     eta = h * numpy.sqrt(K)
     return eta

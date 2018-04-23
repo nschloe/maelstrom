@@ -361,10 +361,10 @@ def _show_order_info(problem, mesh_sizes):
     # Print the data
     print()
     print('hmax            ||u - u_h||     conv. order')
-    print('%e    %e' % (hmax[0], errors[0]))
+    print('{:e}    {:e}'.format(hmax[0], errors[0]))
     for j in range(len(errors) - 1):
-        print(32 * ' ' + '%2.5f' % order[j])
-        print('%e    %e' % (hmax[j + 1], errors[j + 1]))
+        print(32 * ' ' + '{:2.5f}'.format(order[j]))
+        print('{:e}    {:e}'.format(hmax[j + 1], errors[j + 1]))
 
     # Plot the actual data.
     for mesh_size in mesh_sizes:

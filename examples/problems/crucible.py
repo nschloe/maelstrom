@@ -89,9 +89,9 @@ class Crucible():
         #     filename = base + '.xml'
         #     if not os.path.isfile(filename):
         #         warnings.warn(
-        #             'Submesh file \'%s\' does not exist. Creating... '
-        #             % filename
-        #             )
+        #             'Submesh file \'{}\' does not exist. Creating... '.format(
+        #             filename
+        #             ))
         #         if MPI.size(mpi_comm_world()) > 1:
         #             raise RuntimeError(
         #                 'Can only write submesh in serial mode.'
@@ -302,7 +302,7 @@ class Crucible():
                     # pp.plot(x[0], x[1], 'xr')
                     # pp.show()
                     # raise RuntimeError('Input coordinate '
-                    #                    '%r is not on boundary.' % x)
+                    #                    '{} is not on boundary.'.format(x))
                 return
 
         tecplot_dbc = TecplotDirichletBC(degree=5)

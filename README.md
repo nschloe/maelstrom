@@ -40,12 +40,14 @@ documentation](https://maelstrom.readthedocs.io/en/master/maelstrom.maxwell.html
 ##### Some visualizations
 
 ![](https://nschloe.github.io/maelstrom/magnetic-field.gif)
+
 A typical cylindrical problem: A crucible with a liquid on the left, surrounded
 by a number of electric coils (the squares). The arrows indicate the magnetic
 field produced by current in those coils. Note that the actual domain where
 Maxwell's equations are solved is much larger.
 
 ![](https://nschloe.github.io/maelstrom/lorentz-joule.png)
+
 The Joule heat source (blue/red) and the Lorentz force (arrows) generated from
 the above magnetic field.
 

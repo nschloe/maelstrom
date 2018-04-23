@@ -102,7 +102,9 @@ def _read_zone(f, variable_names):
         if tp_dt == 'SINGLE':
             data[name] = numpy.empty(num_nodes, dtype=float)
         else:
-            raise RuntimeError('Unknown Tecplot data type \'%s\'.' % tp_dt)
+            raise RuntimeError(
+                'Unknown Tecplot data type \'{}\'.'.format(tp_dt)
+                )
     # Build the regex for every data line.
     SINGLE_regex = '[-+]?[0-9]\.[0-9]+E[-+][0-9][0-9]'
     dt = ' ' + dt.replace('SINGLE', '(' + SINGLE_regex + ')')
@@ -122,7 +124,7 @@ def _read_zone(f, variable_names):
     if zone['ZONETYPE'] == 'FELineSeg':
         num_nodes_per_element = 2
     else:
-        raise RuntimeError('Invalid ZONETYPE \'%s\'.' % zone['ZONETYPE'])
+        raise RuntimeError('Invalid ZONETYPE \'{}\'.'.format(zone['ZONETYPE']))
     data = numpy.empty((num_nodes, num_nodes_per_element), dtype=int)
     element_regex = ' ([0-9]+)+\s+([0-9]+)'
     for k in range(num_elements):
