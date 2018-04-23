@@ -18,6 +18,9 @@ from dolfin import (
     parameters, Measure, FunctionSpace, Constant, plot, XDMFFile,
     DOLFIN_EPS, as_vector, info, norm, assemble, MPI, dx, interpolate
     )
+from ffc.quadrature.deprecation import (
+    QuadratureRepresentationDeprecationWarning
+    )
 
 import matplotlib.pyplot as plt
 import numpy

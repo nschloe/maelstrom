@@ -27,8 +27,8 @@ def _truncate_degree(degree, max_degree=10):
     if degree > max_degree:
         warnings.warn(
             'Expression degree ({}) > maximum degree ({}). Truncating.'.format(
-            degree, max_degree
-            ))
+                degree, max_degree
+                ))
         return max_degree
     return degree
 

@@ -392,8 +392,8 @@ def compute_pressure(P, p0,
             message = (
                 'System not consistent! '
                 '<b,e> = {:g}, ||b|| = {:g}, <b,e>/||b|| = {:e}.'.format(
-                alpha, normB, alpha / normB
-                ))
+                    alpha, normB, alpha / normB
+                    ))
             info(message)
             # # Plot the stuff, and project it to a finer mesh with linear
             # # elements for the purpose.
