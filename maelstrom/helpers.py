@@ -10,23 +10,17 @@ def dbcs_to_productspace(W, bcs_list):
             C = bc.function_space().component()
             # pylint: disable=len-as-condition
             if len(C) == 0:
-                new_bcs.append(DirichletBC(W.sub(k),
-                                           bc.value(),
-                                           bc.domain_args[0]))
+                new_bcs.append(DirichletBC(W.sub(k), bc.value(), bc.domain_args[0]))
             else:
-                assert len(C) == 1, 'Illegal number of subspace components.'
+                assert len(C) == 1, "Illegal number of subspace components."
                 new_bcs.append(
-                    DirichletBC(
-                        W.sub(k).sub(int(C[0])),
-                        bc.value(),
-                        bc.domain_args[0]
-                        ))
+                    DirichletBC(W.sub(k).sub(int(C[0])), bc.value(), bc.domain_args[0])
+                )
 
     return new_bcs
 
 
 def average(u):
-    '''Computes the average value of a function u over its domain.
-    '''
-    return assemble(u * dx) \
-        / assemble(1.0 * dx(u.function_space().mesh()))
+    """Computes the average value of a function u over its domain.
+    """
+    return assemble(u * dx) / assemble(1.0 * dx(u.function_space().mesh()))

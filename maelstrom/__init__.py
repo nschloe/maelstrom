@@ -6,7 +6,17 @@ from .__about__ import (
     __license__,
     __version__,
     __status__,
-    )
+)
 
 from . import helpers
 from . import message
+
+__all__ = [
+    "__author__",
+    "__author_email__",
+    "__license__",
+    "__version__",
+    "__status__",
+    "helpers",
+    "message",
+]

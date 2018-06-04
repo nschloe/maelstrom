@@ -15,8 +15,9 @@ jobs:
       - run: sudo apt remove -y python3-pytest
       - run: sudo -H pip3 install pytest pytest-cov pylint Sphinx
       - checkout
-      # lint
-      - run: pylint maelstrom/ examples/*.py test/*.py
+      # format and lint
+      - run: LC_ALL=C.UTF-8 black --check maelstrom/ examples/*.py test/*.py
+      - run: flake8 maelstrom/ examples/*.py test/*.py
       # check if documentation builds
       - run: sudo -H pip3 install -r doc/requirements.txt
       - run: cd doc && PYTHONPATH=~/maelstrom/:$PYTHONPATH make html

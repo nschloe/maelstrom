@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 #
-'''
+"""
 Allows using DOLFIN's indented block messages with 'with', i.e.,
 
     with Message('hello world'):
         # do something
-'''
+"""
 from dolfin import begin, end
 
 
 class Message(object):
-
     def __init__(self, string):
         self.string = string
         return

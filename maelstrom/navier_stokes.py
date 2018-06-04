@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # TODO update
-'''
+"""
 Numerical solution schemes for the Navier--Stokes equation in cylindrical
 coordinates,
 
@@ -37,21 +37,42 @@ method.
 
 An overview of projection methods for incompressible flow can be found in
 :cite:`GMS06` and :cite:`bookjohn`.
-'''
+"""
 
 from dolfin import (
-    TestFunction, Function, Constant, dot, grad, inner, pi, dx, solve,
-    derivative, TrialFunction, PETScPreconditioner, PETScKrylovSolver,
-    as_backend_type, info, assemble, norm, FacetNormal, sqrt, ds, as_vector,
-    NonlinearProblem, NewtonSolver, SpatialCoordinate, project
-    )
+    TestFunction,
+    Function,
+    Constant,
+    dot,
+    grad,
+    inner,
+    pi,
+    dx,
+    solve,
+    derivative,
+    TrialFunction,
+    PETScPreconditioner,
+    PETScKrylovSolver,
+    as_backend_type,
+    info,
+    assemble,
+    norm,
+    FacetNormal,
+    sqrt,
+    ds,
+    as_vector,
+    NonlinearProblem,
+    NewtonSolver,
+    SpatialCoordinate,
+    project,
+)
 
 from .message import Message
 
 
 def _momentum_equation(u, v, p, f, rho, mu, my_dx):
-    '''Weak form of the momentum equation.
-    '''
+    """Weak form of the momentum equation.
+    """
     # rho and my are Constant() functions
     assert rho.values()[0] > 0.0
     assert mu.values()[0] > 0.0
@@ -80,38 +101,33 @@ def _momentum_equation(u, v, p, f, rho, mu, my_dx):
     # TODO some more explanation for the following lines of code
     mesh = v.function_space().mesh()
     r = SpatialCoordinate(mesh)[0]
-    F = rho * 0.5 * (dot(grad(u) * u, v) - dot(grad(v) * u, u)) \
-            * 2*pi*r*my_dx \
-        + mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx  \
-        + mu * u[0] / r * v[0] * 2 * pi * my_dx  \
-        - dot(f, v) * 2*pi*r * my_dx
+    F = (
+        rho * 0.5 * (dot(grad(u) * u, v) - dot(grad(v) * u, u)) * 2 * pi * r * my_dx
+        + mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx
+        + mu * u[0] / r * v[0] * 2 * pi * my_dx
+        - dot(f, v) * 2 * pi * r * my_dx
+    )
     if p:
-        F += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * my_dx
+        F += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2 * pi * r * my_dx
     if len(u) == 3:
-        F += rho * (-u[2] * u[2] * v[0] + u[0] * u[2] * v[2]) * 2*pi * my_dx
+        F += rho * (-u[2] * u[2] * v[0] + u[0] * u[2] * v[2]) * 2 * pi * my_dx
         F += mu * u[2] / r * v[2] * 2 * pi * my_dx
 
     return F
 
 
-def compute_tentative_velocity(time_step_method, rho, mu,
-                               u, p0, dt, u_bcs, f, W,
-                               my_dx,
-                               tol):
-    '''Compute the tentative velocity via
+def compute_tentative_velocity(
+    time_step_method, rho, mu, u, p0, dt, u_bcs, f, W, my_dx, tol
+):
+    """Compute the tentative velocity via
 
     .. math::
         \\rho (u_0 + (u\\cdot\\nabla)u) =
             \\mu \\frac{1}{r} \\div(r \\nabla u) + \\rho g.
-    '''
+    """
 
     class TentativeVelocityProblem(NonlinearProblem):
-        def __init__(self, ui, time_step_method,
-                     rho, mu,
-                     u, p0, dt,
-                     bcs,
-                     f,
-                     my_dx):
+        def __init__(self, ui, time_step_method, rho, mu, u, p0, dt, bcs, f, my_dx):
             super(TentativeVelocityProblem, self).__init__()
 
             W = ui.function_space()
@@ -122,18 +138,19 @@ def compute_tentative_velocity(time_step_method, rho, mu,
             r = SpatialCoordinate(ui.function_space().mesh())[0]
 
             def me(uu, ff):
-                return _momentum_equation(
-                    uu, v, p0, ff, rho, mu, my_dx
-                    )
+                return _momentum_equation(uu, v, p0, ff, rho, mu, my_dx)
 
-            self.F0 = rho * dot(ui - u[0], v) / dt * 2*pi*r*my_dx
-            if time_step_method == 'forward euler':
+            self.F0 = rho * dot(ui - u[0], v) / dt * 2 * pi * r * my_dx
+            if time_step_method == "forward euler":
                 self.F0 += me(u[0], f[0])
-            elif time_step_method == 'backward euler':
+            elif time_step_method == "backward euler":
                 self.F0 += me(ui, f[1])
             else:
-                assert time_step_method == 'crank-nicolson', \
-                        'Unknown time stepper \'{}\''.format(time_step_method)
+                assert (
+                    time_step_method == "crank-nicolson"
+                ), "Unknown time stepper '{}'".format(
+                    time_step_method
+                )
                 self.F0 += 0.5 * (me(u[0], f[0]) + me(ui, f[1]))
 
             self.jacobian = derivative(self.F0, ui)
@@ -149,11 +166,7 @@ def compute_tentative_velocity(time_step_method, rho, mu,
             #
             # here. One way around this copy is to instantiate this class with
             # the same Function ui that is then used for the solver.solve().
-            assemble(
-                self.F0,
-                tensor=b,
-                form_compiler_parameters={'optimize': True}
-                )
+            assemble(self.F0, tensor=b, form_compiler_parameters={"optimize": True})
             for bc in self.bcs:
                 bc.apply(b, x)
             return
@@ -161,20 +174,18 @@ def compute_tentative_velocity(time_step_method, rho, mu,
         def J(self, A, x):
             # We can ignore x; see comment at F().
             assemble(
-                self.jacobian,
-                tensor=A,
-                form_compiler_parameters={'optimize': True}
-                )
+                self.jacobian, tensor=A, form_compiler_parameters={"optimize": True}
+            )
             for bc in self.bcs:
                 bc.apply(A)
             self.reset_sparsity = False
             return
 
     solver = NewtonSolver()
-    solver.parameters['maximum_iterations'] = 10
-    solver.parameters['absolute_tolerance'] = tol
-    solver.parameters['relative_tolerance'] = 0.0
-    solver.parameters['report'] = True
+    solver.parameters["maximum_iterations"] = 10
+    solver.parameters["absolute_tolerance"] = tol
+    solver.parameters["relative_tolerance"] = 0.0
+    solver.parameters["report"] = True
     # While GMRES+ILU converges if the time step is small enough, increasing
     # the time step slows down convergence dramatically in some cases. This
     # makes the step fail, and the adaptive time stepper will decrease the step
@@ -183,18 +194,12 @@ def compute_tentative_velocity(time_step_method, rho, mu,
     # docker image doesn't contain SuperLU yet, cf.
     # <https://bitbucket.org/fenics-project/docker/issues/64/add-superlu>.
     # TODO come up with an appropriate GMRES preconditioner here
-    solver.parameters['linear_solver'] = 'umfpack'
+    solver.parameters["linear_solver"] = "umfpack"
 
     ui = Function(W)
     step_problem = TentativeVelocityProblem(
-        ui,
-        time_step_method,
-        rho, mu,
-        u, p0, dt,
-        u_bcs,
-        f,
-        my_dx
-        )
+        ui, time_step_method, rho, mu, u, p0, dt, u_bcs, f, my_dx
+    )
 
     # Take u[0] as initial guess.
     ui.assign(u[0])
@@ -207,15 +212,19 @@ def compute_tentative_velocity(time_step_method, rho, mu,
     return ui
 
 
-def compute_pressure(P, p0,
-                     mu, ui,
-                     u,
-                     my_dx,
-                     p_bcs=None,
-                     rotational_form=False,
-                     tol=1.0e-10,
-                     verbose=True):
-    '''Solve the pressure Poisson equation
+def compute_pressure(
+    P,
+    p0,
+    mu,
+    ui,
+    u,
+    my_dx,
+    p_bcs=None,
+    rotational_form=False,
+    tol=1.0e-10,
+    verbose=True,
+):
+    """Solve the pressure Poisson equation
 
     .. math::
 
@@ -286,7 +295,7 @@ def compute_pressure(P, p0,
     Note that, when using a multigrid preconditioner as is done here, the
     coarse solver must be chosen such that it preserves the nullspace of the
     problem.
-    '''
+    """
     W = ui.function_space()
     r = SpatialCoordinate(W.mesh())[0]
 
@@ -298,10 +307,10 @@ def compute_pressure(P, p0,
     # are implicitly included.
     #
     # L2 = -div(r*u) * q * 2*pi*my_dx
-    div_u = 1/r * (r * u[0]).dx(0) + u[1].dx(1)
-    L2 = -div_u * q * 2*pi*r*my_dx
+    div_u = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
+    L2 = -div_u * q * 2 * pi * r * my_dx
     if p0:
-        L2 += r * dot(grad(p0), grad(q)) * 2*pi*my_dx
+        L2 += r * dot(grad(p0), grad(q)) * 2 * pi * my_dx
 
     # In the Cartesian variant of the rotational form, one makes use of the
     # fact that
@@ -322,9 +331,9 @@ def compute_pressure(P, p0,
         # coordinates). Unfortunately, we cannot write it down that
         # compactly since u_phi is in the game.
         # When using P2 elements, this value will be 0 anyways.
-        div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
+        div_ui = 1 / r * (r * ui[0]).dx(0) + ui[1].dx(1)
         grad_div_ui = as_vector((div_ui.dx(0), div_ui.dx(1)))
-        L2 -= r * mu * dot(grad_div_ui, grad(q)) * 2*pi*my_dx
+        L2 -= r * mu * dot(grad_div_ui, grad(q)) * 2 * pi * my_dx
         # div_grad_div_ui = 1/r * (r * grad_div_ui[0]).dx(0) \
         #     + (grad_div_ui[1]).dx(1)
         # L2 += mu * div_grad_div_ui * q * 2*pi*r*dx
@@ -335,20 +344,21 @@ def compute_pressure(P, p0,
     p1 = Function(P)
     if p_bcs:
         solve(
-            a2 == L2, p1,
+            a2 == L2,
+            p1,
             bcs=p_bcs,
             solver_parameters={
-                'linear_solver': 'iterative',
-                'symmetric': True,
-                'preconditioner': 'hypre_amg',
-                'krylov_solver': {
-                    'relative_tolerance': tol,
-                    'absolute_tolerance': 0.0,
-                    'maximum_iterations': 100,
-                    'monitor_convergence': verbose
-                    }
-                }
-            )
+                "linear_solver": "iterative",
+                "symmetric": True,
+                "preconditioner": "hypre_amg",
+                "krylov_solver": {
+                    "relative_tolerance": tol,
+                    "absolute_tolerance": 0.0,
+                    "maximum_iterations": 100,
+                    "monitor_convergence": verbose,
+                },
+            },
+        )
     else:
         # If we're dealing with a pure Neumann problem here (which is the
         # default case), this doesn't hurt CG if the system is consistent,
@@ -384,16 +394,16 @@ def compute_pressure(P, p0,
         if abs(alpha) > normB * 1.0e-12:
             # divu = 1 / r * (r * u[0]).dx(0) + u[1].dx(1)
             adivu = assemble(((r * u[0]).dx(0) + u[1].dx(1)) * 2 * pi * my_dx)
-            info('\\int 1/r * div(r*u) * 2*pi*r  =  {:e}'.format(adivu))
+            info("\\int 1/r * div(r*u) * 2*pi*r  =  {:e}".format(adivu))
             n = FacetNormal(P.mesh())
-            boundary_integral = assemble((n[0] * u[0] + n[1] * u[1])
-                                         * 2 * pi * r * ds)
-            info('\\int_Gamma n.u * 2*pi*r = {:e}'.format(boundary_integral))
+            boundary_integral = assemble((n[0] * u[0] + n[1] * u[1]) * 2 * pi * r * ds)
+            info("\\int_Gamma n.u * 2*pi*r = {:e}".format(boundary_integral))
             message = (
-                'System not consistent! '
-                '<b,e> = {:g}, ||b|| = {:g}, <b,e>/||b|| = {:e}.'.format(
+                "System not consistent! "
+                "<b,e> = {:g}, ||b|| = {:g}, <b,e>/||b|| = {:e}.".format(
                     alpha, normB, alpha / normB
-                    ))
+                )
+            )
             info(message)
             # # Plot the stuff, and project it to a finer mesh with linear
             # # elements for the purpose.
@@ -430,14 +440,15 @@ def compute_pressure(P, p0,
         # then, so try Jacobi here.
         # <http://lists.mcs.anl.gov/pipermail/petsc-users/2012-February/012139.html>
         #
-        prec = PETScPreconditioner('hypre_amg')
+        prec = PETScPreconditioner("hypre_amg")
         from dolfin import PETScOptions
-        PETScOptions.set('pc_hypre_boomeramg_relax_type_coarse', 'jacobi')
-        solver = PETScKrylovSolver('cg', prec)
-        solver.parameters['absolute_tolerance'] = 0.0
-        solver.parameters['relative_tolerance'] = tol
-        solver.parameters['maximum_iterations'] = 100
-        solver.parameters['monitor_convergence'] = verbose
+
+        PETScOptions.set("pc_hypre_boomeramg_relax_type_coarse", "jacobi")
+        solver = PETScKrylovSolver("cg", prec)
+        solver.parameters["absolute_tolerance"] = 0.0
+        solver.parameters["relative_tolerance"] = tol
+        solver.parameters["maximum_iterations"] = 100
+        solver.parameters["monitor_convergence"] = verbose
         # Create solver and solve system
         A_petsc = as_backend_type(A)
         b_petsc = as_backend_type(b)
@@ -447,15 +458,15 @@ def compute_pressure(P, p0,
     return p1
 
 
-def compute_velocity_correction(ui, p0, p1, u_bcs, rho, mu, dt,
-                                rotational_form, my_dx,
-                                tol, verbose):
-    '''Compute the velocity correction according to
+def compute_velocity_correction(
+    ui, p0, p1, u_bcs, rho, mu, dt, rotational_form, my_dx, tol, verbose
+):
+    """Compute the velocity correction according to
 
     .. math::
 
         U = u_0 - \\frac{dt}{\\rho} \\nabla (p_1-p_0).
-    '''
+    """
     W = ui.function_space()
     P = p1.function_space()
 
@@ -468,112 +479,123 @@ def compute_velocity_correction(ui, p0, p1, u_bcs, rho, mu, dt,
         phi -= p0
     if rotational_form:
         r = SpatialCoordinate(W.mesh())[0]
-        div_ui = 1/r * (r * ui[0]).dx(0) + ui[1].dx(1)
+        div_ui = 1 / r * (r * ui[0]).dx(0) + ui[1].dx(1)
         phi += mu * div_ui
-    L3 = dot(ui, v) * my_dx \
-        - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * my_dx
+    L3 = dot(ui, v) * my_dx - dt / rho * (phi.dx(0) * v[0] + phi.dx(1) * v[1]) * my_dx
     u1 = Function(W)
     solve(
-        a3 == L3, u1,
+        a3 == L3,
+        u1,
         bcs=u_bcs,
         solver_parameters={
-            'linear_solver': 'iterative',
-            'symmetric': True,
-            'preconditioner': 'hypre_amg',
-            'krylov_solver': {
-                'relative_tolerance': tol,
-                'absolute_tolerance': 0.0,
-                'maximum_iterations': 100,
-                'monitor_convergence': verbose
-                }
-            }
-        )
+            "linear_solver": "iterative",
+            "symmetric": True,
+            "preconditioner": "hypre_amg",
+            "krylov_solver": {
+                "relative_tolerance": tol,
+                "absolute_tolerance": 0.0,
+                "maximum_iterations": 100,
+                "monitor_convergence": verbose,
+            },
+        },
+    )
     # u = project(ui - k/rho * grad(phi), V)
     # div_u = 1/r * div(r*u)
     r = SpatialCoordinate(W.mesh())[0]
     div_u1 = 1.0 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
-    info('||u||_div = {:e}'.format(sqrt(assemble(div_u1 * div_u1 * my_dx))))
+    info("||u||_div = {:e}".format(sqrt(assemble(div_u1 * div_u1 * my_dx))))
     return u1
 
 
-def _step(dt,
-          u, p0,
-          W, P,
-          u_bcs, p_bcs,
-          rho, mu,
-          time_step_method,
-          f,
-          my_dx,
-          rotational_form=False,
-          verbose=True,
-          tol=1.0e-10):
-    '''General pressure projection scheme as described in section 3.4 of
-    '''
+def _step(
+    dt,
+    u,
+    p0,
+    W,
+    P,
+    u_bcs,
+    p_bcs,
+    rho,
+    mu,
+    time_step_method,
+    f,
+    my_dx,
+    rotational_form=False,
+    verbose=True,
+    tol=1.0e-10,
+):
+    """General pressure projection scheme as described in section 3.4 of
+    """
     # dt is a Constant() function
     assert dt.values()[0] > 0.0
 
-    with Message('Computing tentative velocity'):
+    with Message("Computing tentative velocity"):
         ui = compute_tentative_velocity(
-            time_step_method, rho, mu,
-            u, p0, dt, u_bcs, f, W,
-            my_dx,
-            tol
-            )
+            time_step_method, rho, mu, u, p0, dt, u_bcs, f, W, my_dx, tol
+        )
 
-    with Message('Computing pressure correction'):
+    with Message("Computing pressure correction"):
         p1 = compute_pressure(
-            P, p0,
-            mu, ui,
+            P,
+            p0,
+            mu,
+            ui,
             rho * ui / dt,
             my_dx,
             p_bcs=p_bcs,
             rotational_form=rotational_form,
             tol=tol,
-            verbose=verbose
-            )
+            verbose=verbose,
+        )
 
-    with Message('Computing velocity correction'):
+    with Message("Computing velocity correction"):
         u1 = compute_velocity_correction(
-            ui, p0, p1, u_bcs, rho, mu, dt,
-            rotational_form, my_dx,
-            tol, verbose
-            )
+            ui, p0, p1, u_bcs, rho, mu, dt, rotational_form, my_dx, tol, verbose
+        )
 
     return u1, p1
 
 
 class IPCS(object):
-    '''
+    """
     Incremental pressure correction scheme; for details see :cite:`GMS06`.
-    '''
-    order = {
-        'velocity': 1,
-        'pressure': 1,
-        }
+    """
 
-    def __init__(self, time_step_method='backward euler'):
+    order = {"velocity": 1, "pressure": 1}
+
+    def __init__(self, time_step_method="backward euler"):
         self.time_step_method = time_step_method
         return
 
-    def step(self,
-             dt,
-             u, p0,
-             W, P,
-             u_bcs, p_bcs,
-             rho, mu,
-             f,
-             verbose=True,
-             tol=1.0e-10,
-             my_dx=dx):
+    def step(
+        self,
+        dt,
+        u,
+        p0,
+        W,
+        P,
+        u_bcs,
+        p_bcs,
+        rho,
+        mu,
+        f,
+        verbose=True,
+        tol=1.0e-10,
+        my_dx=dx,
+    ):
         return _step(
             dt,
-            u, p0,
-            W, P,
-            u_bcs, p_bcs,
-            rho, mu,
+            u,
+            p0,
+            W,
+            P,
+            u_bcs,
+            p_bcs,
+            rho,
+            mu,
             self.time_step_method,
             f,
             verbose=verbose,
             tol=tol,
-            my_dx=my_dx
-            )
+            my_dx=my_dx,
+        )

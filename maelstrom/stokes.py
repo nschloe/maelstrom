@@ -1,14 +1,25 @@
 # -*- coding: utf-8 -*-
 #
-'''
+"""
 Numerical solution schemes for the Stokes equation in cylindrical coordinates.
-'''
+"""
 from __future__ import print_function
 
 from dolfin import (
-    TrialFunctions, TestFunctions, grad, pi, dx, assemble_system, inner, solve,
-    SpatialCoordinate, Constant, dot, lhs, rhs
-    )
+    TrialFunctions,
+    TestFunctions,
+    grad,
+    pi,
+    dx,
+    assemble_system,
+    inner,
+    solve,
+    SpatialCoordinate,
+    Constant,
+    dot,
+    lhs,
+    rhs,
+)
 
 from . import helpers
 
@@ -17,16 +28,18 @@ from . import helpers
 def F(u, p, v, q, f, r, mu, my_dx):
     mu = Constant(mu)
     # Momentum equation (without the nonlinear Navier term).
-    F0 = mu * inner(r * grad(u), grad(v)) * 2*pi * my_dx \
-        + mu * u[0] / r * v[0] * 2*pi * my_dx \
-        - dot(f, v) * 2*pi*r * my_dx
+    F0 = (
+        mu * inner(r * grad(u), grad(v)) * 2 * pi * my_dx
+        + mu * u[0] / r * v[0] * 2 * pi * my_dx
+        - dot(f, v) * 2 * pi * r * my_dx
+    )
     if len(u) == 3:
-        F0 += mu * u[2] / r * v[2] * 2*pi * my_dx
-    F0 += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2*pi*r * my_dx
+        F0 += mu * u[2] / r * v[2] * 2 * pi * my_dx
+    F0 += (p.dx(0) * v[0] + p.dx(1) * v[1]) * 2 * pi * r * my_dx
 
     # Incompressibility condition.
     # div_u = 1/r * div(r*u)
-    F0 += ((r * u[0]).dx(0) + r * u[1].dx(1)) * q * 2*pi * my_dx
+    F0 += ((r * u[0]).dx(0) + r * u[1].dx(1)) * q * 2 * pi * my_dx
 
     # a = mu * inner(r * grad(u), grad(v)) * 2*pi * my_dx \
     #     - ((r * v[0]).dx(0) + (r * v[1]).dx(1)) * p * 2*pi * my_dx \
@@ -36,11 +49,7 @@ def F(u, p, v, q, f, r, mu, my_dx):
     return F0
 
 
-def stokes_solve(up_out,
-                 mu,
-                 u_bcs, p_bcs,
-                 f,
-                 my_dx=dx):
+def stokes_solve(up_out, mu, u_bcs, p_bcs, f, my_dx=dx):
     # Some initial sanity checks.
     assert mu > 0.0
 
@@ -64,10 +73,10 @@ def stokes_solve(up_out,
     L = rhs(f)
     A, b = assemble_system(a, L, new_bcs)
 
-    mode = 'lu'
+    mode = "lu"
 
-    assert mode == 'lu'
-    solve(A, up_out.vector(), b, 'lu')
+    assert mode == "lu"
+    solve(A, up_out.vector(), b, "lu")
 
     # TODO Krylov solver for Stokes
     # assert mode == 'gmres'

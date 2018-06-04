@@ -2,6 +2,7 @@
 
 [![CircleCI](https://img.shields.io/circleci/project/github/nschloe/maelstrom/master.svg)](https://circleci.com/gh/nschloe/maelstrom/tree/master)
 [![codecov](https://img.shields.io/codecov/c/github/nschloe/maelstrom.svg)](https://codecov.io/gh/nschloe/maelstrom)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 [![Documentation Status](https://readthedocs.org/projects/maelstrom/badge/?version=master)](https://maelstrom.readthedocs.io/en/master/)
 
 maelstrom is a numerical software tool for the solution of magnetohydrodynamics
