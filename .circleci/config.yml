@@ -13,7 +13,7 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y git gmsh
       - run: sudo apt remove -y python3-pytest
-      - run: sudo -H pip3 install pytest pytest-cov pylint Sphinx
+      - run: sudo -H pip3 install pytest pytest-cov black flake8 Sphinx
       - checkout
       # format and lint
       - run: LC_ALL=C.UTF-8 black --check maelstrom/ examples/*.py test/*.py
