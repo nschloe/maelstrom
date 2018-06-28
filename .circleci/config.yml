@@ -4,7 +4,7 @@ jobs:
   build:
     working_directory: ~/maelstrom
     docker:
-      - image: quay.io/fenicsproject/stable:2017.2.0.r4
+      - image: quay.io/fenicsproject/stable:2018.1.0.r1
         user: fenics
         environment:
           LD_LIBRARY_PATH: /home/fenics/local/lib
