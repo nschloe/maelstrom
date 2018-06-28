@@ -387,7 +387,7 @@ def generate(verbose=False):
     else:
         out = pygmsh.generate_mesh(_define(), verbose=verbose)
         points, cells, point_data, cell_data, _ = out
-        meshio.write(
+        meshio.write_points_cells(
             cache_file, points, cells, point_data=point_data, cell_data=cell_data
         )
     return out
@@ -395,7 +395,7 @@ def generate(verbose=False):
 
 if __name__ == "__main__":
     points, cells, point_data, cell_data, _ = generate()
-    meshio.write(
+    meshio.write_points_cells(
         "out.vtu",
         points,
         cells,

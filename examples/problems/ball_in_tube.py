@@ -23,7 +23,7 @@ class Ball_in_tube(object):
         #     )
         with TemporaryDirectory() as temp_dir:
             tmp_filename = os.path.join(temp_dir, "test.xml")
-            meshio.write(
+            meshio.write_points_cells(
                 tmp_filename,
                 points,
                 cells,

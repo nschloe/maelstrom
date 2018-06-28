@@ -55,6 +55,6 @@ if __name__ == "__main__":
     import meshio
 
     points, cells, point_data, cell_data, _ = generate()
-    meshio.write(
+    meshio.write_points_cells(
         "ball-in-tube.vtu", points, cells, point_data=point_data, cell_data=cell_data
     )
