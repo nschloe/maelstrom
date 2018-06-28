@@ -1,25 +1,33 @@
 # -*- coding: utf-8 -*-
 #
-from dolfin import (
-    Function, as_vector, FunctionSpace, MixedElement, info, errornorm
-    )
+from dolfin import Function, as_vector, FunctionSpace, MixedElement, info, errornorm
 
 from . import heat
 from . import stokes
 
 
-def solve_fixed_point(mesh,
-                      W_element, P_element, Q_element,
-                      theta0,
-                      kappa, rho, mu, cp,
-                      g, extra_force,
-                      heat_source,
-                      u_bcs, p_bcs,
-                      theta_dirichlet_bcs,
-                      theta_neumann_bcs,
-                      my_dx, my_ds,
-                      max_iter,
-                      tol):
+def solve_fixed_point(
+    mesh,
+    W_element,
+    P_element,
+    Q_element,
+    theta0,
+    kappa,
+    rho,
+    mu,
+    cp,
+    g,
+    extra_force,
+    heat_source,
+    u_bcs,
+    p_bcs,
+    theta_dirichlet_bcs,
+    theta_neumann_bcs,
+    my_dx,
+    my_ds,
+    max_iter,
+    tol,
+):
     # Solve the coupled heat-Stokes equation approximately. Do this
     # iteratively by solving the heat equation, then solving Stokes with the
     # updated heat, the heat equation with the updated velocity and so forth
@@ -42,8 +50,8 @@ def solve_fixed_point(mesh,
             dirichlet_bcs=theta_dirichlet_bcs,
             neumann_bcs=theta_neumann_bcs,
             my_dx=my_dx,
-            my_ds=my_ds
-            )
+            my_ds=my_ds,
+        )
 
         theta1.assign(heat_problem.solve_stationary())
 
@@ -52,25 +60,19 @@ def solve_fixed_point(mesh,
         if extra_force:
             f += as_vector((extra_force[0], extra_force[1], 0.0))
         # up1 = up0.copy()
-        stokes.stokes_solve(
-            up0,
-            mu,
-            u_bcs, p_bcs,
-            f,
-            my_dx=my_dx
-            )
+        stokes.stokes_solve(up0, mu, u_bcs, p_bcs, f, my_dx=my_dx)
 
         # from dolfin import plot
         # plot(u0)
         # plot(theta0)
 
         theta_diff = errornorm(theta0, theta1)
-        info('||theta - theta0|| = {:e}'.format(theta_diff))
+        info("||theta - theta0|| = {:e}".format(theta_diff))
         # info('||u - u0||         = {:e}'.format(u_diff))
         # info('||p - p0||         = {:e}'.format(p_diff))
         # diff = theta_diff + u_diff + p_diff
         diff = theta_diff
-        info('sum = {:e}'.format(diff))
+        info("sum = {:e}".format(diff))
 
         # # Show the iterates.
         # plot(theta0, title='theta0')

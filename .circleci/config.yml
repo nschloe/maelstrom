@@ -4,6 +4,7 @@ jobs:
   build:
     working_directory: ~/maelstrom
     docker:
+      # - image: quay.io/fenicsproject/stable:2018.1.0.r1
       - image: quay.io/fenicsproject/stable:2017.2.0.r4
         user: fenics
         environment:
@@ -13,10 +14,13 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y git gmsh
       - run: sudo apt remove -y python3-pytest
-      - run: sudo -H pip3 install pytest pytest-cov pylint Sphinx
+      # Can't use black yet as it requires Python 3.6. The FEniCS images are built upon
+      # Ubuntu 16.04 though with Python 3.5
+      - run: sudo -H pip3 install pytest pytest-cov flake8 Sphinx
       - checkout
-      # lint
-      - run: pylint maelstrom/ examples/*.py test/*.py
+      # format and lint
+      # - run: LC_ALL=C.UTF-8 black --check maelstrom/ examples/*.py test/*.py
+      - run: flake8 maelstrom/ examples/*.py test/*.py
       # check if documentation builds
       - run: sudo -H pip3 install -r doc/requirements.txt
       - run: cd doc && PYTHONPATH=~/maelstrom/:$PYTHONPATH make html

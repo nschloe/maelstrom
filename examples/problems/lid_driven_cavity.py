@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
 #
 from dolfin import (
-    UnitSquareMesh, SubDomain, FunctionSpace, DirichletBC, Constant,
-    FiniteElement, DOLFIN_EPS
-    )
+    UnitSquareMesh,
+    SubDomain,
+    FunctionSpace,
+    DirichletBC,
+    Constant,
+    FiniteElement,
+    DOLFIN_EPS,
+)
 
 
 class Lid_driven_cavity(object):
     def __init__(self):
         n = 40
-        self.mesh = UnitSquareMesh(n, n, 'crossed')
+        self.mesh = UnitSquareMesh(n, n, "crossed")
 
         # Define mesh and boundaries.
         class LeftBoundary(SubDomain):
@@ -18,7 +23,7 @@ class Lid_driven_cavity(object):
 
         class RightBoundary(SubDomain):
             def inside(self, x, on_boundary):
-                return on_boundary and x[0] > 1.0-DOLFIN_EPS
+                return on_boundary and x[0] > 1.0 - DOLFIN_EPS
 
         class LowerBoundary(SubDomain):
             def inside(self, x, on_boundary):
@@ -26,12 +31,16 @@ class Lid_driven_cavity(object):
 
         class UpperBoundary(SubDomain):
             def inside(self, x, on_boundary):
-                return on_boundary and x[1] > 1.0-DOLFIN_EPS
+                return on_boundary and x[1] > 1.0 - DOLFIN_EPS
 
         class RestrictedUpperBoundary(SubDomain):
             def inside(self, x, on_boundary):
-                return on_boundary and x[1] > 1.0-DOLFIN_EPS \
-                    and DOLFIN_EPS < x[0] and x[0] < 0.5-DOLFIN_EPS
+                return (
+                    on_boundary
+                    and x[1] > 1.0 - DOLFIN_EPS
+                    and DOLFIN_EPS < x[0]
+                    and x[0] < 0.5 - DOLFIN_EPS
+                )
 
         left = LeftBoundary()
         right = RightBoundary()
@@ -54,7 +63,7 @@ class Lid_driven_cavity(object):
         # the lid.  Since u is L2-"continuous", the lid condition on u_x must
         # not be enforced in the corner points. The u_y component must be
         # enforced all over the lid, including the end points.
-        V_element = FiniteElement('CG', self.mesh.ufl_cell(), 2)
+        V_element = FiniteElement("CG", self.mesh.ufl_cell(), 2)
         self.W = FunctionSpace(self.mesh, V_element * V_element)
 
         self.u_bcs = [
@@ -62,7 +71,7 @@ class Lid_driven_cavity(object):
             DirichletBC(self.W, (0.0, 0.0), right),
             # DirichletBC(self.W.sub(0), Expression('x[0]'), restricted_upper),
             DirichletBC(self.W, (0.0, 0.0), lower),
-            DirichletBC(self.W.sub(0), Constant('1.0'), upper),
+            DirichletBC(self.W.sub(0), Constant("1.0"), upper),
             DirichletBC(self.W.sub(1), 0.0, upper),
             # DirichletBC(self.W.sub(0), Constant('-1.0'), lower),
             # DirichletBC(self.W.sub(1), 0.0, lower),
@@ -70,7 +79,7 @@ class Lid_driven_cavity(object):
             # DirichletBC(self.W.sub(0), 0.0, left),
             # DirichletBC(self.W.sub(1), Constant('-1.0'), right),
             # DirichletBC(self.W.sub(0), 0.0, right),
-            ]
-        self.P = FunctionSpace(self.mesh, 'CG', 1)
+        ]
+        self.P = FunctionSpace(self.mesh, "CG", 1)
         self.p_bcs = []
         return

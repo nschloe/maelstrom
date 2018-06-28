@@ -33,9 +33,9 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     mu_graphite = mu0 * 0.999984
     # sigma: electrical conductivity
     T = 1511.0
-    sigma_graphite = (
-        1.0e6 / (28.9 - 18.8 * numpy.exp(-(numpy.log(T/1023.0)/2.37)**2))
-        )
+    sigma_graphite = 1.0e6 / (
+        28.9 - 18.8 * numpy.exp(-(numpy.log(T / 1023.0) / 2.37) ** 2)
+    )
 
     # It exhibits layers where \phi behaves like exp(-x/eps). This also
     # corresponds with the skin effect
@@ -43,27 +43,25 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     #
     #     \delta = \sqrt{2/(mu*sigma*omega)}.
     #
-    w_b0 = numpy.sqrt(2.0/(mu_graphite*sigma_graphite*omega))
+    w_b0 = numpy.sqrt(2.0 / (mu_graphite * sigma_graphite * omega))
     # Fit 2*k elements normal into the boundary layer.
     k = 50
-    lcar_b = min(lcar_coil, w_b0/k)
+    lcar_b = min(lcar_coil, w_b0 / k)
 
-    print('lcar_coil: {:f}'.format(lcar_coil))
-    print('lcar boundary: {:f}'.format(lcar_b))
-    print('Coil boundary layer width: {:f}'.format(w_b0))
+    print("lcar_coil: {:f}".format(lcar_coil))
+    print("lcar boundary: {:f}".format(lcar_b))
+    print("Coil boundary layer width: {:f}".format(w_b0))
 
     # Coils to the right.
     step = 0.0132
-    coils_right = numpy.array([
-        [0.092, 0.107, 0.2792 + k*step, 0.2892 + k*step]
-        for k in range(15)
-        ])
+    coils_right = numpy.array(
+        [[0.092, 0.107, 0.2792 + k * step, 0.2892 + k * step] for k in range(15)]
+    )
     # coils at the bottom
     step = 0.008
-    coils_bottom = numpy.array([
-        [0.031 + k*step, 0.036 + k*step, 0.33, 0.354]
-        for k in range(7)
-        ])
+    coils_bottom = numpy.array(
+        [[0.031 + k * step, 0.036 + k * step, 0.33, 0.354] for k in range(7)]
+    )
 
     coils = numpy.vstack([coils_right, coils_bottom])
 
@@ -74,16 +72,16 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
         xmin, xmax, ymin, ymax = data
         rect = geom.add_rectangle(xmin, xmax, ymin, ymax, z, lcar_coil)
         line_loops.append(rect.line_loop)
-        geom.add_physical_surface(rect.surface, 'coil {}'.format(k))
+        geom.add_physical_surface(rect.surface, "coil {}".format(k))
         # Refinement around the boundaries.
         b_id = geom.add_boundary_layer(
-           edges_list=rect.line_loop.lines,
-           anisomax=100.0,
-           hfar=lcar_far,
-           hwall_n=lcar_b,
-           ratio=1.1,
-           thickness=w_b0
-           )
+            edges_list=rect.line_loop.lines,
+            anisomax=100.0,
+            hfar=lcar_far,
+            hwall_n=lcar_b,
+            ratio=1.1,
+            thickness=w_b0,
+        )
         fields.append(b_id)
 
     return line_loops, fields
@@ -98,7 +96,7 @@ def _define():
     z = 0.0
 
     lcar_base = 1.0e-2
-    lcar_far = 10*lcar_base
+    lcar_far = 10 * lcar_base
     lcar_coil = lcar_base
     lcar_gas = 4 * lcar_base
     lcar_crucible = 1.0e-1
@@ -141,12 +139,11 @@ def _define():
     # Outer ellipse.
     # B-Spline.
     tp1 = geom.add_point([x0, crucible_bottom, z], lcar_crucible)
-    tp2 = geom.add_point([crucible_radius, y0+0.005, z], lcar_crucible)
+    tp2 = geom.add_point([crucible_radius, y0 + 0.005, z], lcar_crucible)
     tp2_spline0 = geom.add_point([0.02, crucible_bottom, z], lcar_crucible)
     tp2_spline1 = geom.add_point(
-            [crucible_radius, crucible_bottom+0.005, z],
-            lcar_crucible
-            )
+        [crucible_radius, crucible_bottom + 0.005, z], lcar_crucible
+    )
     tc1 = geom.add_bspline([tp1, tp2_spline0, tp2_spline1, tp2])
 
     # Inner ellipse
@@ -185,17 +182,14 @@ def _define():
     # Extend and close.
     tp5 = geom.add_point([crucible_radius, crucible_top, z], lcar_crucible)
     tp6 = geom.add_point(
-        [crucible_radius - crucible_wall_width, crucible_top, z],
-        lcar_crucible
-        )
+        [crucible_radius - crucible_wall_width, crucible_top, z], lcar_crucible
+    )
     tp7 = geom.add_point(
-            [crucible_radius - crucible_wall_width, melt_level, z],
-            lcar_crucible
-            )
+        [crucible_radius - crucible_wall_width, melt_level, z], lcar_crucible
+    )
     tp71 = geom.add_point(
-            [crucible_radius - crucible_wall_width, gas_level, z],
-            lcar_crucible
-            )
+        [crucible_radius - crucible_wall_width, gas_level, z], lcar_crucible
+    )
 
     cl1 = geom.add_line(tp2, tp5)
     cl2 = geom.add_line(tp5, tp6)
@@ -205,18 +199,32 @@ def _define():
     cl5 = geom.add_line(tp1, inner_crucible_start)
 
     # Define crucible surface.
-    ll1 = geom.add_line_loop([
-            tc1, cl1, cl2, cl3, cl31, cl4,
+    ll1 = geom.add_line_loop(
+        [
+            tc1,
+            cl1,
+            cl2,
+            cl3,
+            cl31,
+            cl4,
             # -tc2,
-            -cl111, -cl110, -cl109, -cl108,
-            -cl107, -cl106, -cl105,
-            -cl104, -cl103,
-            -cl102, -cl101,
+            -cl111,
+            -cl110,
+            -cl109,
+            -cl108,
+            -cl107,
+            -cl106,
+            -cl105,
+            -cl104,
+            -cl103,
+            -cl102,
+            -cl101,
             -cl100,
-            -cl5
-            ])
+            -cl5,
+        ]
+    )
     surf = geom.add_plane_surface(ll1)
-    geom.add_physical_surface(surf, 'crucible')
+    geom.add_physical_surface(surf, "crucible")
 
     # gas above the melt
     x2 = 0.038
@@ -229,13 +237,13 @@ def _define():
     ll2 = geom.add_line_loop([cl6, cl7, cl8, -cl31])
     #
     boron = geom.add_plane_surface(ll2)
-    geom.add_physical_surface(boron, 'gas')
+    geom.add_physical_surface(boron, "gas")
 
     # the crystal
     tp10 = geom.add_point([x0, melt_level, z], lcar_gas)
     tp11 = geom.add_point([x0, crucible_top, z], lcar_gas)
-    tp11a = geom.add_point([x0+0.01, crucible_top, z], lcar_gas)
-    tp11b = geom.add_point([x0+0.01, gas_level+0.025, z], lcar_gas)
+    tp11a = geom.add_point([x0 + 0.01, crucible_top, z], lcar_gas)
+    tp11b = geom.add_point([x0 + 0.01, gas_level + 0.025, z], lcar_gas)
     #
     cl9 = geom.add_line(tp9, tp11b)
     cl9a = geom.add_line(tp11b, tp11a)
@@ -246,19 +254,33 @@ def _define():
     ll3 = geom.add_line_loop([cl9, cl9a, cl9b, cl10, cl11, -cl7])
     #
     surf = geom.add_plane_surface(ll3)
-    geom.add_physical_surface(surf, 'crystal')
+    geom.add_physical_surface(surf, "crystal")
 
     # the melt
     cl12 = geom.add_line(tp10, inner_crucible_start)
-    ll4 = geom.add_line_loop([
-        cl12,
-        # tc2,
-        cl100, cl101, cl102, cl103, cl104, cl105, cl106, cl107,
-        cl108, cl109, cl110, cl111,
-        -cl4, -cl8, -cl11
-        ])
+    ll4 = geom.add_line_loop(
+        [
+            cl12,
+            # tc2,
+            cl100,
+            cl101,
+            cl102,
+            cl103,
+            cl104,
+            cl105,
+            cl106,
+            cl107,
+            cl108,
+            cl109,
+            cl110,
+            cl111,
+            -cl4,
+            -cl8,
+            -cl11,
+        ]
+    )
     surf = geom.add_plane_surface(ll4)
-    geom.add_physical_surface(surf, 'melt')
+    geom.add_physical_surface(surf, "melt")
 
     # Refinement around the boundaries.
     # The boundary width of the melt is determined by diffusion coefficients of
@@ -272,37 +294,49 @@ def _define():
     # cp_gaas = 0.434e3
     reynolds = 6.197e3
     prandtl = 0.068
-    mu_gaas = mu0*(1.0 - 0.85e-10)
+    mu_gaas = mu0 * (1.0 - 0.85e-10)
     sigma_gaas = 7.9e5
     # kappa_gaas = 17.8
     # Boundary layer widths
-    w_maxwell = numpy.sqrt(2.0 / (mu_gaas*sigma_gaas*omega))
-    w_heat = numpy.sqrt(1.0 / (reynolds*prandtl))
+    w_maxwell = numpy.sqrt(2.0 / (mu_gaas * sigma_gaas * omega))
+    w_heat = numpy.sqrt(1.0 / (reynolds * prandtl))
     w_navier = numpy.sqrt(1.0 / reynolds)
-    print('Melt boundary layer widths:')
-    print('    Maxwell: {}'.format(w_maxwell))
-    print('    heat eq: {}'.format(w_heat))
-    print('    Navier:  {}'.format(w_navier))
+    print("Melt boundary layer widths:")
+    print("    Maxwell: {}".format(w_maxwell))
+    print("    heat eq: {}".format(w_heat))
+    print("    Navier:  {}".format(w_navier))
 
     w_b0 = min([w_maxwell, w_heat, w_navier])
 
     # Fit 2*k elements normal into the boundary layer.
     k = 10
-    lcar_b = min(lcar_crucible, w_b0/k)
+    lcar_b = min(lcar_crucible, w_b0 / k)
 
     b_id = geom.add_boundary_layer(
-       edges_list=[
-           cl100, cl101, cl102, cl103, cl104, cl105, cl106,
-           cl107, cl108, cl109, cl110, cl111,
-           # tc2,
-           cl4, cl8, cl11
-           ],
-       anisomax=100.0,
-       hfar=lcar_far,
-       hwall_n=lcar_b,
-       ratio=1.1,
-       thickness=w_b0
-       )
+        edges_list=[
+            cl100,
+            cl101,
+            cl102,
+            cl103,
+            cl104,
+            cl105,
+            cl106,
+            cl107,
+            cl108,
+            cl109,
+            cl110,
+            cl111,
+            # tc2,
+            cl4,
+            cl8,
+            cl11,
+        ],
+        anisomax=100.0,
+        hfar=lcar_far,
+        hwall_n=lcar_b,
+        ratio=1.1,
+        thickness=w_b0,
+    )
     fields.append(b_id)
 
     coil_ll, coil_fields = _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far)
@@ -313,9 +347,9 @@ def _define():
     r = 1.0
     # Draw first quarter-circle.
     tp20 = geom.add_point([x0, y0, z], lcar_far)
-    tp21 = geom.add_point([x0, y0-r, z], lcar_far)
-    tp22 = geom.add_point([x0+r, y0, z], lcar_far)
-    tp23 = geom.add_point([x0, y0+r, z], lcar_far)
+    tp21 = geom.add_point([x0, y0 - r, z], lcar_far)
+    tp22 = geom.add_point([x0 + r, y0, z], lcar_far)
+    tp23 = geom.add_point([x0, y0 + r, z], lcar_far)
 
     # Build circle from arcs.
     cc1 = geom.add_circle_arc(tp21, tp20, tp22)
@@ -325,62 +359,48 @@ def _define():
     cl20 = geom.add_line(tp1, tp21)
     cl24 = geom.add_line(tp23, tp11)
 
-    ll = geom.add_line_loop([
-        cl20,
-        cc1,
-        cc2,
-        cl24,
-        -cl9b,
-        -cl9a,
-        -cl9,
-        -cl6,
-        -cl3,
-        -cl2,
-        -cl1,
-        -tc1,
-        ])
+    ll = geom.add_line_loop(
+        [cl20, cc1, cc2, cl24, -cl9b, -cl9a, -cl9, -cl6, -cl3, -cl2, -cl1, -tc1]
+    )
 
     pl = geom.add_plane_surface(ll, holes=line_loops)
-    geom.add_physical_surface(pl, 'air')
+    geom.add_physical_surface(pl, "air")
 
     # Finally, let's use the minimum of all the fields as the background mesh
     # field.
-    geom.add_background_field(fields, 'Min')
+    geom.add_background_field(fields, "Min")
 
-    geom.add_raw_code('Mesh.CharacteristicLengthExtendFromBoundary = 0;')
+    geom.add_raw_code("Mesh.CharacteristicLengthExtendFromBoundary = 0;")
 
     # Decrease the precision of 1D integration. If set to default, mesh
     # generation may take very long.
-    geom.add_raw_code('Mesh.LcIntegrationPrecision = 1.0e-3;')
+    geom.add_raw_code("Mesh.LcIntegrationPrecision = 1.0e-3;")
 
     return geom
 
 
 def generate(verbose=False):
-    cache_file = 'cruc_cache.msh'
+    cache_file = "cruc_cache.msh"
     if os.path.isfile(cache_file):
-        print('Using mesh from cache \'{}\'.'.format(cache_file))
-        out = meshio.read(cache_file)
+        print("Using mesh from cache '{}'.".format(cache_file))
+        mesh = meshio.read(cache_file)
+        out = mesh.points, mesh.cells, mesh.point_data, mesh.cell_data, mesh.field_data
     else:
         out = pygmsh.generate_mesh(_define(), verbose=verbose)
         points, cells, point_data, cell_data, _ = out
-        meshio.write(
-                cache_file,
-                points,
-                cells,
-                point_data=point_data,
-                cell_data=cell_data
-                )
+        meshio.write_points_cells(
+            cache_file, points, cells, point_data=point_data, cell_data=cell_data
+        )
     return out
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     points, cells, point_data, cell_data, _ = generate()
-    meshio.write(
-            'out.vtu',
-            points,
-            cells,
-            point_data=point_data,
-            cell_data=cell_data,
-            verbose=True
-            )
+    meshio.write_points_cells(
+        "out.vtu",
+        points,
+        cells,
+        point_data=point_data,
+        cell_data=cell_data,
+        verbose=True,
+    )

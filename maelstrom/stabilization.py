@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
 #
-'''
+"""
 Stabilization techniques for PDEs with dominating convection.
 The classical article about SUPG is :cite:`brooks`; for an overview
 of methods, see :cite:`sold1`, :cite:`sold2`, and :cite:`bgs2004`.
-'''
-from dolfin import (
-    Expression
-    )
+"""
+from dolfin import Expression
 
 
 def supg(mesh, convection, diffusion, element_degree):
-    '''For each cell, this function return the expression
+    """For each cell, this function return the expression
 
     ..math::
 
@@ -34,8 +32,8 @@ def supg(mesh, convection, diffusion, element_degree):
 
     for :math:`Pe\\approx 0`. This Taylor expansion (with a few more terms) is
     made use of in the code.
-    '''
-    cppcode = '''#include <dolfin/mesh/Vertex.h>
+    """
+    cppcode = """#include <dolfin/mesh/Vertex.h>
 
 class SupgStab : public Expression {
 public:
@@ -134,7 +132,7 @@ void eval(
   return;
 }
 };
-'''
+"""
     # TODO set degree
     tau = Expression(cppcode, degree=5)
     tau.convection = convection

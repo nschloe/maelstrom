@@ -10,9 +10,10 @@ tag:
 	git tag v$(VERSION)
 	git push --tags
 
-lint:
-	pylint maelstrom/ examples/*.py test/*.py
-
 clean:
 	@find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
 	@rm -rf *.egg-info/ build/ dist/
+
+lint:
+	black --check maelstrom/ examples/*.py test/*.py
+	flake8 maelstrom/ examples/*.py test/*.py

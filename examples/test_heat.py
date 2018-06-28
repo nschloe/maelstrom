@@ -3,9 +3,7 @@
 #
 from __future__ import print_function
 
-from dolfin import (
-    plot, dx, Constant, Measure, Function, project, XDMFFile
-    )
+from dolfin import plot, dx, Constant, Measure, Function, project, XDMFFile
 import matplotlib.pyplot as plt
 import numpy
 
@@ -17,13 +15,14 @@ import parabolic
 
 
 def _parameter_quest():
-    '''Find parameter sets fitting crucible data.
-    '''
+    """Find parameter sets fitting crucible data.
+    """
 
     # Create the set of parameter values to search.
-    flux0 = [500.0*k for k in range(11)]
-    flux1 = [500.0*k for k in range(11)]
+    flux0 = [500.0 * k for k in range(11)]
+    flux1 = [500.0 * k for k in range(11)]
     from itertools import product
+
     search_space = product(flux0, flux1)
 
     control_values = [
@@ -34,8 +33,8 @@ def _parameter_quest():
         # top middle
         ((0.038, 0.411), 1511.0),
         # top right
-        ((0.076, 0.411), 1540.0)
-        ]
+        ((0.076, 0.411), 1540.0),
+    ]
     tol = 20.0
 
     first = True
@@ -44,29 +43,29 @@ def _parameter_quest():
     for p in search_space:
         print(p)
         # for boundary conditions
-        flux = {
-            'upper': p[0],
-            'crucible': p[1]
-            }
+        flux = {"upper": p[0], "crucible": p[1]}
 
         theta = test_stationary_solve(flux)
 
         # Check if temperature values match with crucible blueprint.
         dev = numpy.array([theta(c[0]) - c[1] for c in control_values])
-        print('Deviations from control temperatures:')
+        print("Deviations from control temperatures:")
         print(dev)
         dev_norm = numpy.linalg.norm(dev)
         if not best_match or dev_norm < best_match_norm:
-            print('New best match! {} (||dev|| = {:e})'.format(p, dev_norm))
+            print("New best match! {} (||dev|| = {:e})".format(p, dev_norm))
             best_match = p
             best_match_norm = dev_norm
 
         if all(abs(dev) < tol):
-            print('Success! {}'.format(p))
-            print('Temperature at control points (with reference values):')
+            print("Success! {}".format(p))
+            print("Temperature at control points (with reference values):")
             for c in control_values:
-                print('({:e}, {:e}):  {:e}   ({:e})'.format(
-                    c[0][0], c[0][1], theta(c[0]), c[1]))
+                print(
+                    "({:e}, {:e}):  {:e}   ({:e})".format(
+                        c[0][0], c[0][1], theta(c[0]), c[1]
+                    )
+                )
         print()
 
         if first:
@@ -91,22 +90,24 @@ def test_stationary_solve(show=False):
     cp = material.specific_heat_capacity
     kappa = material.thermal_conductivity
 
-    my_ds = Measure('ds')(subdomain_data=boundaries)
+    my_ds = Measure("ds")(subdomain_data=boundaries)
 
     convection = None
     heat = maelstrom.heat.Heat(
         problem.Q,
-        kappa, rho, cp,
+        kappa,
+        rho,
+        cp,
         convection,
         source=Constant(0.0),
         dirichlet_bcs=problem.theta_bcs_d,
         neumann_bcs=problem.theta_bcs_n,
         robin_bcs=problem.theta_bcs_r,
         my_dx=dx,
-        my_ds=my_ds
-        )
+        my_ds=my_ds,
+    )
     theta_reference = heat.solve_stationary()
-    theta_reference.rename('theta', 'temperature')
+    theta_reference.rename("theta", "temperature")
 
     if show:
         # with XDMFFile('temperature.xdmf') as f:
@@ -117,9 +118,7 @@ def test_stationary_solve(show=False):
         plt.colorbar(tri)
         plt.show()
 
-    assert abs(
-        maelstrom.helpers.average(theta_reference) - 1551.0
-        ) < 1.0e-1
+    assert abs(maelstrom.helpers.average(theta_reference) - 1551.0) < 1.0e-1
 
     return theta_reference
 
@@ -139,21 +138,23 @@ def test_time_step():
     cp = material.specific_heat_capacity
     kappa = material.thermal_conductivity
 
-    my_ds = Measure('ds')(subdomain_data=boundaries)
+    my_ds = Measure("ds")(subdomain_data=boundaries)
 
     # from dolfin import DirichletBC
     convection = None
     heat = maelstrom.heat.Heat(
         problem.Q,
-        kappa, rho, cp,
+        kappa,
+        rho,
+        cp,
         convection,
         source=Constant(0.0),
         dirichlet_bcs=problem.theta_bcs_d,
         neumann_bcs=problem.theta_bcs_n,
         robin_bcs=problem.theta_bcs_r,
         my_dx=dx,
-        my_ds=my_ds
-        )
+        my_ds=my_ds,
+    )
 
     # create time stepper
     # stepper = parabolic.ExplicitEuler(heat)
@@ -162,7 +163,7 @@ def test_time_step():
 
     theta0 = project(Constant(average_temp), problem.Q)
     # theta0 = heat.solve_stationary()
-    theta0.rename('theta0', 'temperature')
+    theta0.rename("theta0", "temperature")
 
     theta1 = Function(problem.Q)
     theta1 = Function(problem.Q)
@@ -171,9 +172,9 @@ def test_time_step():
     dt = 1.0e-3
     end_time = 10 * dt
 
-    with XDMFFile('temperature.xdmf') as f:
-        f.parameters['flush_output'] = True
-        f.parameters['rewrite_function_mesh'] = False
+    with XDMFFile("temperature.xdmf") as f:
+        f.parameters["flush_output"] = True
+        f.parameters["rewrite_function_mesh"] = False
 
         f.write(theta0, t)
         while t < end_time:
@@ -183,14 +184,12 @@ def test_time_step():
             #
             f.write(theta0, t)
 
-    assert abs(
-        maelstrom.helpers.average(theta0) - 1519.81
-        ) < 1.0e-2
+    assert abs(maelstrom.helpers.average(theta0) - 1519.81) < 1.0e-2
 
     return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # # for boundary conditions
     # heat_transfer_coefficient = {
     #         'upper': 50.0,

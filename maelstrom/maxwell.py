@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-'''
+"""
 .. math::
     \\DeclareMathOperator{\\div}{div}
     \\DeclareMathOperator{\\curl}{curl}
@@ -72,25 +72,42 @@ Here with no convection in direction :math:`\\theta`:
      + \\langle b, \\nabla(r u)\\rangle 2\\pi v
      + \\text{i} \\sigma \\omega u 2 \\pi r v
    = \\int_\\Omega \\sigma v_k v.
-'''
+"""
 from dolfin import (
-    info, DOLFIN_EPS, DirichletBC, Function, KrylovSolver, dot, grad, pi,
-    TrialFunctions, TestFunctions, assemble, Constant, project, FunctionSpace,
-    SpatialCoordinate, mpi_comm_world
-    )
+    info,
+    DOLFIN_EPS,
+    DirichletBC,
+    Function,
+    KrylovSolver,
+    dot,
+    grad,
+    pi,
+    TrialFunctions,
+    TestFunctions,
+    assemble,
+    Constant,
+    project,
+    FunctionSpace,
+    SpatialCoordinate,
+    mpi_comm_world,
+)
 import numpy
 
 
-def solve(V, dx,
-          Mu, Sigma,  # dictionaries
-          omega,
-          f_list,  # list of dictionaries
-          convections,  # dictionary
-          f_degree=None,
-          bcs=None,
-          tol=1.0e-12,
-          verbose=False):
-    '''Solve the complex-valued time-harmonic Maxwell system in 2D cylindrical
+def solve(
+    V,
+    dx,
+    Mu,
+    Sigma,  # dictionaries
+    omega,
+    f_list,  # list of dictionaries
+    convections,  # dictionary
+    f_degree=None,
+    bcs=None,
+    tol=1.0e-12,
+    verbose=False,
+):
+    """Solve the complex-valued time-harmonic Maxwell system in 2D cylindrical
     coordinates
 
     .. math::
@@ -129,7 +146,7 @@ def solve(V, dx,
     :type verbose: boolean
 
     :rtype: list of functions
-    '''
+    """
     # For the exact solution of the magnetic scalar potential, see
     # <http://www.physics.udel.edu/~jim/PHYS809_10F/Class_Notes/Class_26.pdf>.
     # Here, the value of \\phi along the rotational axis is specified as
@@ -163,6 +180,7 @@ def solve(V, dx,
         #
         def xzero(x, on_boundary):
             return on_boundary and abs(x[0]) < DOLFIN_EPS
+
         ee = V.ufl_element() * V.ufl_element()
         VV = FunctionSpace(V.mesh(), ee)
         bcs = DirichletBC(VV, (0.0, 0.0), xzero)
@@ -224,20 +242,14 @@ def solve(V, dx,
     # For more details, see documentation in build_system().
     #
     A, P, b_list, _, W = build_system(
-        V, dx,
-        Mu, Sigma,
-        omega,
-        f_list,
-        f_degree,
-        convections,
-        bcs
-        )
+        V, dx, Mu, Sigma, omega, f_list, f_degree, convections, bcs
+    )
 
     # prepare solver
     # Don't use 'amg', since that defaults to `ml_amg` if available which
     # crashes
     # <https://bitbucket.org/fenics-project/docker/issues/61/petsc-vectorfunctionspace-amg-malloc>.
-    solver = KrylovSolver('gmres', 'hypre_amg')
+    solver = KrylovSolver("gmres", "hypre_amg")
     solver.set_operators(A, P)
 
     # The PDE for A has huge coefficients (order 10^8) all over. Hence, if
@@ -245,29 +257,23 @@ def solve(V, dx,
     # the order 10^2. While this isn't too bad (after all the equations are
     # upscaled by a large factor), one can choose a very small relative
     # tolerance here to get a visually pleasing residual norm.
-    solver.parameters['relative_tolerance'] = tol
-    solver.parameters['absolute_tolerance'] = 0.0
-    solver.parameters['maximum_iterations'] = 100
-    solver.parameters['report'] = verbose
-    solver.parameters['monitor_convergence'] = verbose
+    solver.parameters["relative_tolerance"] = tol
+    solver.parameters["absolute_tolerance"] = 0.0
+    solver.parameters["maximum_iterations"] = 100
+    solver.parameters["report"] = verbose
+    solver.parameters["monitor_convergence"] = verbose
 
     phi_list = []
     for k, b in enumerate(b_list):
         phi_list.append(Function(W))
-        phi_list[-1].rename('phi{}'.format(k), 'phi{}'.format(k))
+        phi_list[-1].rename("phi{}".format(k), "phi{}".format(k))
         solver.solve(phi_list[-1].vector(), b)
 
     return phi_list
 
 
-def build_system(V, dx,
-                 Mu, Sigma,
-                 omega,
-                 f_list,
-                 f_degree,
-                 convections,
-                 bcs):
-    '''Build FEM system for
+def build_system(V, dx, Mu, Sigma, omega, f_list, f_degree, convections, bcs):
+    """Build FEM system for
 
     .. math::
          \\div\\left(\\frac{1}{\\mu r} \\nabla(r\\phi)\\right)
@@ -277,7 +283,7 @@ def build_system(V, dx,
 
     by multiplying with :math:`2\\pi r v` and integrating over the domain and
     the preconditioner given by :cite:`KL2012`.
-    '''
+    """
     r = SpatialCoordinate(V.mesh())[0]
 
     subdomain_indices = Mu.keys()
@@ -292,15 +298,11 @@ def build_system(V, dx,
     # build right-hand sides
     b_list = []
     for f in f_list:
-        L = (
-            + Constant(0.0) * vr * dx(0)
-            + Constant(0.0) * vi * dx(0)
-            )
+        L = +Constant(0.0) * vr * dx(0) + Constant(0.0) * vi * dx(0)
         for i, fval in f.items():
-            L += (
-                + fval[0] * vr * 2*pi*r * dx(i, degree=f_degree)
-                + fval[1] * vi * 2*pi*r * dx(i, degree=f_degree)
-                )
+            L += +fval[0] * vr * 2 * pi * r * dx(i, degree=f_degree) + fval[
+                1
+            ] * vi * 2 * pi * r * dx(i, degree=f_degree)
         b_list.append(assemble(L))
 
     # div(1/(mu r) grad(r phi)) + i sigma omega phi
@@ -322,14 +324,12 @@ def build_system(V, dx,
         # functions u. This is guaranteed when taking Dirichlet boundary
         # conditions at r=0.
         sigma = Constant(Sigma[i])
-        a1 += (
-            + 1.0 / (Mu[i] * r) * dot(grad(r * ur), grad(r * vr)) * 2*pi*dx(i)
-            + 1.0 / (Mu[i] * r) * dot(grad(r * ui), grad(r * vi)) * 2*pi*dx(i)
-            )
-        a2 += (
-            - om * sigma * ui * vr * 2*pi*r * dx(i)
-            + om * sigma * ur * vi * 2*pi*r * dx(i)
-            )
+        a1 += +1.0 / (Mu[i] * r) * dot(grad(r * ur), grad(r * vr)) * 2 * pi * dx(
+            i
+        ) + 1.0 / (Mu[i] * r) * dot(grad(r * ui), grad(r * vi)) * 2 * pi * dx(i)
+        a2 += -om * sigma * ui * vr * 2 * pi * r * dx(
+            i
+        ) + om * sigma * ur * vi * 2 * pi * r * dx(i)
         # Don't do anything at the interior boundary. Taking the Poisson
         # problem as an example, the weak formulation is
         #
@@ -345,10 +345,9 @@ def build_system(V, dx,
     # Add the convective component for the workpiece,
     #   a += <u, 1/r grad(r phi)> *2*pi*r*dx
     for i, conv in convections.items():
-        a1 += (
-            + dot(conv, grad(r * ur)) * vr * 2 * pi * dx(i)
-            + dot(conv, grad(r * ui)) * vi * 2 * pi * dx(i)
-            )
+        a1 += +dot(conv, grad(r * ur)) * vr * 2 * pi * dx(i) + dot(
+            conv, grad(r * ui)
+        ) * vi * 2 * pi * dx(i)
 
     force_m_matrix = False
     if force_m_matrix:
@@ -356,9 +355,10 @@ def build_system(V, dx,
         A2 = assemble(
             a2,
             form_compiler_parameters={
-                'quadrature_rule': 'vertex',
-                'quadrature_degree': 1
-                })
+                "quadrature_rule": "vertex",
+                "quadrature_degree": 1,
+            },
+        )
         A = A1 + A2
     else:
         # Assembling the thing into one single object makes it possible to
@@ -388,14 +388,12 @@ def build_system(V, dx,
     p2 = Constant(0.0) * ur * vr * dx(0)
     # Diffusive terms.
     for i in subdomain_indices:
-        p1 += (
-            + 1.0 / (Mu[i]*r) * dot(grad(r*ur), grad(r*vr)) * 2 * pi * dx(i)
-            - 1.0 / (Mu[i]*r) * dot(grad(r*ui), grad(r*vi)) * 2 * pi * dx(i)
-            )
-        p2 += (
-            + om * Constant(Sigma[i]) * ur * vr * 2 * pi * r * dx(i)
-            - om * Constant(Sigma[i]) * ui * vi * 2 * pi * r * dx(i)
-            )
+        p1 += +1.0 / (Mu[i] * r) * dot(grad(r * ur), grad(r * vr)) * 2 * pi * dx(
+            i
+        ) - 1.0 / (Mu[i] * r) * dot(grad(r * ui), grad(r * vi)) * 2 * pi * dx(i)
+        p2 += +om * Constant(Sigma[i]) * ur * vr * 2 * pi * r * dx(i) - om * Constant(
+            Sigma[i]
+        ) * ui * vi * 2 * pi * r * dx(i)
     P = assemble(p1 + p2)
 
     # build mass matrix
@@ -404,10 +402,7 @@ def build_system(V, dx,
     #           ])
     mm = Constant(0.0) * ur * vr * dx(0)
     for i in subdomain_indices:
-        mm += (
-            + ur * vr * 2*pi*r * dx(i)
-            + ui * vi * 2*pi*r * dx(i)
-            )
+        mm += +ur * vr * 2 * pi * r * dx(i) + ui * vi * 2 * pi * r * dx(i)
     M = assemble(mm)
 
     # Apply boundary conditions.
@@ -438,9 +433,9 @@ def build_system(V, dx,
 
 
 def prescribe_voltage(A, b, coil_rings, voltage, v_ref, J):
-    '''Get the voltage coefficients :math:`c_l` with the total voltage
+    """Get the voltage coefficients :math:`c_l` with the total voltage
     prescribed.
-    '''
+    """
     # The currents must equal in all coil rings.
     for k in range(len(coil_rings) - 1):
         i = coil_rings[k]
@@ -495,13 +490,13 @@ def prescribe_voltage(A, b, coil_rings, voltage, v_ref, J):
 #     return A, b
 
 
-def compute_potential(coils, V, dx, mu, sigma, omega, convections,
-                      verbose=True,
-                      io_submesh=None):
-    '''Compute the magnetic potential :math:`\\Phi` with
+def compute_potential(
+    coils, V, dx, mu, sigma, omega, convections, verbose=True, io_submesh=None
+):
+    """Compute the magnetic potential :math:`\\Phi` with
     :math:`A = \\exp(\\text{i} \\omega t) \\Phi e_{\\theta}` for a number of
     coils.
-    '''
+    """
     # Index all coil rings consecutively, starting with 0.
     # This makes them easier to handle for the equation system.
     physical_indices = []
@@ -509,7 +504,7 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
     k = 0
     for coil in coils:
         new_coils.append([])
-        for coil_ring in coil['rings']:
+        for coil_ring in coil["rings"]:
             new_coils[-1].append(k)
             physical_indices.append(coil_ring)
             k += 1
@@ -527,48 +522,38 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
         f_list.append({k: (v_ref * sigma[k] / (2 * pi * r), Constant(0.0))})
     # Solve.
     phi_list = solve(
-        V, dx,
-        mu, sigma,
-        omega,
-        f_list,
-        convections,
-        tol=1.0e-12,
-        verbose=True
-        )
+        V, dx, mu, sigma, omega, f_list, convections, tol=1.0e-12, verbose=True
+    )
 
     # Write out these `phi`s to files.
     if io_submesh:
-        V_submesh = FunctionSpace(io_submesh, 'CG', 1)
+        V_submesh = FunctionSpace(io_submesh, "CG", 1)
         W_submesh = V_submesh * V_submesh
         from dolfin import interpolate, XDMFFile
+
         for k, phi in enumerate(phi_list):
             # Restrict to workpiece submesh.
             phi_out = interpolate(phi, W_submesh)
-            phi_out.rename('phi{:02d}'.format(k), 'phi{:02d}'.format(k))
+            phi_out.rename("phi{:02d}".format(k), "phi{:02d}".format(k))
             # Write to file
-            with XDMFFile(mpi_comm_world(), 'phi{:02d}.xdmf'.format(k)) as xdmf_file:
+            with XDMFFile(mpi_comm_world(), "phi{:02d}.xdmf".format(k)) as xdmf_file:
                 xdmf_file.write(phi_out)
             # plot(phi_out)
             # interactive()
 
     # Compute weights for the individual coils.
     # First get the voltage--coil-current mapping.
-    J = get_voltage_current_matrix(
-        phi_list, physical_indices, dx,
-        sigma,
-        omega,
-        v_ref
-        )
+    J = get_voltage_current_matrix(phi_list, physical_indices, dx, sigma, omega, v_ref)
 
     num_coil_rings = len(phi_list)
     A = numpy.empty((num_coil_rings, num_coil_rings), dtype=J.dtype)
     b = numpy.empty(num_coil_rings, dtype=J.dtype)
     for k, coil in enumerate(new_coils):
-        weight_type = coils[k]['c_type']
-        target_value = coils[k]['c_value']
+        weight_type = coils[k]["c_type"]
+        target_value = coils[k]["c_value"]
         # if weight_type == 'current':
         #     A, b = prescribe_current(A, b, coil, target_value)
-        assert weight_type == 'voltage'
+        assert weight_type == "voltage"
         A, b = prescribe_voltage(A, b, coil, target_value, v_ref, J)
 
     # # TODO write out the equation system to a file
@@ -603,14 +588,14 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
     # weights *= numpy.sqrt(target_total_power / total_power)
 
     if verbose:
-        info('')
-        info('Resulting voltages,   V/sqrt(2):')
+        info("")
+        info("Resulting voltages,   V/sqrt(2):")
         voltages = v_ref * weights
-        info('   {}'.format(abs(voltages) / numpy.sqrt(2)))
-        info('Resulting currents,   I/sqrt(2):')
+        info("   {}".format(abs(voltages) / numpy.sqrt(2)))
+        info("Resulting currents,   I/sqrt(2):")
         currents = numpy.dot(J, weights)
-        info('   {}'.format(abs(currents) / numpy.sqrt(2)))
-        info('Resulting apparent powers (per coil):')
+        info("   {}".format(abs(currents) / numpy.sqrt(2)))
+        info("Resulting apparent powers (per coil):")
         for coil_loops in new_coils:
             # With
             #
@@ -624,11 +609,10 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
             #
             # Currents should be the same all over, so take currents[coil[0]].
             #
-            alpha = sum(voltages[coil_loops]) \
-                * currents[coil_loops[0]].conjugate()
+            alpha = sum(voltages[coil_loops]) * currents[coil_loops[0]].conjugate()
             power = 0.5 * alpha.real
-            info('   {}'.format(power))
-        info('')
+            info("   {}".format(power))
+        info("")
 
     # Compute Phi as the linear combination \sum C_i*phi_i.
     # The function Phi is guaranteed to fulfill the PDE as well (iff the
@@ -642,10 +626,7 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
     # since phi is from the FunctionSpace V*V and thus .vector() is not
     # available for the individual components.
     #
-    Phi = [
-        Constant(0.0),
-        Constant(0.0)
-        ]
+    Phi = [Constant(0.0), Constant(0.0)]
     for phi, c in zip(phi_list, weights):
         # Phi += c * phi
         Phi[0] += c.real * phi[0] - c.imag * phi[1]
@@ -654,24 +635,21 @@ def compute_potential(coils, V, dx, mu, sigma, omega, convections,
     # Project the components down to V. This makes various subsequent
     # computations with Phi faster.
     Phi[0] = project(Phi[0], V)
-    Phi[0].rename('Re(Phi)', 'Re(Phi)')
+    Phi[0].rename("Re(Phi)", "Re(Phi)")
     Phi[1] = project(Phi[1], V)
-    Phi[1].rename('Im(Phi)', 'Im(Phi)')
+    Phi[1].rename("Im(Phi)", "Im(Phi)")
     return Phi, voltages
 
 
-def get_voltage_current_matrix(phi, physical_indices, dx,
-                               Sigma,
-                               omega,
-                               v_ref):
-    '''Compute the matrix that relates the voltages with the currents in the
+def get_voltage_current_matrix(phi, physical_indices, dx, Sigma, omega, v_ref):
+    """Compute the matrix that relates the voltages with the currents in the
     coil rings. (The relationship is indeed linear.)
 
     This is according to :cite:`KP02`.
 
     The entry :math:`J_{k,l}` in the resulting matrix is the contribution of
     the potential generated by coil :math:`l` to the current in coil :math:`k`.
-    '''
+    """
     mesh = phi[0].function_space().mesh()
 
     r = SpatialCoordinate(mesh)[0]
@@ -691,17 +669,13 @@ def get_voltage_current_matrix(phi, physical_indices, dx,
         # For assemble() to work, a mesh needs to be supplied either implicitly
         # by the integrand, or explicitly. Since the integrand doesn't contain
         # mesh information here, pass it through explicitly.
-        J[l][l] += (
-            v_ref / (2 * pi) * assemble(Sigma[pi0] / r * dx(pi0))
-            )
+        J[l][l] += v_ref / (2 * pi) * assemble(Sigma[pi0] / r * dx(pi0))
     return J
 
 
 # pylint: disable=unused-argument
-def compute_joule(Phi, voltages,
-                  omega, Sigma, Mu,
-                  subdomain_indices):
-    '''
+def compute_joule(Phi, voltages, omega, Sigma, Mu, subdomain_indices):
+    """
     See, e.g., equation (2.17) in :cite:`Cha97`.
 
     In a time-harmonic approximation with
@@ -735,7 +709,7 @@ def compute_joule(Phi, voltages,
 
     (Not using :math:`j` avoids explicitly dividing by :math:`\\sigma` which is
     0 at nonconductors.)
-    '''
+    """
     # j_r = {}
     # j_i = {}
     # E_r =  omega*Phi_i + rhs_r
@@ -784,11 +758,11 @@ def compute_joule(Phi, voltages,
         E_r = +omega * Phi[1]
         E_i = -omega * Phi[0]
         if i in voltages:
-            E_r += voltages[i].real / (2*pi*r)
-            E_i += voltages[i].imag / (2*pi*r)
+            E_r += voltages[i].real / (2 * pi * r)
+            E_i += voltages[i].imag / (2 * pi * r)
         # Make Sigma[i] a Constant since it could be 0 and then render the
         # entire Expression 0 (float).
-        joule_source[i] = 0.5 * Constant(Sigma[i]) * (E_r*E_r + E_i*E_i)
+        joule_source[i] = 0.5 * Constant(Sigma[i]) * (E_r * E_r + E_i * E_i)
 
     # # Alternative computation.
     # joule_source = zero() * dx(0)
@@ -813,7 +787,7 @@ def compute_joule(Phi, voltages,
 
 
 def compute_lorentz(Phi, omega, sigma):
-    '''In a time-harmonic discretization with quantities
+    """In a time-harmonic discretization with quantities
 
     .. math::
 
@@ -877,10 +851,13 @@ def compute_lorentz(Phi, omega, sigma):
                -\\Re(\\phi) \\nabla(r \\Im(\\phi))
                \\right)
        \\end{align*}
-    '''
+    """
     mesh = Phi[0].function_space().mesh()
     r = SpatialCoordinate(mesh)[0]
-    return 0.5 * sigma * omega / r * (
-        + Phi[1] * grad(r * Phi[0])
-        - Phi[0] * grad(r * Phi[1])
-        )
+    return (
+        0.5
+        * sigma
+        * omega
+        / r
+        * (+Phi[1] * grad(r * Phi[0]) - Phi[0] * grad(r * Phi[1]))
+    )

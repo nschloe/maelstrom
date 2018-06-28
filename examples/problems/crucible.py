@@ -7,10 +7,22 @@ from . import tecplot_reader
 from maelstrom import heat as cyl_heat
 
 from dolfin import (
-    Mesh, SubMesh, SubDomain, MeshFunction, DirichletBC, dot, grad,
-    FunctionSpace, Expression, FacetNormal, pi, Function, Constant,
-    FiniteElement, MixedElement
-    )
+    Mesh,
+    SubMesh,
+    SubDomain,
+    MeshFunction,
+    DirichletBC,
+    dot,
+    grad,
+    FunctionSpace,
+    Expression,
+    FacetNormal,
+    pi,
+    Function,
+    Constant,
+    FiniteElement,
+    MixedElement,
+)
 import materials
 import meshio
 import numpy
@@ -22,34 +34,35 @@ from tempfile import TemporaryDirectory
 DEBUG = False
 
 
-class Crucible():
-
+class Crucible:
     def __init__(self):
 
         GMSH_EPS = 1.0e-15
 
         # https://fenicsproject.org/qa/12891/initialize-mesh-from-vertices-connectivities-at-once
-        points, cells, point_data, cell_data, _ = \
-            meshes.crucible_with_coils.generate()
+        points, cells, point_data, cell_data, _ = meshes.crucible_with_coils.generate()
 
         # Convert the cell data to 'uint' so we can pick a size_t MeshFunction
         # below as usual.
         for k0 in cell_data:
             for k1 in cell_data[k0]:
-                cell_data[k0][k1] = \
-                    numpy.array(cell_data[k0][k1], dtype=numpy.dtype('uint'))
+                cell_data[k0][k1] = numpy.array(
+                    cell_data[k0][k1], dtype=numpy.dtype("uint")
+                )
 
         with TemporaryDirectory() as temp_dir:
-            tmp_filename = os.path.join(temp_dir, 'test.xml')
-            meshio.write(
-                tmp_filename, points, cells, cell_data=cell_data,
-                file_format='dolfin-xml'
-                )
+            tmp_filename = os.path.join(temp_dir, "test.xml")
+            meshio.write_points_cells(
+                tmp_filename,
+                points,
+                cells,
+                cell_data=cell_data,
+                file_format="dolfin-xml",
+            )
             self.mesh = Mesh(tmp_filename)
             self.subdomains = MeshFunction(
-                'size_t', self.mesh,
-                os.path.join(temp_dir, 'test_gmsh:physical.xml')
-                )
+                "size_t", self.mesh, os.path.join(temp_dir, "test_gmsh:physical.xml")
+            )
 
         self.subdomain_materials = {
             1: my_materials.porcelain,
@@ -57,7 +70,7 @@ class Crucible():
             3: materials.gallium_arsenide_solid,
             4: materials.gallium_arsenide_liquid,
             27: materials.air,
-            }
+        }
 
         # coils
         for k in range(5, 27):
@@ -69,8 +82,8 @@ class Crucible():
             [10, 11, 12, 13, 14],
             [15, 16, 17, 18, 19],
             [20, 21, 22, 23],
-            [24, 25, 26]
-            ]
+            [24, 25, 26],
+        ]
 
         self.wpi = 4
 
@@ -121,19 +134,20 @@ class Crucible():
                 # exactly 0 at the boundary r>0. Hence, at the corner points
                 # (r=0, melt-crucible, melt-crystal) we must enforce u=0
                 # already and cannot have a component in z-direction.
-                return on_boundary \
-                    and x[0] < GMSH_EPS \
-                    and x[1] < ymax - GMSH_EPS \
+                return (
+                    on_boundary
+                    and x[0] < GMSH_EPS
+                    and x[1] < ymax - GMSH_EPS
                     and x[1] > ymin + GMSH_EPS
+                )
 
         class Crucible(SubDomain):
             def inside(self, x, on_boundary):
-                return on_boundary \
-                    and ((x[0] > GMSH_EPS and x[1] < ymax - GMSH_EPS)
-                         or (x[0] > topright[0] - GMSH_EPS
-                             and x[1] > topright[1] - GMSH_EPS)
-                         or (x[0] < GMSH_EPS and x[1] < ymin + GMSH_EPS)
-                         )
+                return on_boundary and (
+                    (x[0] > GMSH_EPS and x[1] < ymax - GMSH_EPS)
+                    or (x[0] > topright[0] - GMSH_EPS and x[1] > topright[1] - GMSH_EPS)
+                    or (x[0] < GMSH_EPS and x[1] < ymin + GMSH_EPS)
+                )
 
         # At the top right part (boundary melt--gas), slip is allowed, so only
         # n.u=0 is enforced. Very weirdly, the PPE is consistent if and only if
@@ -144,14 +158,13 @@ class Crucible():
         # settings
         class Upper(SubDomain):
             def inside(self, x, on_boundary):
-                return on_boundary \
-                    and x[1] > ymax - GMSH_EPS
+                return on_boundary and x[1] > ymax - GMSH_EPS
 
         class UpperRight(SubDomain):
             def inside(self, x, on_boundary):
-                return on_boundary \
-                    and x[1] > ymax - GMSH_EPS \
-                    and x[0] > 0.038 - GMSH_EPS
+                return (
+                    on_boundary and x[1] > ymax - GMSH_EPS and x[0] > 0.038 - GMSH_EPS
+                )
 
         # The crystal boundary is taken to reach up to 0.038 where the
         # Dirichlet boundary data is about the melting point of the crystal,
@@ -163,9 +176,9 @@ class Crucible():
         # TODO check out alternatives
         class UpperLeft(SubDomain):
             def inside(self, x, on_boundary):
-                return on_boundary \
-                    and x[1] > ymax - GMSH_EPS \
-                    and x[0] < 0.038 + GMSH_EPS
+                return (
+                    on_boundary and x[1] > ymax - GMSH_EPS and x[0] < 0.038 + GMSH_EPS
+                )
 
         left = Left()
         crucible = Crucible()
@@ -173,9 +186,10 @@ class Crucible():
         upper_right = UpperRight()
 
         self.wp_boundaries = MeshFunction(
-            'size_t', self.submesh_workpiece,
-            self.submesh_workpiece.topology().dim() - 1
-            )
+            "size_t",
+            self.submesh_workpiece,
+            self.submesh_workpiece.topology().dim() - 1,
+        )
         self.wp_boundaries.set_all(0)
         left.mark(self.wp_boundaries, 1)
         crucible.mark(self.wp_boundaries, 2)
@@ -184,15 +198,16 @@ class Crucible():
 
         if DEBUG:
             from dolfin import plot, interactive
-            plot(self.wp_boundaries, title='Boundaries')
+
+            plot(self.wp_boundaries, title="Boundaries")
             interactive()
 
         submesh_boundary_indices = {
-            'left': 1,
-            'crucible': 2,
-            'upper right': 3,
-            'upper left': 4
-            }
+            "left": 1,
+            "crucible": 2,
+            "upper right": 3,
+            "upper left": 4,
+        }
 
         # Boundary conditions for the velocity.
         #
@@ -210,18 +225,16 @@ class Crucible():
         # convergence of the Stokes solver and also considerably increases the
         # time it takes to construct the Jacobian matrix of the Navier--Stokes
         # problem if no optimization is applied.
-        V_element = FiniteElement('CG', self.submesh_workpiece.ufl_cell(), 2)
+        V_element = FiniteElement("CG", self.submesh_workpiece.ufl_cell(), 2)
         with_bubbles = False
         if with_bubbles:
-            V_element += FiniteElement(
-                    'B', self.submesh_workpiece.ufl_cell(), 2
-                    )
+            V_element += FiniteElement("B", self.submesh_workpiece.ufl_cell(), 2)
         self.W_element = MixedElement(3 * [V_element])
         self.W = FunctionSpace(self.submesh_workpiece, self.W_element)
 
-        rot0 = Expression(('0.0', '0.0', '-2*pi*x[0] * 5.0/60.0'), degree=1)
+        rot0 = Expression(("0.0", "0.0", "-2*pi*x[0] * 5.0/60.0"), degree=1)
         # rot0 = (0.0, 0.0, 0.0)
-        rot1 = Expression(('0.0', '0.0', '2*pi*x[0] * 5.0/60.0'), degree=1)
+        rot1 = Expression(("0.0", "0.0", "2*pi*x[0] * 5.0/60.0"), degree=1)
         self.u_bcs = [
             DirichletBC(self.W, rot0, crucible),
             DirichletBC(self.W.sub(0), 0.0, left),
@@ -229,38 +242,32 @@ class Crucible():
             # Make sure that u[2] is 0 at r=0.
             DirichletBC(self.W, rot1, upper_left),
             DirichletBC(self.W.sub(1), 0.0, upper_right),
-            ]
+        ]
         self.p_bcs = []
 
-        self.P_element = FiniteElement(
-                'CG', self.submesh_workpiece.ufl_cell(), 1
-                )
+        self.P_element = FiniteElement("CG", self.submesh_workpiece.ufl_cell(), 1)
         self.P = FunctionSpace(self.submesh_workpiece, self.P_element)
 
-        self.Q_element = FiniteElement(
-                'CG', self.submesh_workpiece.ufl_cell(), 2
-                )
+        self.Q_element = FiniteElement("CG", self.submesh_workpiece.ufl_cell(), 2)
         self.Q = FunctionSpace(self.submesh_workpiece, self.Q_element)
 
         # Dirichlet.
         # This is a bit of a tough call since the boundary conditions need to
         # be read from a Tecplot file here.
         filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            'data/crucible-boundary.dat'
-            )
+            os.path.dirname(os.path.realpath(__file__)), "data/crucible-boundary.dat"
+        )
         data = tecplot_reader.read(filename)
         RZ = numpy.c_[
-                data['ZONE T']['node data']['r'],
-                data['ZONE T']['node data']['z']
-                ]
-        T_vals = data['ZONE T']['node data']['temp. [K]']
+            data["ZONE T"]["node data"]["r"], data["ZONE T"]["node data"]["z"]
+        ]
+        T_vals = data["ZONE T"]["node data"]["temp. [K]"]
 
         class TecplotDirichletBC(Expression):
             def eval(self, value, x):
                 # Find on which edge x sits, and raise exception if it doesn't.
                 edge_found = False
-                for edge in data['ZONE T']['element data']:
+                for edge in data["ZONE T"]["element data"]:
                     # Given a point X and an edge X0--X1,
                     #
                     #     (1 - theta) X0 + theta X1,
@@ -275,13 +282,17 @@ class Crucible():
                     # Note that edges are 1-based in Tecplot.
                     X0 = RZ[edge[0] - 1]
                     X1 = RZ[edge[1] - 1]
-                    theta = numpy.dot(X1-X0, x-X0) / numpy.dot(X1-X0, X1-X0)
-                    diff = (1.0-theta)*X0 + theta*X1 - x
-                    if numpy.dot(diff, diff) < 1.0e-10 and \
-                            0.0 <= theta and theta <= 1.0:
+                    theta = numpy.dot(X1 - X0, x - X0) / numpy.dot(X1 - X0, X1 - X0)
+                    diff = (1.0 - theta) * X0 + theta * X1 - x
+                    if (
+                        numpy.dot(diff, diff) < 1.0e-10
+                        and 0.0 <= theta
+                        and theta <= 1.0
+                    ):
                         # Linear interpolation of the temperature value.
-                        value[0] = (1.0-theta) * T_vals[edge[0]-1] \
-                                 + theta * T_vals[edge[1]-1]
+                        value[0] = (1.0 - theta) * T_vals[edge[0] - 1] + theta * T_vals[
+                            edge[1] - 1
+                        ]
                         edge_found = True
                         break
                 # This class is supposed to be used for Dirichlet boundary
@@ -298,9 +309,10 @@ class Crucible():
                     value[0] = 0.0
                     if False:
                         warnings.warn(
-                            'Coordinate ({:e}, {:e}) doesn\'t sit on edge.'
-                            .format(x[0], x[1])
+                            "Coordinate ({:e}, {:e}) doesn't sit on edge.".format(
+                                x[0], x[1]
                             )
+                        )
                     # pp.plot(RZ[:, 0], RZ[:, 1], '.k')
                     # pp.plot(x[0], x[1], 'xr')
                     # pp.show()
@@ -309,33 +321,33 @@ class Crucible():
                 return
 
         tecplot_dbc = TecplotDirichletBC(degree=5)
-        self.theta_bcs_d = [
-            DirichletBC(self.Q, tecplot_dbc, upper_left)
-            ]
+        self.theta_bcs_d = [DirichletBC(self.Q, tecplot_dbc, upper_left)]
         self.theta_bcs_d_strict = [
             DirichletBC(self.Q, tecplot_dbc, upper_right),
             DirichletBC(self.Q, tecplot_dbc, crucible),
-            DirichletBC(self.Q, tecplot_dbc, upper_left)
-            ]
+            DirichletBC(self.Q, tecplot_dbc, upper_left),
+        ]
 
         # Neumann
-        dTdr_vals = data['ZONE T']['node data']['dTempdx [K/m]']
-        dTdz_vals = data['ZONE T']['node data']['dTempdz [K/m]']
+        dTdr_vals = data["ZONE T"]["node data"]["dTempdx [K/m]"]
+        dTdz_vals = data["ZONE T"]["node data"]["dTempdz [K/m]"]
 
         class TecplotNeumannBC(Expression):
             def eval(self, value, x):
                 # Same problem as above: This expression is not only evaluated
                 # at boundaries.
-                for edge in data['ZONE T']['element data']:
+                for edge in data["ZONE T"]["element data"]:
                     X0 = RZ[edge[0] - 1]
                     X1 = RZ[edge[1] - 1]
-                    theta = numpy.dot(X1-X0, x-X0) / numpy.dot(X1-X0, X1-X0)
-                    dist = numpy.linalg.norm((1-theta)*X0 + theta*X1 - x)
+                    theta = numpy.dot(X1 - X0, x - X0) / numpy.dot(X1 - X0, X1 - X0)
+                    dist = numpy.linalg.norm((1 - theta) * X0 + theta * X1 - x)
                     if dist < 1.0e-5 and 0.0 <= theta and theta <= 1.0:
-                        value[0] = (1-theta) * dTdr_vals[edge[0]-1] \
-                            + theta * dTdr_vals[edge[1]-1]
-                        value[1] = (1-theta) * dTdz_vals[edge[0]-1] \
-                            + theta * dTdz_vals[edge[1]-1]
+                        value[0] = (1 - theta) * dTdr_vals[
+                            edge[0] - 1
+                        ] + theta * dTdr_vals[edge[1] - 1]
+                        value[1] = (1 - theta) * dTdz_vals[
+                            edge[0] - 1
+                        ] + theta * dTdz_vals[edge[1] - 1]
                         break
                 return
 
@@ -345,9 +357,9 @@ class Crucible():
         tecplot_nbc = TecplotNeumannBC(degree=5)
         n = FacetNormal(self.Q.mesh())
         self.theta_bcs_n = {
-            submesh_boundary_indices['upper right']: dot(n, tecplot_nbc),
-            submesh_boundary_indices['crucible']: dot(n, tecplot_nbc)
-            }
+            submesh_boundary_indices["upper right"]: dot(n, tecplot_nbc),
+            submesh_boundary_indices["crucible"]: dot(n, tecplot_nbc),
+        }
         self.theta_bcs_r = {}
 
         # It seems that the boundary conditions from above are inconsistent in
@@ -377,65 +389,66 @@ class Crucible():
             k = wp_material.thermal_conductivity(temp_estimate)
 
         reference_problem = cyl_heat.Heat(
-            self.Q, convection=None,
-            kappa=k, rho=rho, cp=cp,
+            self.Q,
+            convection=None,
+            kappa=k,
+            rho=rho,
+            cp=cp,
             source=Constant(0.0),
-            dirichlet_bcs=self.theta_bcs_d_strict
-            )
+            dirichlet_bcs=self.theta_bcs_d_strict,
+        )
         theta_reference = reference_problem.solve_stationary()
-        theta_reference.rename('theta', 'temperature (Dirichlet)')
+        theta_reference.rename("theta", "temperature (Dirichlet)")
 
         # Create equivalent boundary conditions from theta_ref. This
         # makes sure that the potentially expensive Expression evaluation in
         # theta_bcs_* is replaced by something reasonably cheap.
         self.theta_bcs_d = [
-            DirichletBC(
-                bc.function_space(), theta_reference, bc.domain_args[0]
-                )
+            DirichletBC(bc.function_space(), theta_reference, bc.domain_args[0])
             for bc in self.theta_bcs_d
-            ]
+        ]
         # Adapt Neumann conditions.
         n = FacetNormal(self.Q.mesh())
         self.theta_bcs_n = {
             k: dot(n, grad(theta_reference))
             # k: Constant(1000.0)
             for k in self.theta_bcs_n
-            }
+        }
 
         if DEBUG:
             # Solve the heat equation with the mixed Dirichlet-Neumann
             # boundary conditions and compare it to the Dirichlet-only
             # solution.
-            theta_new = Function(
-                self.Q,
-                name='temperature (Neumann + Dirichlet)'
-                )
+            theta_new = Function(self.Q, name="temperature (Neumann + Dirichlet)")
             from dolfin import Measure
-            ds_workpiece = Measure('ds', subdomain_data=self.wp_boundaries)
+
+            ds_workpiece = Measure("ds", subdomain_data=self.wp_boundaries)
 
             heat = cyl_heat.Heat(
-                self.Q, convection=None,
-                kappa=k, rho=rho, cp=cp,
+                self.Q,
+                convection=None,
+                kappa=k,
+                rho=rho,
+                cp=cp,
                 source=Constant(0.0),
                 dirichlet_bcs=self.theta_bcs_d,
                 neumann_bcs=self.theta_bcs_n,
                 robin_bcs=self.theta_bcs_r,
-                my_ds=ds_workpiece
-                )
+                my_ds=ds_workpiece,
+            )
             theta_new = heat.solve_stationary()
-            theta_new.rename('theta', 'temperature (Neumann + Dirichlet)')
+            theta_new.rename("theta", "temperature (Neumann + Dirichlet)")
 
             from dolfin import plot, interactive, errornorm
+
             print(
-                '||theta_new - theta_ref|| = {:e}'.format(
+                "||theta_new - theta_ref|| = {:e}".format(
                     errornorm(theta_new, theta_reference)
-                ))
+                )
+            )
             plot(theta_reference)
             plot(theta_new)
-            plot(
-                theta_reference - theta_new,
-                title='theta_ref - theta_new'
-                )
+            plot(theta_reference - theta_new, title="theta_ref - theta_new")
             interactive()
 
         self.background_temp = 1400.0

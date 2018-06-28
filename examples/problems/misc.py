@@ -1,14 +1,27 @@
 # -*- coding: utf-8 -*-
 #
-'''
+"""
 Collection of (test) problems.
-'''
+"""
 from dolfin import (
-    Mesh, MeshFunction, pi, SubMesh, SubDomain, FunctionSpace,
-    MixedFunctionSpace, DirichletBC, Expression, VectorFunctionSpace,
-    UnitSquareMesh, DOLFIN_EPS, Constant, RectangleMesh, near, between,
-    CellFunction
-    )
+    Mesh,
+    MeshFunction,
+    pi,
+    SubMesh,
+    SubDomain,
+    FunctionSpace,
+    MixedFunctionSpace,
+    DirichletBC,
+    Expression,
+    VectorFunctionSpace,
+    UnitSquareMesh,
+    DOLFIN_EPS,
+    Constant,
+    RectangleMesh,
+    near,
+    between,
+    CellFunction,
+)
 
 import numpy
 
@@ -16,22 +29,22 @@ GMSH_EPS = 1.0e-15
 
 
 def crucible_without_coils():
-    base = '../meshes/2d/crucible'
-    mesh = Mesh(base + '.xml')
-    subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
+    base = "../meshes/2d/crucible"
+    mesh = Mesh(base + ".xml")
+    subdomains = MeshFunction("size_t", mesh, base + "_physical_region.xml")
     workpiece_index = 4
     subdomain_materials = {
-            1: 'SiC',
-            2: 'boron trioxide',
-            3: 'GaAs (solid)',
-            4: 'GaAs (liquid)'
-            }
+        1: "SiC",
+        2: "boron trioxide",
+        3: "GaAs (solid)",
+        4: "GaAs (liquid)",
+    }
 
     submesh_workpiece = SubMesh(mesh, subdomains, workpiece_index)
-    V = VectorFunctionSpace(submesh_workpiece, 'CG', 2)
-    P = FunctionSpace(submesh_workpiece, 'CG', 1)
+    V = VectorFunctionSpace(submesh_workpiece, "CG", 2)
+    P = FunctionSpace(submesh_workpiece, "CG", 1)
 
-    Q = FunctionSpace(mesh, 'CG', 2)
+    Q = FunctionSpace(mesh, "CG", 2)
 
     # Define mesh and boundaries.
     class LeftBoundary(SubDomain):
@@ -39,18 +52,25 @@ def crucible_without_coils():
             # Be especially careful in the corners when defining the r=0 axis:
             # For the PPE to be consistent, we need to have n.u=0 *everywhere*
             # on the non-r=0 boundaries.
-            return on_boundary \
-                and x[0] < GMSH_EPS and 0.366 + GMSH_EPS < x[1] \
+            return (
+                on_boundary
+                and x[0] < GMSH_EPS
+                and 0.366 + GMSH_EPS < x[1]
                 and x[1] < 0.411 - GMSH_EPS
+            )
+
     left_boundary = LeftBoundary()
 
     class SurfaceBoundary(SubDomain):
         def inside(self, x, on_boundary):
             # Make sure to catch the entire surface, so don't be too
             # restrictive about x[0].
-            return on_boundary \
-                and x[1] > 0.38-GMSH_EPS \
-                and x[0] > 0.04-GMSH_EPS and x[0] < 0.07+GMSH_EPS
+            return (
+                on_boundary
+                and x[1] > 0.38 - GMSH_EPS
+                and x[0] > 0.04 - GMSH_EPS
+                and x[0] < 0.07 + GMSH_EPS
+            )
 
     class OtherBoundary(SubDomain):
         def inside(self, x, on_boundary):
@@ -58,85 +78,107 @@ def crucible_without_coils():
                 on_boundary
                 and not left_boundary.inside(x, on_boundary)
                 # and not surface_boundary.inside(x, on_boundary)
-                )
+            )
+
     other_boundary = OtherBoundary()
 
     # Boundary conditions for the velocity.
-    u_bcs = [DirichletBC(V, (0.0, 0.0), other_boundary),
-             DirichletBC(V.sub(0), 0.0, left_boundary),
-             # DirichletBC(V.sub(1), 0.0, surface_boundary),
-             ]
+    u_bcs = [
+        DirichletBC(V, (0.0, 0.0), other_boundary),
+        DirichletBC(V.sub(0), 0.0, left_boundary),
+        # DirichletBC(V.sub(1), 0.0, surface_boundary),
+    ]
     # u_bcs = [DirichletBC(V, (0.0, 0.0), 'on_boundary')]
     p_bcs = []
 
     class HeaterBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary \
-                and ((x[1] < 0.38 and GMSH_EPS < x[0]
-                      and x[0] < 0.075+GMSH_EPS)
-                     or x[0] < GMSH_EPS and x[1] < 0.365+GMSH_EPS)
+            return on_boundary and (
+                (x[1] < 0.38 and GMSH_EPS < x[0] and x[0] < 0.075 + GMSH_EPS)
+                or x[0] < GMSH_EPS
+                and x[1] < 0.365 + GMSH_EPS
+            )
+
     heater_boundary = HeaterBoundary()
 
     background_temp = 1400.0
 
     # Heat with 1580K at r=0, 1590K at r=0.075.
-    heater_bcs = [(heater_boundary, '1580.0 + 133.0 * x[0]')]
+    heater_bcs = [(heater_boundary, "1580.0 + 133.0 * x[0]")]
 
-    return mesh, subdomains, subdomain_materials, workpiece_index, \
-        V, Q, P, u_bcs, p_bcs, background_temp, heater_bcs
+    return (
+        mesh,
+        subdomains,
+        subdomain_materials,
+        workpiece_index,
+        V,
+        Q,
+        P,
+        u_bcs,
+        p_bcs,
+        background_temp,
+        heater_bcs,
+    )
 
 
 def ball_in_tube():
-    mesh = Mesh('../meshes/2d/ball-in-tube-cylindrical-coarse4.xml')
-    V0 = FunctionSpace(mesh, 'CG', 2)
-    V1 = FunctionSpace(mesh, 'B', 3)
+    mesh = Mesh("../meshes/2d/ball-in-tube-cylindrical-coarse4.xml")
+    V0 = FunctionSpace(mesh, "CG", 2)
+    V1 = FunctionSpace(mesh, "B", 3)
     V = V0 + V1
     W = MixedFunctionSpace([V, V])
 
-    P = FunctionSpace(mesh, 'CG', 1)
+    P = FunctionSpace(mesh, "CG", 1)
 
     # Define mesh and boundaries.
     class LeftBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] < GMSH_EPS
+
     left_boundary = LeftBoundary()
 
     class RightBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] > 1.0 - GMSH_EPS
+
     right_boundary = RightBoundary()
 
     class LowerBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[1] < GMSH_EPS
+
     lower_boundary = LowerBoundary()
 
     class UpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 5.0-GMSH_EPS
+            return on_boundary and x[1] > 5.0 - GMSH_EPS
 
     class CoilBoundary(SubDomain):
         def inside(self, x, on_boundary):
             # One has to pay a little bit of attention when defining the
             # coil boundary; it's easy to miss the edges closest to x[0]=0.
-            return on_boundary \
-                and x[1] > 1.0-GMSH_EPS and x[1] < 2.0+GMSH_EPS \
-                and x[0] < 1.0-GMSH_EPS
+            return (
+                on_boundary
+                and x[1] > 1.0 - GMSH_EPS
+                and x[1] < 2.0 + GMSH_EPS
+                and x[0] < 1.0 - GMSH_EPS
+            )
+
     coil_boundary = CoilBoundary()
 
     u_bcs = [
         DirichletBC(W, (0.0, 0.0), right_boundary),
         DirichletBC(W.sub(0), 0.0, left_boundary),
         DirichletBC(W, (0.0, 0.0), lower_boundary),
-        DirichletBC(W, (0.0, 0.0), coil_boundary)
-        ]
+        DirichletBC(W, (0.0, 0.0), coil_boundary),
+    ]
     p_bcs = []
     # p_bcs = [DirichletBC(Q, 0.0, upper_boundary)]
     return mesh, W, P, u_bcs, p_bcs
 
 
 def rotating_lid():
-    mesh = UnitSquareMesh(20, 20, 'left/right')
+    mesh = UnitSquareMesh(20, 20, "left/right")
 
     # Define mesh and boundaries.
     class LeftBoundary(SubDomain):
@@ -153,12 +195,16 @@ def rotating_lid():
 
     class UpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 1.0-DOLFIN_EPS
+            return on_boundary and x[1] > 1.0 - DOLFIN_EPS
 
     class RestrictedUpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 1.0-DOLFIN_EPS \
-                and DOLFIN_EPS < x[0] and x[0] < 0.5-DOLFIN_EPS
+            return (
+                on_boundary
+                and x[1] > 1.0 - DOLFIN_EPS
+                and DOLFIN_EPS < x[0]
+                and x[0] < 0.5 - DOLFIN_EPS
+            )
 
     left = LeftBoundary()
     right = RightBoundary()
@@ -166,7 +212,7 @@ def rotating_lid():
     upper = UpperBoundary()
     restricted_upper = RestrictedUpperBoundary()
 
-    V = FunctionSpace(mesh, 'CG', 2)
+    V = FunctionSpace(mesh, "CG", 2)
 
     W = MixedFunctionSpace([V, V, V])
     u_bcs = [
@@ -175,20 +221,18 @@ def rotating_lid():
         DirichletBC(W, Constant((0.0, 0.0, 0.0)), right),
         DirichletBC(W.sub(0), 0.0, upper),
         DirichletBC(W.sub(1), 0.0, upper),
-        DirichletBC(
-            W.sub(2), Expression('x[0]', degree=1), restricted_upper
-            ),
+        DirichletBC(W.sub(2), Expression("x[0]", degree=1), restricted_upper),
         DirichletBC(W, Constant((0.0, 0.0, 0.0)), lower),
-        ]
+    ]
 
-    P = FunctionSpace(mesh, 'CG', 1)
+    P = FunctionSpace(mesh, "CG", 1)
     p_bcs = []
     return mesh, W, P, u_bcs, p_bcs
 
 
 def lid_driven_cavity():
     n = 40
-    mesh = RectangleMesh(0.0, 0.0, 1.0, 1.0, n, n, 'crossed')
+    mesh = RectangleMesh(0.0, 0.0, 1.0, 1.0, n, n, "crossed")
 
     # Define mesh and boundaries.
     class LeftBoundary(SubDomain):
@@ -197,7 +241,7 @@ def lid_driven_cavity():
 
     class RightBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[0] > 1.0-DOLFIN_EPS
+            return on_boundary and x[0] > 1.0 - DOLFIN_EPS
 
     class LowerBoundary(SubDomain):
         def inside(self, x, on_boundary):
@@ -205,12 +249,16 @@ def lid_driven_cavity():
 
     class UpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 1.0-DOLFIN_EPS
+            return on_boundary and x[1] > 1.0 - DOLFIN_EPS
 
     class RestrictedUpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 1.0-DOLFIN_EPS \
-                and DOLFIN_EPS < x[0] and x[0] < 0.5-DOLFIN_EPS
+            return (
+                on_boundary
+                and x[1] > 1.0 - DOLFIN_EPS
+                and DOLFIN_EPS < x[0]
+                and x[0] < 0.5 - DOLFIN_EPS
+            )
 
     left = LeftBoundary()
     right = RightBoundary()
@@ -218,7 +266,7 @@ def lid_driven_cavity():
     upper = UpperBoundary()
     # restricted_upper = RestrictedUpperBoundary()
 
-    V = FunctionSpace(mesh, 'CG', 2)
+    V = FunctionSpace(mesh, "CG", 2)
 
     # Be particularly careful with the boundary conditions.
     # The main problem here is that the PPE system is consistent if and only
@@ -241,7 +289,7 @@ def lid_driven_cavity():
         DirichletBC(W, (0.0, 0.0), right),
         # DirichletBC(W.sub(0), Expression('x[0]'), restricted_upper),
         DirichletBC(W, (0.0, 0.0), lower),
-        DirichletBC(W.sub(0), Constant('1.0'), upper),
+        DirichletBC(W.sub(0), Constant("1.0"), upper),
         DirichletBC(W.sub(1), 0.0, upper),
         # DirichletBC(W.sub(0), Constant('-1.0'), lower),
         # DirichletBC(W.sub(1), 0.0, lower),
@@ -249,29 +297,25 @@ def lid_driven_cavity():
         # DirichletBC(W.sub(0), 0.0, left),
         # DirichletBC(W.sub(1), Constant('-1.0'), right),
         # DirichletBC(W.sub(0), 0.0, right),
-        ]
-    P = FunctionSpace(mesh, 'CG', 1)
+    ]
+    P = FunctionSpace(mesh, "CG", 1)
     p_bcs = []
     return mesh, W, P, u_bcs, p_bcs
 
 
 def peter():
-    base = '../meshes/2d/peter'
+    base = "../meshes/2d/peter"
     # base = '../meshes/2d/peter-fine'
-    mesh = Mesh(base + '.xml')
+    mesh = Mesh(base + ".xml")
 
-    subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
+    subdomains = MeshFunction("size_t", mesh, base + "_physical_region.xml")
 
     workpiece_index = 3
-    subdomain_materials = {
-            1: 'SiC',
-            2: 'carbon steel',
-            3: 'GaAs (liquid)'
-            }
+    subdomain_materials = {1: "SiC", 2: "carbon steel", 3: "GaAs (liquid)"}
 
     submesh_workpiece = SubMesh(mesh, subdomains, workpiece_index)
-    W = VectorFunctionSpace(submesh_workpiece, 'CG', 2)
-    Q = FunctionSpace(submesh_workpiece, 'CG', 2)
+    W = VectorFunctionSpace(submesh_workpiece, "CG", 2)
+    Q = FunctionSpace(submesh_workpiece, "CG", 2)
 
     # Define melt boundaries.
     class LeftBoundary(SubDomain):
@@ -279,24 +323,33 @@ def peter():
             # Be especially careful in the corners when defining the r=0 axis:
             # For the PPE to be consistent, we need to have n.u=0 *everywhere*
             # on the non-(r=0) boundaries.
-            return on_boundary \
-                and x[0] < GMSH_EPS \
-                and 0.005+GMSH_EPS < x[1] and x[1] < 0.050-GMSH_EPS
+            return (
+                on_boundary
+                and x[0] < GMSH_EPS
+                and 0.005 + GMSH_EPS < x[1]
+                and x[1] < 0.050 - GMSH_EPS
+            )
 
     class SurfaceBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary \
-                and 0.055-GMSH_EPS < x[1] \
-                and 0.030-GMSH_EPS < x[0] and x[0] < 0.075+GMSH_EPS
+            return (
+                on_boundary
+                and 0.055 - GMSH_EPS < x[1]
+                and 0.030 - GMSH_EPS < x[0]
+                and x[0] < 0.075 + GMSH_EPS
+            )
 
     class StampBoundary(SubDomain):
         def inside(self, x, on_boundary):
             # Well well. If we don't include the endpoints here, the PPE turns
             # out inconsistent. This is weird since the endpoints should be
             # picked up by RightBoundary and StampBoundary.
-            return on_boundary \
-                and 0.050-GMSH_EPS < x[1] and x[1] < 0.055+GMSH_EPS \
-                and x[0] < 0.030+GMSH_EPS
+            return (
+                on_boundary
+                and 0.050 - GMSH_EPS < x[1]
+                and x[1] < 0.055 + GMSH_EPS
+                and x[0] < 0.030 + GMSH_EPS
+            )
 
     class LowerBoundary(SubDomain):
         def inside(self, x, on_boundary):
@@ -305,15 +358,14 @@ def peter():
             # end up inconsistent.
             # This is actually weird since it should be picked up by
             # RightBoundary.
-            return on_boundary \
-                and (x[1] < 0.005+GMSH_EPS
-                     or (x[0] > 0.070-GMSH_EPS and x[1] < 0.010+GMSH_EPS)
-                     )
+            return on_boundary and (
+                x[1] < 0.005 + GMSH_EPS
+                or (x[0] > 0.070 - GMSH_EPS and x[1] < 0.010 + GMSH_EPS)
+            )
 
     class RightBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary \
-                and x[0] > 0.075-GMSH_EPS
+            return on_boundary and x[0] > 0.075 - GMSH_EPS
 
     left_boundary = LeftBoundary()
     lower_boundary = LowerBoundary()
@@ -323,9 +375,8 @@ def peter():
 
     # Define workpiece boundaries.
     wp_boundaries = MeshFunction(
-        'size_t', submesh_workpiece,
-        self.submesh_workpiece.topology().dim() - 1
-        )
+        "size_t", submesh_workpiece, self.submesh_workpiece.topology().dim() - 1
+    )
     wp_boundaries.set_all(0)
     left_boundary.mark(wp_boundaries, 1)
     lower_boundary.mark(wp_boundaries, 2)
@@ -334,19 +385,16 @@ def peter():
     stamp_boundary.mark(wp_boundaries, 5)
 
     # For local use only:
-    wp_boundary_indices = {'left': 1,
-                           'lower': 2,
-                           'right': 3,
-                           'surface': 4,
-                           'stamp': 5}
+    wp_boundary_indices = {"left": 1, "lower": 2, "right": 3, "surface": 4, "stamp": 5}
 
     # Boundary conditions for the velocity.
-    u_bcs = [DirichletBC(W, (0.0, 0.0), stamp_boundary),
-             DirichletBC(W, (0.0, 0.0), right_boundary),
-             DirichletBC(W, (0.0, 0.0), lower_boundary),
-             DirichletBC(W.sub(0), 0.0, left_boundary),
-             DirichletBC(W.sub(1), 0.0, surface_boundary),
-             ]
+    u_bcs = [
+        DirichletBC(W, (0.0, 0.0), stamp_boundary),
+        DirichletBC(W, (0.0, 0.0), right_boundary),
+        DirichletBC(W, (0.0, 0.0), lower_boundary),
+        DirichletBC(W.sub(0), 0.0, left_boundary),
+        DirichletBC(W.sub(1), 0.0, surface_boundary),
+    ]
     p_bcs = []
 
     # Boundary conditions for the heat equation.
@@ -361,132 +409,167 @@ def peter():
     # (with alpha>0 to preserve coercivity of the scheme).
     #
     theta_bcs_r = {
-        wp_boundary_indices['stamp']: (100.0, 1500.0),
-        wp_boundary_indices['surface']: (100.0, 1550.0),
-        wp_boundary_indices['right']: (
-            300.0, Expression('200*x[0] + 1600', degree=1)
-            ),
-        wp_boundary_indices['lower']: (
-            300.0, Expression('-1200*x[1] + 1614', degree=1)
-            ),
-        }
-    return mesh, subdomains, subdomain_materials, workpiece_index, \
-        wp_boundaries, W, u_bcs, p_bcs, \
-        Q, theta_bcs_d, theta_bcs_n, theta_bcs_r
+        wp_boundary_indices["stamp"]: (100.0, 1500.0),
+        wp_boundary_indices["surface"]: (100.0, 1550.0),
+        wp_boundary_indices["right"]: (300.0, Expression("200*x[0] + 1600", degree=1)),
+        wp_boundary_indices["lower"]: (
+            300.0,
+            Expression("-1200*x[1] + 1614", degree=1),
+        ),
+    }
+    return (
+        mesh,
+        subdomains,
+        subdomain_materials,
+        workpiece_index,
+        wp_boundaries,
+        W,
+        u_bcs,
+        p_bcs,
+        Q,
+        theta_bcs_d,
+        theta_bcs_n,
+        theta_bcs_r,
+    )
 
 
 def pot():
     # Define mesh and boundaries.
-    mesh = RectangleMesh(0.0, 0.0, 0.4, 0.1, 120, 30, 'left/right')
+    mesh = RectangleMesh(0.0, 0.0, 0.4, 0.1, 120, 30, "left/right")
 
-    V = VectorFunctionSpace(mesh, 'CG', 2)
-    Q = FunctionSpace(mesh, 'CG', 1)
+    V = VectorFunctionSpace(mesh, "CG", 2)
+    Q = FunctionSpace(mesh, "CG", 1)
 
     class LeftBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] < GMSH_EPS
+
     left_boundary = LeftBoundary()
 
     class RightBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] > 0.4 - GMSH_EPS
+
     right_boundary = RightBoundary()
 
     class LowerBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[1] < GMSH_EPS
+
     lower_boundary = LowerBoundary()
 
     class UpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 0.1-GMSH_EPS
+            return on_boundary and x[1] > 0.1 - GMSH_EPS
+
     upper_boundary = UpperBoundary()
 
     # Boundary conditions for the velocity.
-    u_bcs = [DirichletBC(V, (0.0, 0.0), lower_boundary),
-             DirichletBC(V.sub(1), 0.0, upper_boundary),
-             DirichletBC(V.sub(0), 0.0, right_boundary),
-             DirichletBC(V.sub(0), 0.0, left_boundary),
-             ]
+    u_bcs = [
+        DirichletBC(V, (0.0, 0.0), lower_boundary),
+        DirichletBC(V.sub(1), 0.0, upper_boundary),
+        DirichletBC(V.sub(0), 0.0, right_boundary),
+        DirichletBC(V.sub(0), 0.0, left_boundary),
+    ]
     p_bcs = []
-    return mesh, V, Q, u_bcs, p_bcs, [lower_boundary], \
-        [right_boundary, left_boundary]
+    return mesh, V, Q, u_bcs, p_bcs, [lower_boundary], [right_boundary, left_boundary]
 
 
 def cavity():
     # Define mesh and boundaries.
-    mesh = UnitSquareMesh(32, 32, 'left/right')
+    mesh = UnitSquareMesh(32, 32, "left/right")
 
-    V = VectorFunctionSpace(mesh, 'CG', 2)
-    Q = FunctionSpace(mesh, 'CG', 1)
+    V = VectorFunctionSpace(mesh, "CG", 2)
+    Q = FunctionSpace(mesh, "CG", 1)
 
     class LeftBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] < GMSH_EPS
+
     left_boundary = LeftBoundary()
 
     class RightBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] > 1.0 - GMSH_EPS
+
     right_boundary = RightBoundary()
 
     class LowerBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[1] < GMSH_EPS
+
     lower_boundary = LowerBoundary()
 
     class UpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 1.0-GMSH_EPS
+            return on_boundary and x[1] > 1.0 - GMSH_EPS
+
     upper_boundary = UpperBoundary()
 
     # Boundary conditions for the velocity.
-    u_bcs = [DirichletBC(V, (0.0, 0.0), lower_boundary),
-             DirichletBC(V, (0.0, 0.0), upper_boundary),
-             DirichletBC(V, (0.0, 0.0), right_boundary),
-             DirichletBC(V, (0.0, 0.0), left_boundary),
-             ]
+    u_bcs = [
+        DirichletBC(V, (0.0, 0.0), lower_boundary),
+        DirichletBC(V, (0.0, 0.0), upper_boundary),
+        DirichletBC(V, (0.0, 0.0), right_boundary),
+        DirichletBC(V, (0.0, 0.0), left_boundary),
+    ]
     p_bcs = []
-    return mesh, V, Q, u_bcs, p_bcs, [right_boundary], \
-        [upper_boundary, left_boundary, lower_boundary]
+    return (
+        mesh,
+        V,
+        Q,
+        u_bcs,
+        p_bcs,
+        [right_boundary],
+        [upper_boundary, left_boundary, lower_boundary],
+    )
 
 
 def coil():
-    mesh = Mesh('../meshes/2d/coil-in-box.xml')
-    V = VectorFunctionSpace(mesh, 'CG', 2)
-    P = FunctionSpace(mesh, 'CG', 1)
-    Q = FunctionSpace(mesh, 'CG', 1)
+    mesh = Mesh("../meshes/2d/coil-in-box.xml")
+    V = VectorFunctionSpace(mesh, "CG", 2)
+    P = FunctionSpace(mesh, "CG", 1)
+    Q = FunctionSpace(mesh, "CG", 1)
 
     # Define mesh and boundaries.
     class LeftBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] < GMSH_EPS
+
     left_boundary = LeftBoundary()
 
     class RightBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] > 0.6 - GMSH_EPS
+
     right_boundary = RightBoundary()
 
     class LowerBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[1] < GMSH_EPS
+
     lower_boundary = LowerBoundary()
 
     class UpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 2.0-GMSH_EPS
+            return on_boundary and x[1] > 2.0 - GMSH_EPS
+
     upper_boundary = UpperBoundary()
 
     class CoilBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary \
-                and x[0] > GMSH_EPS and x[0] < 0.6-GMSH_EPS \
-                and x[1] > GMSH_EPS and x[1] < 2.0-GMSH_EPS
+            return (
+                on_boundary
+                and x[0] > GMSH_EPS
+                and x[0] < 0.6 - GMSH_EPS
+                and x[1] > GMSH_EPS
+                and x[1] < 2.0 - GMSH_EPS
+            )
+
     coil_boundary = CoilBoundary()
 
     # Boundary conditions for the velocity.
-    u_bcs = DirichletBC(V, (0.0, 0.0), 'on_boundary')
+    u_bcs = DirichletBC(V, (0.0, 0.0), "on_boundary")
     p_bcs = []
     # u_bcs = [DirichletBC(V.sub(0), 0.0, right_boundary),
     #          DirichletBC(V.sub(0), 0.0, left_boundary),
@@ -501,8 +584,16 @@ def coil():
     #          DirichletBC(V, (0.0, 0.0), coil_boundary)
     #          ]
     # p_bcs = DirichletBC(Q, 0.0, upper_boundary)
-    return mesh, V, P, Q, u_bcs, p_bcs, [coil_boundary], \
-        [left_boundary, right_boundary, lower_boundary, upper_boundary]
+    return (
+        mesh,
+        V,
+        P,
+        Q,
+        u_bcs,
+        p_bcs,
+        [coil_boundary],
+        [left_boundary, right_boundary, lower_boundary, upper_boundary],
+    )
 
 
 def square_with_obstacle():
@@ -526,7 +617,7 @@ def square_with_obstacle():
 
     class Obstacle(SubDomain):
         def inside(self, x, on_boundary):
-            return (between(x[1], (0.5, 0.7)) and between(x[0], (0.2, 1.0)))
+            return between(x[1], (0.5, 0.7)) and between(x[0], (0.2, 1.0))
 
     # Initialize sub-domain instances
     left = Left()
@@ -536,35 +627,29 @@ def square_with_obstacle():
     obstacle = Obstacle()
 
     # Define mesh
-    mesh = UnitSquareMesh(100, 100, 'crossed')
+    mesh = UnitSquareMesh(100, 100, "crossed")
 
     # Initialize mesh function for interior domains
-    domains = CellFunction('size_t', mesh)
+    domains = CellFunction("size_t", mesh)
     domains.set_all(0)
     obstacle.mark(domains, 1)
 
     # Initialize mesh function for boundary domains
-    boundaries = MeshFunction(
-        'size_t', mesh,
-        mesh.topology().dim() - 1
-        )
+    boundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
     boundaries.set_all(0)
     left.mark(boundaries, 1)
     top.mark(boundaries, 2)
     right.mark(boundaries, 3)
     bottom.mark(boundaries, 4)
 
-    boundary_indices = {'left': 1,
-                        'top': 2,
-                        'right': 3,
-                        'bottom': 4}
+    boundary_indices = {"left": 1, "top": 2, "right": 3, "bottom": 4}
     f = Constant(0.0)
     theta0 = Constant(293.0)
     return mesh, f, boundaries, boundary_indices, theta0
 
 
 def coil_in_box():
-    mesh = Mesh('../meshes/2d/coil-in-box.xml')
+    mesh = Mesh("../meshes/2d/coil-in-box.xml")
 
     f = Constant(0.0)
 
@@ -572,28 +657,37 @@ def coil_in_box():
     class LeftBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] < GMSH_EPS
+
     left_boundary = LeftBoundary()
 
     class RightBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] > 2.5 - GMSH_EPS
+
     right_boundary = RightBoundary()
 
     class LowerBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[1] < GMSH_EPS
+
     lower_boundary = LowerBoundary()
 
     class UpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 0.4-GMSH_EPS
+            return on_boundary and x[1] > 0.4 - GMSH_EPS
+
     upper_boundary = UpperBoundary()
 
     class CoilBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary \
-                and x[0] > GMSH_EPS and x[0] < 2.5-GMSH_EPS \
-                and x[1] > GMSH_EPS and x[1] < 0.4-GMSH_EPS
+            return (
+                on_boundary
+                and x[0] > GMSH_EPS
+                and x[0] < 2.5 - GMSH_EPS
+                and x[1] > GMSH_EPS
+                and x[1] < 0.4 - GMSH_EPS
+            )
+
     coil_boundary = CoilBoundary()
 
     # heater_temp = 380.0
@@ -606,16 +700,13 @@ def coil_in_box():
     #        ]
 
     boundaries = {}
-    boundaries['left'] = left_boundary
-    boundaries['right'] = right_boundary
-    boundaries['upper'] = upper_boundary
-    boundaries['lower'] = lower_boundary
-    boundaries['coil'] = coil_boundary
+    boundaries["left"] = left_boundary
+    boundaries["right"] = right_boundary
+    boundaries["upper"] = upper_boundary
+    boundaries["lower"] = lower_boundary
+    boundaries["coil"] = coil_boundary
 
-    boundaries = MeshFunction(
-        'size_t', mesh,
-        mesh.topology().dim() - 1
-        )
+    boundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
     boundaries.set_all(0)
     left_boundary.mark(boundaries, 1)
     right_boundary.mark(boundaries, 2)
@@ -623,26 +714,23 @@ def coil_in_box():
     lower_boundary.mark(boundaries, 4)
     coil_boundary.mark(boundaries, 5)
 
-    boundary_indices = {'left': 1,
-                        'right': 2,
-                        'top': 3,
-                        'bottom': 4,
-                        'coil': 5}
+    boundary_indices = {"left": 1, "right": 2, "top": 3, "bottom": 4, "coil": 5}
     theta0 = Constant(293.0)
     return mesh, f, boundaries, boundary_indices, theta0
 
 
 def karman():
     # mesh = Mesh('../meshes/2d/karman.xml')
-    mesh = Mesh('../meshes/2d/karman-coarse2.xml')
+    mesh = Mesh("../meshes/2d/karman-coarse2.xml")
 
-    V = VectorFunctionSpace(mesh, 'CG', 2)
-    Q = FunctionSpace(mesh, 'CG', 1)
+    V = VectorFunctionSpace(mesh, "CG", 2)
+    Q = FunctionSpace(mesh, "CG", 1)
 
     # Define mesh and boundaries.
     class LeftBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[0] < DOLFIN_EPS
+
     left_boundary = LeftBoundary()
 
     class RightBoundary(SubDomain):
@@ -652,18 +740,25 @@ def karman():
     class LowerBoundary(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary and x[1] < DOLFIN_EPS
+
     lower_boundary = LowerBoundary()
 
     class UpperBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary and x[1] > 0.4-DOLFIN_EPS
+            return on_boundary and x[1] > 0.4 - DOLFIN_EPS
+
     upper_boundary = UpperBoundary()
 
     class ObstacleBoundary(SubDomain):
         def inside(self, x, on_boundary):
-            return on_boundary \
-                and x[0] > DOLFIN_EPS and x[0] < 2.5-DOLFIN_EPS \
-                and x[1] > DOLFIN_EPS and x[1] < 0.4-DOLFIN_EPS
+            return (
+                on_boundary
+                and x[0] > DOLFIN_EPS
+                and x[0] < 2.5 - DOLFIN_EPS
+                and x[1] > DOLFIN_EPS
+                and x[1] < 0.4 - DOLFIN_EPS
+            )
+
     obstacle_boundary = ObstacleBoundary()
 
     # Boundary conditions for the velocity.
@@ -695,21 +790,21 @@ def karman():
     # component of the outflow to 0, and letting the normal component du/dn=0
     # (again, this is achieved implicitly by the weak formulation).
     #
-    inflow = Expression('100*x[1]*(0.4-x[1])', degree=2)
+    inflow = Expression("100*x[1]*(0.4-x[1])", degree=2)
     u_bcs = [
         DirichletBC(V, (0.0, 0.0), upper_boundary),
         DirichletBC(V, (0.0, 0.0), lower_boundary),
         DirichletBC(V, (0.0, 0.0), obstacle_boundary),
         DirichletBC(V.sub(0), inflow, left_boundary),
         # DirichletBC(V.sub(1), 0.0, right_boundary),
-        ]
+    ]
     dudt_bcs = [
         DirichletBC(V, (0.0, 0.0), upper_boundary),
         DirichletBC(V, (0.0, 0.0), lower_boundary),
         DirichletBC(V, (0.0, 0.0), obstacle_boundary),
         DirichletBC(V.sub(0), 0.0, left_boundary),
         # DirichletBC(V.sub(1), 0.0, right_boundary),
-        ]
+    ]
     # If there is a penetration boundary (i.e., n.u!=0), then the pressure must
     # be set at the boundary to make sure that the Navier-Stokes problem
     # remains consistent.
@@ -722,17 +817,11 @@ def karman():
 
 
 def currentloop():
-    base = '../meshes/2d/circle-in-halfcircle'
-    mesh = Mesh(base + '.xml')
-    subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
-    subdomain_materials = {
-            1: 'copper',
-            2: 'air'
-            }
-    coils = [{'rings': [1],
-              'c_type': 'voltage',
-              'c_value': 230.0*numpy.sqrt(2.0)},
-             ]
+    base = "../meshes/2d/circle-in-halfcircle"
+    mesh = Mesh(base + ".xml")
+    subdomains = MeshFunction("size_t", mesh, base + "_physical_region.xml")
+    subdomain_materials = {1: "copper", 2: "air"}
+    coils = [{"rings": [1], "c_type": "voltage", "c_value": 230.0 * numpy.sqrt(2.0)}]
     wpi = None
     omega = 1.0e3
     # According to
@@ -752,44 +841,36 @@ def currentloop():
 
 
 def pons():
-    base = '../meshes/2d/pons'
-    mesh = Mesh(base + '.xml')
-    subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
-    subdomain_materials = {
-            19: 'graphite',
-            20: 'SiC',
-            21: 'air'
-            }
+    base = "../meshes/2d/pons"
+    mesh = Mesh(base + ".xml")
+    subdomains = MeshFunction("size_t", mesh, base + "_physical_region.xml")
+    subdomain_materials = {19: "graphite", 20: "SiC", 21: "air"}
     for k in range(1, 19, 2):
-        subdomain_materials[k] = 'air'
+        subdomain_materials[k] = "air"
     for k in range(2, 19, 2):
-        subdomain_materials[k] = 'copper'
-    coils = [{
-        'rings': range(2, 19, 2),
-        # 'rings': range(10,19,2),
-        # 'rings': [10],
-        'c_type': 'voltage',
-        'c_value': 230.0*numpy.sqrt(2.0)
-        }]
+        subdomain_materials[k] = "copper"
+    coils = [
+        {
+            "rings": range(2, 19, 2),
+            # 'rings': range(10,19,2),
+            # 'rings': [10],
+            "c_type": "voltage",
+            "c_value": 230.0 * numpy.sqrt(2.0),
+        }
+    ]
     wpi = 20
     omega = 2 * pi * 10e3
     return mesh, subdomains, coils, wpi, subdomain_materials, omega
 
 
 def generic():
-    base = '../meshes/2d/circles2d-boundary'
-    mesh = Mesh(base + '.xml')
-    subdomains = MeshFunction('size_t', mesh, base+'_physical_region.xml')
-    subdomain_materials = {
-            1: 'graphite',
-            2: 'GaAs (liquid)',
-            3: 'air'
-            }
-    coils = [{
-        'rings': [1],
-        'c_type': 'voltage',
-        'c_value': 20.0  # 230.0*numpy.sqrt(2.0)
-        }]
+    base = "../meshes/2d/circles2d-boundary"
+    mesh = Mesh(base + ".xml")
+    subdomains = MeshFunction("size_t", mesh, base + "_physical_region.xml")
+    subdomain_materials = {1: "graphite", 2: "GaAs (liquid)", 3: "air"}
+    coils = [
+        {"rings": [1], "c_type": "voltage", "c_value": 20.0}  # 230.0*numpy.sqrt(2.0)
+    ]
     wpi = 2
     # omega = 2 * pi * 10.0e3
     omega = 2 * pi * 300.0

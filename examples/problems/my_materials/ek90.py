@@ -10,7 +10,4 @@ electrical_conductivity = 52.0e3
 
 
 def thermal_conductivity(T):
-    return 87.607 \
-        - 8.52865e-2 * T \
-        + 3.835e-5 * T**2 \
-        + 5.143515e-9 * T**3
+    return 87.607 - 8.52865e-2 * T + 3.835e-5 * T ** 2 + 5.143515e-9 * T ** 3
