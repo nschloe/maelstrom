@@ -383,7 +383,8 @@ def generate(verbose=False):
     cache_file = "cruc_cache.msh"
     if os.path.isfile(cache_file):
         print("Using mesh from cache '{}'.".format(cache_file))
-        out = meshio.read(cache_file)
+        mesh = meshio.read(cache_file)
+        out = mesh.points, mesh.cells, mesh.point_data, mesh.cell_data, mesh.field_data
     else:
         out = pygmsh.generate_mesh(_define(), verbose=verbose)
         points, cells, point_data, cell_data, _ = out
