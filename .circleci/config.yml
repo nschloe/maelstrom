@@ -13,10 +13,12 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y git gmsh
       - run: sudo apt remove -y python3-pytest
-      - run: sudo -H pip3 install pytest pytest-cov black flake8 Sphinx
+      # Can't use black yet as it requires Python 3.6. The FEniCS images are built upon
+      # Ubuntu 16.04 though with Python 3.5
+      - run: sudo -H pip3 install pytest pytest-cov flake8 Sphinx
       - checkout
       # format and lint
-      - run: LC_ALL=C.UTF-8 black --check maelstrom/ examples/*.py test/*.py
+      # - run: LC_ALL=C.UTF-8 black --check maelstrom/ examples/*.py test/*.py
       - run: flake8 maelstrom/ examples/*.py test/*.py
       # check if documentation builds
       - run: sudo -H pip3 install -r doc/requirements.txt
