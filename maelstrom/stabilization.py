@@ -49,11 +49,6 @@ namespace py = pybind11;
 
 class SupgStab : public dolfin::Expression {
 public:
-double epsilon;
-int p;
-std::shared_ptr<GenericFunction> convection;
-std::shared_ptr<dolfin::Mesh> mesh;
-
 SupgStab(): dolfin::Expression()
 {}
 
@@ -63,9 +58,11 @@ void eval(
   const ufc::cell& c
   ) const
 {
-  std::cout << "a" << std::endl;
-
   dolfin::Array<double> v(x.size());
+  if (convection == nullptr) {
+      std::cout << "`convection` is null. !ERROR!" << std::endl;
+  }
+
   convection->eval(v, x, c);
   double conv_norm = 0.0;
   for (uint i = 0; i < v.size(); ++i)
@@ -87,6 +84,7 @@ void eval(
   const unsigned int* vertices = cell.entities(0);
   assert(vertices);
   double sum = 0.0;
+
   for (int i=0; i<3; i++) {
     for (int j=i+1; j<3; j++) {
       // Get edge coords.
@@ -142,23 +140,58 @@ void eval(
     std::cout << "xi    = " << xi << std::endl;
     throw 1;
   }
-
   return;
 }
+
+void set_convection(
+    std::shared_ptr<GenericFunction> _convection
+    )
+{
+  convection = _convection;
+}
+
+void set_mesh(
+    std::shared_ptr<dolfin::Mesh> _mesh
+    )
+{
+  mesh = _mesh;
+}
+
+void set_epsilon(double _epsilon)
+{
+  epsilon = _epsilon;
+}
+
+void set_p(int _p)
+{
+  p = _p;
+}
+
+private:
+    std::shared_ptr<GenericFunction> convection;
+    std::shared_ptr<dolfin::Mesh> mesh;
+    double epsilon;
+    int p;
 };
 
 PYBIND11_MODULE(SIGNATURE, m)
 {
     py::class_<SupgStab, std::shared_ptr<SupgStab>, dolfin::Expression>
     (m, "SupgStab")
-    .def(py::init<>());
+    .def(py::init<>())
+    .def("set_convection", &SupgStab::set_convection)
+    .def("set_mesh", &SupgStab::set_mesh)
+    .def("set_epsilon", &SupgStab::set_epsilon)
+    .def("set_p", &SupgStab::set_p);
 }
 """
     # TODO set degree
-    compiled_code = compile_cpp_code(cppcode)
-    tau = CompiledExpression(compiled_code.SupgStab(), degree=5)
-    tau.convection = convection
-    tau.mesh = mesh
-    tau.epsilon = diffusion
-    tau.p = element_degree
+    compiled_module = compile_cpp_code(cppcode).SupgStab()
+    # compiled_module.set(convection, mesh, diffusion, element_degree)
+    compiled_module.set_p(element_degree)
+    compiled_module.set_epsilon(diffusion)
+    compiled_module.set_mesh(mesh)
+    print(type(convection))
+    compiled_module.set_convection(convection)
+    tau = CompiledExpression(compiled_module, degree=5)
     return tau
