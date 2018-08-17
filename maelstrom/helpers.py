@@ -10,11 +10,11 @@ def dbcs_to_productspace(W, bcs_list):
             C = bc.function_space().component()
             # pylint: disable=len-as-condition
             if len(C) == 0:
-                new_bcs.append(DirichletBC(W.sub(k), bc.value(), bc.domain_args[0]))
+                new_bcs.append(DirichletBC(W.sub(k), bc.value(), bc.sub_domain))
             else:
                 assert len(C) == 1, "Illegal number of subspace components."
                 new_bcs.append(
-                    DirichletBC(W.sub(k).sub(int(C[0])), bc.value(), bc.domain_args[0])
+                    DirichletBC(W.sub(k).sub(int(C[0])), bc.value(), bc.sub_domain)
                 )
 
     return new_bcs
