@@ -117,6 +117,7 @@ def problem_guermond1_cylindrical():
         "p": {"value": p, "degree": numpy.infty},
     }
     f = {"value": _get_navier_stokes_rhs_cylindrical(u, p), "degree": numpy.infty}
+
     mu = 1.0
     rho = 1.0
     return mesh_generator, solution, f, mu, rho, cell_type
@@ -260,16 +261,17 @@ def _get_navier_stokes_rhs_cylindrical(u, p):
 
 
 if __name__ == "__main__":
-    mesh_sizes = [8, 16, 32, 64]
-    # mesh_sizes = [10, 20, 40, 80]
-    Dt = [0.5 ** k for k in range(12)]
-    errors = helpers.compute_time_errors(
-        # problem_flat_cylindrical,
-        # problem_whirl_cylindrical,
-        problem_guermond1_cylindrical,
-        # problem_taylor_cylindrical,
-        ns_cyl.IPCS,
-        mesh_sizes,
-        Dt,
-    )
-    helpers.show_timeorder_info(Dt, mesh_sizes, errors)
+    # mesh_sizes = [8, 16, 32, 64]
+    # # mesh_sizes = [10, 20, 40, 80]
+    # Dt = [0.5 ** k for k in range(12)]
+    # errors = helpers.compute_time_errors(
+    #     # problem_flat_cylindrical,
+    #     # problem_whirl_cylindrical,
+    #     problem_guermond1_cylindrical,
+    #     # problem_taylor_cylindrical,
+    #     ns_cyl.IPCS,
+    #     mesh_sizes,
+    #     Dt,
+    # )
+    # helpers.show_timeorder_info(Dt, mesh_sizes, errors)
+    test_order(problem_guermond1_cylindrical, ns_cyl.IPCS)

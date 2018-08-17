@@ -27,8 +27,32 @@ import sympy
 
 
 def ccode(*args, **kwargs):
-    # FEniCS needs to have M_PI replaced by pi
-    return sympy.ccode(*args, **kwargs).replace("M_PI", "pi")
+    # FEniCS needs to have M_PI replaced by pi, and various other things. Check out
+    # <http://docs.sympy.org/latest/_modules/sympy/printing/ccode.html>:
+    #
+    #     S.Exp1: 'M_E',
+    #     log2(S.Exp1): 'M_LOG2E',
+    #     1/log(2): 'M_LOG2E',
+    #     log(2): 'M_LN2',
+    #     log(10): 'M_LN10',
+    #     S.Pi: 'M_PI',
+    #     S.Pi/2: 'M_PI_2',
+    #     S.Pi/4: 'M_PI_4',
+    #     1/S.Pi: 'M_1_PI',
+    #     2/S.Pi: 'M_2_PI',
+    #     2/sqrt(S.Pi): 'M_2_SQRTPI',
+    #     2/Sqrt(S.Pi): 'M_2_SQRTPI',
+    #     sqrt(2): 'M_SQRT2',
+    #     Sqrt(2): 'M_SQRT2',
+    #     1/sqrt(2): 'M_SQRT1_2',
+    #     1/Sqrt(2): 'M_SQRT1_2'
+    #
+    return (
+        sympy.ccode(*args, **kwargs)
+        .replace("M_PI_2", "pi/2")
+        .replace("M_PI_4", "pi/4")
+        .replace("M_PI", "pi")
+    )
 
 
 def _truncate_degree(degree, max_degree=10):
@@ -158,6 +182,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
         )
         # Deep-copy expression to be able to provide f0, f1 for the
         # Dirichlet boundary conditions later on.
+        print("d")
         fenics_rhs1 = Expression(
             fenics_rhs0.cppcode,
             degree=_truncate_degree(f["degree"]),
