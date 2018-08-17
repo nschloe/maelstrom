@@ -9,7 +9,6 @@ import warnings
 
 from dolfin import (
     Expression,
-    info,
     assemble,
     FunctionSpace,
     interpolate,
@@ -25,8 +24,6 @@ from dolfin import (
 import matplotlib.pyplot as plt
 import numpy
 import sympy
-
-from maelstrom.message import Message
 
 
 def ccode(*args, **kwargs):
@@ -129,138 +126,138 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
         "p": numpy.empty((len(mesh_sizes), len(Dt))),
     }
     for k, mesh_size in enumerate(mesh_sizes):
-        info("")
-        info("")
-        with Message("Computing for mesh size {}...".format(mesh_size)):
-            mesh = mesh_generator(mesh_size)
+        print()
+        print()
+        print("Computing for mesh size {}...".format(mesh_size))
+        mesh = mesh_generator(mesh_size)
 
-            # Define all expression with `domain`, see
-            # <https://bitbucket.org/fenics-project/ufl/issues/96>.
-            #
-            # Translate data into FEniCS expressions.
-            sol_u = Expression(
-                (ccode(solution["u"]["value"][0]), ccode(solution["u"]["value"][1])),
-                degree=_truncate_degree(solution["u"]["degree"]),
-                t=0.0,
-                domain=mesh,
-            )
-            sol_p = Expression(
-                ccode(solution["p"]["value"]),
-                degree=_truncate_degree(solution["p"]["degree"]),
-                t=0.0,
-                domain=mesh,
-            )
+        # Define all expression with `domain`, see
+        # <https://bitbucket.org/fenics-project/ufl/issues/96>.
+        #
+        # Translate data into FEniCS expressions.
+        sol_u = Expression(
+            (ccode(solution["u"]["value"][0]), ccode(solution["u"]["value"][1])),
+            degree=_truncate_degree(solution["u"]["degree"]),
+            t=0.0,
+            domain=mesh,
+        )
+        sol_p = Expression(
+            ccode(solution["p"]["value"]),
+            degree=_truncate_degree(solution["p"]["degree"]),
+            t=0.0,
+            domain=mesh,
+        )
 
-            fenics_rhs0 = Expression(
-                (ccode(f["value"][0]), ccode(f["value"][1])),
-                degree=_truncate_degree(f["degree"]),
-                t=0.0,
-                mu=mu,
-                rho=rho,
-                domain=mesh,
-            )
-            # Deep-copy expression to be able to provide f0, f1 for the
-            # Dirichlet boundary conditions later on.
-            fenics_rhs1 = Expression(
-                fenics_rhs0.cppcode,
-                degree=_truncate_degree(f["degree"]),
-                t=0.0,
-                mu=mu,
-                rho=rho,
-                domain=mesh,
-            )
-            # Create initial states.
-            W = VectorFunctionSpace(mesh, "CG", 2)
-            P = FunctionSpace(mesh, "CG", 1)
-            p0 = Expression(
-                sol_p.cppcode,
-                degree=_truncate_degree(solution["p"]["degree"]),
-                t=0.0,
-                domain=mesh,
-            )
+        fenics_rhs0 = Expression(
+            (ccode(f["value"][0]), ccode(f["value"][1])),
+            degree=_truncate_degree(f["degree"]),
+            t=0.0,
+            mu=mu,
+            rho=rho,
+            domain=mesh,
+        )
+        # Deep-copy expression to be able to provide f0, f1 for the
+        # Dirichlet boundary conditions later on.
+        fenics_rhs1 = Expression(
+            fenics_rhs0.cppcode,
+            degree=_truncate_degree(f["degree"]),
+            t=0.0,
+            mu=mu,
+            rho=rho,
+            domain=mesh,
+        )
+        # Create initial states.
+        W = VectorFunctionSpace(mesh, "CG", 2)
+        P = FunctionSpace(mesh, "CG", 1)
+        p0 = Expression(
+            sol_p.cppcode,
+            degree=_truncate_degree(solution["p"]["degree"]),
+            t=0.0,
+            domain=mesh,
+        )
 
-            mesh_area = assemble(1.0 * dx(mesh))
-            method = MethodClass(
-                time_step_method="backward euler",
-                # time_step_method='crank-nicolson',
-                # stabilization=None
-                # stabilization='SUPG'
-            )
-            u1 = Function(W)
-            p1 = Function(P)
-            err_p = Function(P)
-            divu1 = Function(P)
-            for j, dt in enumerate(Dt):
-                # Prepare previous states for multistepping.
-                u = {
-                    0: Expression(
-                        sol_u.cppcode,
-                        degree=_truncate_degree(solution["u"]["degree"]),
-                        t=0.0,
-                        cell=cell_type,
-                    )
-                }
-                sol_u.t = dt
-                u_bcs = [DirichletBC(W, sol_u, "on_boundary")]
-                sol_p.t = dt
-                # p_bcs = [DirichletBC(P, sol_p, 'on_boundary')]
-                p_bcs = []
-                fenics_rhs0.t = 0.0
-                fenics_rhs1.t = dt
-                u1, p1 = method.step(
-                    Constant(dt),
-                    u,
-                    p0,
-                    W,
-                    P,
-                    u_bcs,
-                    p_bcs,
-                    Constant(rho),
-                    Constant(mu),
-                    f={0: fenics_rhs0, 1: fenics_rhs1},
-                    verbose=False,
-                    tol=1.0e-10,
+        mesh_area = assemble(1.0 * dx(mesh))
+        method = MethodClass(
+            time_step_method="backward euler",
+            # time_step_method='crank-nicolson',
+            # stabilization=None
+            # stabilization='SUPG'
+        )
+        u1 = Function(W)
+        p1 = Function(P)
+        err_p = Function(P)
+        divu1 = Function(P)
+        for j, dt in enumerate(Dt):
+            # Prepare previous states for multistepping.
+            u = {
+                0: Expression(
+                    sol_u.cppcode,
+                    degree=_truncate_degree(solution["u"]["degree"]),
+                    t=0.0,
+                    cell=cell_type,
                 )
+            }
+            sol_u.t = dt
+            u_bcs = [DirichletBC(W, sol_u, "on_boundary")]
+            sol_p.t = dt
+            # p_bcs = [DirichletBC(P, sol_p, 'on_boundary')]
+            p_bcs = []
+            fenics_rhs0.t = 0.0
+            fenics_rhs1.t = dt
+            u1, p1 = method.step(
+                Constant(dt),
+                u,
+                p0,
+                W,
+                P,
+                u_bcs,
+                p_bcs,
+                Constant(rho),
+                Constant(mu),
+                f={0: fenics_rhs0, 1: fenics_rhs1},
+                verbose=False,
+                tol=1.0e-10,
+            )
 
-                sol_u.t = dt
-                sol_p.t = dt
-                errors["u"][k][j] = errornorm(sol_u, u1)
-                # The pressure is only determined up to a constant which makes
-                # it a bit harder to define what the error is. For our
-                # purposes, choose an alpha_0\in\R such that
-                #
-                #    alpha0 = argmin ||e - alpha||^2
-                #
-                # with  e := sol_p - p.
-                # This alpha0 is unique and explicitly given by
-                #
-                #     alpha0 = 1/(2|Omega|) \int (e + e*)
-                #            = 1/|Omega| \int Re(e),
-                #
-                # i.e., the mean error in \Omega.
-                alpha = +assemble(sol_p * dx(mesh)) - assemble(p1 * dx(mesh))
-                alpha /= mesh_area
-                # We would like to perform
-                #     p1 += alpha.
-                # To avoid creating a temporary function every time, assume
-                # that p1 lives in a function space where the coefficients
-                # represent actual function values. This is true for CG
-                # elements, for example. In that case, we can just add any
-                # number to the vector of p1.
-                p1.vector()[:] += alpha
-                errors["p"][k][j] = errornorm(sol_p, p1)
+            sol_u.t = dt
+            sol_p.t = dt
+            errors["u"][k][j] = errornorm(sol_u, u1)
+            # The pressure is only determined up to a constant which makes
+            # it a bit harder to define what the error is. For our
+            # purposes, choose an alpha_0\in\R such that
+            #
+            #    alpha0 = argmin ||e - alpha||^2
+            #
+            # with  e := sol_p - p.
+            # This alpha0 is unique and explicitly given by
+            #
+            #     alpha0 = 1/(2|Omega|) \int (e + e*)
+            #            = 1/|Omega| \int Re(e),
+            #
+            # i.e., the mean error in \Omega.
+            alpha = +assemble(sol_p * dx(mesh)) - assemble(p1 * dx(mesh))
+            alpha /= mesh_area
+            # We would like to perform
+            #     p1 += alpha.
+            # To avoid creating a temporary function every time, assume
+            # that p1 lives in a function space where the coefficients
+            # represent actual function values. This is true for CG
+            # elements, for example. In that case, we can just add any
+            # number to the vector of p1.
+            p1.vector()[:] += alpha
+            errors["p"][k][j] = errornorm(sol_p, p1)
 
-                show_plots = False
-                if show_plots:
-                    plot(p1, title="p1", mesh=mesh)
-                    plot(sol_p, title="sol_p", mesh=mesh)
-                    err_p.vector()[:] = p1.vector()
-                    sol_interp = interpolate(sol_p, P)
-                    err_p.vector()[:] -= sol_interp.vector()
-                    # plot(sol_p - p1, title='p1 - sol_p', mesh=mesh)
-                    plot(err_p, title="p1 - sol_p", mesh=mesh)
-                    # r = SpatialCoordinate(mesh)[0]
-                    # divu1 = 1 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
-                    divu1.assign(project(u1[0].dx(0) + u1[1].dx(1), P))
-                    plot(divu1, title="div(u1)")
+            show_plots = False
+            if show_plots:
+                plot(p1, title="p1", mesh=mesh)
+                plot(sol_p, title="sol_p", mesh=mesh)
+                err_p.vector()[:] = p1.vector()
+                sol_interp = interpolate(sol_p, P)
+                err_p.vector()[:] -= sol_interp.vector()
+                # plot(sol_p - p1, title='p1 - sol_p', mesh=mesh)
+                plot(err_p, title="p1 - sol_p", mesh=mesh)
+                # r = SpatialCoordinate(mesh)[0]
+                # divu1 = 1 / r * (r * u1[0]).dx(0) + u1[1].dx(1)
+                divu1.assign(project(u1[0].dx(0) + u1[1].dx(1), P))
+                plot(divu1, title="div(u1)")
     return errors

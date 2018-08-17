@@ -13,7 +13,6 @@ from dolfin import (
     triangle,
     Expression,
     MPI,
-    mpi_comm_world,
     dot,
     TestFunction,
     TrialFunction,
@@ -322,7 +321,7 @@ def _compute_errors(problem, mesh_sizes):
     hmax = numpy.empty(len(mesh_sizes))
     for k, mesh_size in enumerate(mesh_sizes):
         mesh, dx, _ = mesh_generator(mesh_size)
-        hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
+        hmax[k] = MPI.max(MPI.comm_world, mesh.hmax())
         V = FunctionSpace(mesh, "CG", 1)
         # TODO don't hardcode Mu, Sigma, ...
         phi_approx = maxwell.solve(

@@ -9,7 +9,6 @@ from .__about__ import (
 )
 
 from . import helpers
-from . import message
 
 __all__ = [
     "__author__",
@@ -18,5 +17,4 @@ __all__ = [
     "__version__",
     "__status__",
     "helpers",
-    "message",
 ]

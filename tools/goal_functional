@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-from dolfin import Function, TimeSeriesHDF5, FunctionSpace, Mesh, \
-    mpi_comm_world
+from dolfin import Function, TimeSeriesHDF5, FunctionSpace, Mesh, MPI
 import numpy as np
 import os
 
@@ -25,7 +24,7 @@ def _main():
     # <https://bitbucket.org/fenics-project/dolfin/issue/237/timeserieshdf5-the-mpi_info_create>.
     from dolfin import UnitIntervalMesh
     UnitIntervalMesh(1)
-    comm = mpi_comm_world()
+    comm = MPI.comm_world
 
     # Crucible domain
     control_points = [

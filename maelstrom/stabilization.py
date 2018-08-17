@@ -5,7 +5,7 @@ Stabilization techniques for PDEs with dominating convection.
 The classical article about SUPG is :cite:`brooks`; for an overview
 of methods, see :cite:`sold1`, :cite:`sold2`, and :cite:`bgs2004`.
 """
-from dolfin import Expression
+from dolfin import compile_cpp_code, CompiledExpression
 
 
 def supg(mesh, convection, diffusion, element_degree):
@@ -33,32 +33,46 @@ def supg(mesh, convection, diffusion, element_degree):
     for :math:`Pe\\approx 0`. This Taylor expansion (with a few more terms) is
     made use of in the code.
     """
-    cppcode = """#include <dolfin/mesh/Vertex.h>
+    cppcode = """
+#include <dolfin/common/Array.h>
+#include <dolfin/function/Expression.h>
+#include <dolfin/geometry/Point.h>
+#include <dolfin/mesh/Cell.h>
+#include <dolfin/mesh/Mesh.h>
+#include <dolfin/mesh/Vertex.h>
 
-class SupgStab : public Expression {
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+
+#include <iostream>
+
+
+class SupgStab : public dolfin::Expression {
 public:
 double epsilon;
 int p;
 std::shared_ptr<GenericFunction> convection;
-std::shared_ptr<Mesh> mesh;
+std::shared_ptr<dolfin::Mesh> mesh;
 
-SupgStab(): Expression()
+SupgStab(): dolfin::Expression()
 {}
 
 void eval(
-  Array<double>& tau,
-  const Array<double>& x,
+  dolfin::Array<double>& tau,
+  const dolfin::Array<double>& x,
   const ufc::cell& c
   ) const
 {
-  Array<double> v(x.size());
+  std::cout << "a" << std::endl;
+
+  dolfin::Array<double> v(x.size());
   convection->eval(v, x, c);
   double conv_norm = 0.0;
   for (uint i = 0; i < v.size(); ++i)
     conv_norm += v[i]*v[i];
   conv_norm = sqrt(conv_norm);
 
-  Cell cell(*mesh, c.index);
+  dolfin::Cell cell(*mesh, c.index);
 
   //// The alternative for the lazy:
   //const double h = cell.diameter();
@@ -78,8 +92,8 @@ void eval(
       // Get edge coords.
       const dolfin::Vertex v0(*mesh, vertices[i]);
       const dolfin::Vertex v1(*mesh, vertices[j]);
-      const Point p0 = v0.point();
-      const Point p1 = v1.point();
+      const dolfin::Point p0 = v0.point();
+      const dolfin::Point p1 = v1.point();
       const double e0 = p0[0] - p1[0];
       const double e1 = p0[1] - p1[1];
 
@@ -132,9 +146,17 @@ void eval(
   return;
 }
 };
+
+PYBIND11_MODULE(SIGNATURE, m)
+{
+    py::class_<SupgStab, std::shared_ptr<SupgStab>, dolfin::Expression>
+    (m, "SupgStab")
+    .def(py::init<>());
+}
 """
     # TODO set degree
-    tau = Expression(cppcode, degree=5)
+    compiled_code = compile_cpp_code(cppcode)
+    tau = CompiledExpression(compiled_code.SupgStab(), degree=5)
     tau.convection = convection
     tau.mesh = mesh
     tau.epsilon = diffusion

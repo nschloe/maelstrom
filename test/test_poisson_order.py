@@ -10,7 +10,6 @@ from dolfin import (
     UnitSquareMesh,
     triangle,
     Expression,
-    mpi_comm_world,
     pi,
     DirichletBC,
     MPI,
@@ -112,7 +111,7 @@ def _compute_errors(problem, mesh_sizes, stabilization):
     hmax = numpy.empty(len(mesh_sizes))
     for k, mesh_size in enumerate(mesh_sizes):
         mesh = mesh_generator(mesh_size)
-        hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
+        hmax[k] = MPI.max(MPI.comm_world, mesh.hmax())
         Q = FunctionSpace(mesh, "CG", 1)
         prob = heat.Heat(
             Q,
@@ -162,5 +161,6 @@ def _show_order_info(problem, mesh_sizes, stabilization):
 
 
 if __name__ == "__main__":
-    mesh_sizes_ = [16, 32, 64, 128]
-    _show_order_info(problem_sinsin, mesh_sizes_, None)
+    # mesh_sizes_ = [16, 32, 64, 128]
+    # _show_order_info(problem_sinsin, mesh_sizes_, None)
+    test_order(problem_sinsin, "supg")

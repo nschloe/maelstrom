@@ -15,6 +15,7 @@ from dolfin import (
     dot,
     grad,
     FunctionSpace,
+    UserExpression,
     Expression,
     FacetNormal,
     pi,
@@ -105,7 +106,7 @@ class Crucible:
         #             'Submesh file \'{}\' does not exist. Creating... '.format(
         #             filename
         #             ))
-        #         if MPI.size(mpi_comm_world()) > 1:
+        #         if MPI.size(MPI.comm_world) > 1:
         #             raise RuntimeError(
         #                 'Can only write submesh in serial mode.'
         #                 )
@@ -263,7 +264,7 @@ class Crucible:
         ]
         T_vals = data["ZONE T"]["node data"]["temp. [K]"]
 
-        class TecplotDirichletBC(Expression):
+        class TecplotDirichletBC(UserExpression):
             def eval(self, value, x):
                 # Find on which edge x sits, and raise exception if it doesn't.
                 edge_found = False
@@ -332,7 +333,7 @@ class Crucible:
         dTdr_vals = data["ZONE T"]["node data"]["dTempdx [K/m]"]
         dTdz_vals = data["ZONE T"]["node data"]["dTempdz [K/m]"]
 
-        class TecplotNeumannBC(Expression):
+        class TecplotNeumannBC(UserExpression):
             def eval(self, value, x):
                 # Same problem as above: This expression is not only evaluated
                 # at boundaries.
@@ -404,7 +405,7 @@ class Crucible:
         # makes sure that the potentially expensive Expression evaluation in
         # theta_bcs_* is replaced by something reasonably cheap.
         self.theta_bcs_d = [
-            DirichletBC(bc.function_space(), theta_reference, bc.domain_args[0])
+            DirichletBC(bc.function_space(), theta_reference, bc.sub_domain)
             for bc in self.theta_bcs_d
         ]
         # Adapt Neumann conditions.

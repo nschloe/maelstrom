@@ -402,5 +402,4 @@ if __name__ == "__main__":
         cells,
         point_data=point_data,
         cell_data=cell_data,
-        verbose=True,
     )

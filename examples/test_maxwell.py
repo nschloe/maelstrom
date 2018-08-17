@@ -27,7 +27,6 @@ from numpy import pi
 from numpy import sin, cos
 
 import maelstrom.maxwell as cmx
-from maelstrom.message import Message
 
 import problems
 
@@ -199,55 +198,56 @@ def get_lorentz_joule(problem, input_voltages, show=False):
     # influence the magnetic field. Consequently, we precompute all associated
     # values.
     dx_subdomains = Measure("dx", subdomain_data=problem.subdomains)
-    with Message("Computing magnetic field..."):
-        Phi, voltages = cmx.compute_potential(
-            coils,
-            V,
-            dx_subdomains,
-            mu_const,
-            sigma_const,
-            problem.omega,
-            convections={}
-            # io_submesh=submesh_workpiece
-        )
-        # Get resulting Lorentz force.
-        lorentz = cmx.compute_lorentz(Phi, problem.omega, sigma_const[problem.wpi])
 
-        # Show the Lorentz force in the workpiece.
-        # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
-        # First project onto the entire mesh, then onto the submesh; see bug
-        # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
-        W = VectorFunctionSpace(problem.mesh, "CG", 1)
-        pl = project(lorentz, W)
-        W2 = VectorFunctionSpace(submesh_workpiece, "CG", 1)
-        pl = project(pl, W2)
-        pl.rename("Lorentz force", "Lorentz force")
-        with XDMFFile(submesh_workpiece.mpi_comm(), "lorentz.xdmf") as f:
-            f.parameters["flush_output"] = True
-            f.write(pl)
+    print("Computing magnetic field...")
+    Phi, voltages = cmx.compute_potential(
+        coils,
+        V,
+        dx_subdomains,
+        mu_const,
+        sigma_const,
+        problem.omega,
+        convections={}
+        # io_submesh=submesh_workpiece
+    )
+    # Get resulting Lorentz force.
+    lorentz = cmx.compute_lorentz(Phi, problem.omega, sigma_const[problem.wpi])
 
-        if show:
-            tri = plot(pl, title="Lorentz force")
-            plt.colorbar(tri)
-            plt.show()
+    # Show the Lorentz force in the workpiece.
+    # W_element = VectorElement('CG', submesh_workpiece.ufl_cell(), 1)
+    # First project onto the entire mesh, then onto the submesh; see bug
+    # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.
+    W = VectorFunctionSpace(problem.mesh, "CG", 1)
+    pl = project(lorentz, W)
+    W2 = VectorFunctionSpace(submesh_workpiece, "CG", 1)
+    pl = project(pl, W2)
+    pl.rename("Lorentz force", "Lorentz force")
+    with XDMFFile(submesh_workpiece.mpi_comm(), "lorentz.xdmf") as f:
+        f.parameters["flush_output"] = True
+        f.write(pl)
 
-        # Get Joule heat source.
-        joule = cmx.compute_joule(
-            Phi, voltages, problem.omega, sigma_const, mu_const, subdomain_indices
-        )
+    if show:
+        tri = plot(pl, title="Lorentz force")
+        plt.colorbar(tri)
+        plt.show()
 
-        if show:
-            # Show Joule heat source.
-            submesh = SubMesh(problem.mesh, problem.subdomains, problem.wpi)
-            W_submesh = FunctionSpace(submesh, "CG", 1)
-            jp = Function(W_submesh, name="Joule heat source")
-            jp.assign(project(joule[problem.wpi], W_submesh))
-            tri = plot(jp)
-            plt.title("Joule heat source")
-            plt.colorbar(tri)
-            plt.show()
+    # Get Joule heat source.
+    joule = cmx.compute_joule(
+        Phi, voltages, problem.omega, sigma_const, mu_const, subdomain_indices
+    )
 
-        joule_wpi = joule[problem.wpi]
+    if show:
+        # Show Joule heat source.
+        submesh = SubMesh(problem.mesh, problem.subdomains, problem.wpi)
+        W_submesh = FunctionSpace(submesh, "CG", 1)
+        jp = Function(W_submesh, name="Joule heat source")
+        jp.assign(project(joule[problem.wpi], W_submesh))
+        tri = plot(jp)
+        plt.title("Joule heat source")
+        plt.colorbar(tri)
+        plt.show()
+
+    joule_wpi = joule[problem.wpi]
 
     # To work around bug
     # <https://bitbucket.org/fenics-project/dolfin/issues/869/projecting-grad-onto-submesh-error>.

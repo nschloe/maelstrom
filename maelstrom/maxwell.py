@@ -89,7 +89,7 @@ from dolfin import (
     project,
     FunctionSpace,
     SpatialCoordinate,
-    mpi_comm_world,
+    MPI,
 )
 import numpy
 
@@ -536,7 +536,7 @@ def compute_potential(
             phi_out = interpolate(phi, W_submesh)
             phi_out.rename("phi{:02d}".format(k), "phi{:02d}".format(k))
             # Write to file
-            with XDMFFile(mpi_comm_world(), "phi{:02d}.xdmf".format(k)) as xdmf_file:
+            with XDMFFile(MPI.comm_world, "phi{:02d}.xdmf".format(k)) as xdmf_file:
                 xdmf_file.write(phi_out)
             # plot(phi_out)
             # interactive()

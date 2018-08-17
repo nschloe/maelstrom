@@ -22,7 +22,7 @@ def uniform_dft(time_interval_length, data):
     # time_interval_length such that cutting off the end point results in the
     # interval of length time_interval_length.
     time_interval_length *= n / float(n - 1)
-    freqs = numpy.array([i / time_interval_length for i in range(n//2 + 1)])
+    freqs = numpy.arange(n // 2 + 1) / time_interval_length
     #
     # Note that this definition of the frequencies slightly differs from the
     # output of np.fft.freqs which is

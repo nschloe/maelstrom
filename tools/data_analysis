@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 from dolfin import assemble, parameters, TrialFunction, TestFunction, dx, \
-    Function, TimeSeriesHDF5, FunctionSpace, Mesh, plot, interactive, \
-    mpi_comm_world
+    Function, TimeSeriesHDF5, FunctionSpace, Mesh, plot, interactive, MPI
 import numpy as np
 import time
 import os
@@ -193,7 +192,7 @@ def _main():
     if extension:
         temperature_file = filename
 
-    comm = mpi_comm_world()
+    comm = MPI.comm_world
     tst = TimeSeriesHDF5(comm, temperature_file)
 
     # Read mesh.

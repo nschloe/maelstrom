@@ -17,3 +17,6 @@ clean:
 lint:
 	black --check maelstrom/ examples/*.py test/*.py
 	flake8 maelstrom/ examples/*.py test/*.py
+
+black:
+	black maelstrom/ examples/*.py test/*.py
