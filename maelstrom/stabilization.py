@@ -59,10 +59,6 @@ void eval(
   ) const
 {
   dolfin::Array<double> v(x.size());
-  if (convection == nullptr) {
-      std::cout << "`convection` is null. !ERROR!" << std::endl;
-  }
-
   convection->eval(v, x, c);
   double conv_norm = 0.0;
   for (uint i = 0; i < v.size(); ++i)
@@ -191,7 +187,6 @@ PYBIND11_MODULE(SIGNATURE, m)
     compiled_module.set_p(element_degree)
     compiled_module.set_epsilon(diffusion)
     compiled_module.set_mesh(mesh)
-    print(type(convection))
-    compiled_module.set_convection(convection)
+    compiled_module.set_convection(convection.cpp_object())
     tau = CompiledExpression(compiled_module, degree=5)
     return tau
