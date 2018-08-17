@@ -182,9 +182,8 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
         )
         # Deep-copy expression to be able to provide f0, f1 for the
         # Dirichlet boundary conditions later on.
-        print("d")
         fenics_rhs1 = Expression(
-            fenics_rhs0.cppcode,
+            (ccode(f["value"][0]), ccode(f["value"][1])),
             degree=_truncate_degree(f["degree"]),
             t=0.0,
             mu=mu,
@@ -195,7 +194,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
         W = VectorFunctionSpace(mesh, "CG", 2)
         P = FunctionSpace(mesh, "CG", 1)
         p0 = Expression(
-            sol_p.cppcode,
+            ccode(solution["p"]["value"]),
             degree=_truncate_degree(solution["p"]["degree"]),
             t=0.0,
             domain=mesh,
@@ -216,7 +215,7 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             # Prepare previous states for multistepping.
             u = {
                 0: Expression(
-                    sol_u.cppcode,
+                    (ccode(solution["u"]["value"][0]), ccode(solution["u"]["value"][1])),
                     degree=_truncate_degree(solution["u"]["degree"]),
                     t=0.0,
                     cell=cell_type,

@@ -405,7 +405,8 @@ class Crucible:
         # makes sure that the potentially expensive Expression evaluation in
         # theta_bcs_* is replaced by something reasonably cheap.
         self.theta_bcs_d = [
-            DirichletBC(bc.function_space(), theta_reference, bc.sub_domain)
+            # <https://www.allanswered.com/post/rraep/2018-1-dirichletbc-function_space-broken/>
+            DirichletBC(FunctionSpace(bc.function_space()), theta_reference, bc.sub_domain)
             for bc in self.theta_bcs_d
         ]
         # Adapt Neumann conditions.
