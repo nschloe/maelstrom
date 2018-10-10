@@ -12,7 +12,7 @@ tag:
 
 clean:
 	@find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
-	@rm -rf *.egg-info/ build/ dist/
+	@rm -rf *.egg-info/ build/ dist/ doc/_build
 
 lint:
 	black --check maelstrom/ examples/*.py test/*.py

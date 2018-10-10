@@ -37,7 +37,6 @@ DEBUG = False
 
 class Crucible:
     def __init__(self):
-
         GMSH_EPS = 1.0e-15
 
         # https://fenicsproject.org/qa/12891/initialize-mesh-from-vertices-connectivities-at-once
@@ -223,9 +222,9 @@ class Crucible:
         #      better [...]."
         #
         # It turns out that adding the bubble space significantly hampers the
-        # convergence of the Stokes solver and also considerably increases the
-        # time it takes to construct the Jacobian matrix of the Navier--Stokes
-        # problem if no optimization is applied.
+        # convergence of the Stokes solver and also considerably increases the time it
+        # takes to construct the Jacobian matrix of the Navier--Stokes problem if no
+        # optimization is applied.
         V_element = FiniteElement("CG", self.submesh_workpiece.ufl_cell(), 2)
         with_bubbles = False
         if with_bubbles:
@@ -296,13 +295,12 @@ class Crucible:
                         ]
                         edge_found = True
                         break
-                # This class is supposed to be used for Dirichlet boundary
-                # conditions. For some reason, FEniCS also evaluates
-                # DirichletBC objects at coordinates which do not sit on the
-                # boundary, see
+                # This class is supposed to be used for Dirichlet boundary conditions.
+                # For some reason, FEniCS also evaluates DirichletBC objects at
+                # coordinates which do not sit on the boundary, see
                 # <http://fenicsproject.org/qa/1033/dirichletbc-expressions-evaluated-away-from-the-boundary>.
-                # The assigned values have no meaning though, so not assigning
-                # values[0] here is okay.
+                # The assigned values have no meaning though, so not assigning values[0]
+                # here is okay.
                 #
                 # from matplotlib import pyplot as pp
                 # pp.plot(x[0], x[1], 'xg')
@@ -335,8 +333,8 @@ class Crucible:
 
         class TecplotNeumannBC(UserExpression):
             def eval(self, value, x):
-                # Same problem as above: This expression is not only evaluated
-                # at boundaries.
+                # Same problem as above: This expression is not only evaluated at
+                # boundaries.
                 for edge in data["ZONE T"]["element data"]:
                     X0 = RZ[edge[0] - 1]
                     X1 = RZ[edge[1] - 1]

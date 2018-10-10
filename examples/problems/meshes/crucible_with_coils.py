@@ -52,7 +52,7 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     print("lcar boundary: {:f}".format(lcar_b))
     print("Coil boundary layer width: {:f}".format(w_b0))
 
-    # Coils to the right.
+    # Coils on the right.
     step = 0.0132
     coils_right = numpy.array(
         [[0.092, 0.107, 0.2792 + k * step, 0.2892 + k * step] for k in range(15)]
@@ -384,7 +384,8 @@ def generate(verbose=False):
     if os.path.isfile(cache_file):
         print("Using mesh from cache '{}'.".format(cache_file))
         mesh = meshio.read(cache_file)
-        out = mesh.points, mesh.cells, mesh.point_data, mesh.cell_data, mesh.field_data
+        assert numpy.all(numpy.abs(mesh.points[:, 2]) < 1.0e-15)
+        out = mesh.points[:, :2], mesh.cells, mesh.point_data, mesh.cell_data, mesh.field_data
     else:
         out = pygmsh.generate_mesh(_define(), verbose=verbose)
         points, cells, point_data, cell_data, _ = out

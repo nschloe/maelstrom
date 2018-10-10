@@ -8,7 +8,6 @@ def dbcs_to_productspace(W, bcs_list):
     for k, bcs in enumerate(bcs_list):
         for bc in bcs:
             C = bc.function_space().component()
-            # pylint: disable=len-as-condition
             if len(C) == 0:
                 new_bcs.append(DirichletBC(W.sub(k), bc.value(), bc.sub_domain))
             else:

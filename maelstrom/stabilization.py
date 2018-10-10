@@ -111,7 +111,7 @@ void eval(
   const double h = 4 * conv_norm * area / sum;
 
   // Just a little sanity check here.
-  assert(h <= cell.diameter());
+  assert(h <= cell.h());
 
   const double Pe = 0.5*conv_norm * h/(p*epsilon);
   assert(Pe > 0.0);
