@@ -4,26 +4,24 @@ from __future__ import print_function
 
 import warnings
 
-from dolfin import (
-    FunctionSpace,
-    errornorm,
-    UnitSquareMesh,
-    triangle,
-    Expression,
-    mpi_comm_world,
-    pi,
-    DirichletBC,
-    MPI,
-    Constant,
-)
 import matplotlib.pyplot as plt
 import numpy
 import pytest
 import sympy
-
-from maelstrom import heat
+from dolfin import (
+    MPI,
+    Constant,
+    DirichletBC,
+    Expression,
+    FunctionSpace,
+    UnitSquareMesh,
+    errornorm,
+    pi,
+    triangle,
+)
 
 import helpers
+from maelstrom import heat
 
 MAX_DEGREE = 5
 
@@ -112,7 +110,7 @@ def _compute_errors(problem, mesh_sizes, stabilization):
     hmax = numpy.empty(len(mesh_sizes))
     for k, mesh_size in enumerate(mesh_sizes):
         mesh = mesh_generator(mesh_size)
-        hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
+        hmax[k] = MPI.max(MPI.comm_world(), mesh.hmax())
         Q = FunctionSpace(mesh, "CG", 1)
         prob = heat.Heat(
             Q,

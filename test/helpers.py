@@ -7,24 +7,24 @@ from __future__ import print_function
 
 import warnings
 
-from dolfin import (
-    Expression,
-    info,
-    assemble,
-    FunctionSpace,
-    interpolate,
-    plot,
-    errornorm,
-    dx,
-    Function,
-    VectorFunctionSpace,
-    DirichletBC,
-    project,
-    Constant,
-)
 import matplotlib.pyplot as plt
 import numpy
 import sympy
+from dolfin import (
+    Constant,
+    DirichletBC,
+    Expression,
+    Function,
+    FunctionSpace,
+    VectorFunctionSpace,
+    assemble,
+    dx,
+    errornorm,
+    info,
+    interpolate,
+    plot,
+    project,
+)
 
 from maelstrom.message import Message
 

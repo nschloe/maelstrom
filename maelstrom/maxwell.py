@@ -73,25 +73,25 @@ Here with no convection in direction :math:`\\theta`:
      + \\text{i} \\sigma \\omega u 2 \\pi r v
    = \\int_\\Omega \\sigma v_k v.
 """
+import numpy
 from dolfin import (
-    info,
     DOLFIN_EPS,
+    MPI,
+    Constant,
     DirichletBC,
     Function,
+    FunctionSpace,
     KrylovSolver,
+    SpatialCoordinate,
+    TestFunctions,
+    TrialFunctions,
+    assemble,
     dot,
     grad,
+    info,
     pi,
-    TrialFunctions,
-    TestFunctions,
-    assemble,
-    Constant,
     project,
-    FunctionSpace,
-    SpatialCoordinate,
-    mpi_comm_world,
 )
-import numpy
 
 
 def solve(
@@ -536,7 +536,7 @@ def compute_potential(
             phi_out = interpolate(phi, W_submesh)
             phi_out.rename("phi{:02d}".format(k), "phi{:02d}".format(k))
             # Write to file
-            with XDMFFile(mpi_comm_world(), "phi{:02d}.xdmf".format(k)) as xdmf_file:
+            with XDMFFile(MPI.comm_world(), "phi{:02d}.xdmf".format(k)) as xdmf_file:
                 xdmf_file.write(phi_out)
             # plot(phi_out)
             # interactive()

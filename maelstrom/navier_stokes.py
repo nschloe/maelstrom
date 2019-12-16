@@ -40,31 +40,31 @@ An overview of projection methods for incompressible flow can be found in
 """
 
 from dolfin import (
-    TestFunction,
-    Function,
     Constant,
-    dot,
-    grad,
-    inner,
-    pi,
-    dx,
-    solve,
-    derivative,
-    TrialFunction,
-    PETScPreconditioner,
-    PETScKrylovSolver,
-    as_backend_type,
-    info,
-    assemble,
-    norm,
     FacetNormal,
-    sqrt,
-    ds,
-    as_vector,
-    NonlinearProblem,
+    Function,
     NewtonSolver,
+    NonlinearProblem,
+    PETScKrylovSolver,
+    PETScPreconditioner,
     SpatialCoordinate,
+    TestFunction,
+    TrialFunction,
+    as_backend_type,
+    as_vector,
+    assemble,
+    derivative,
+    dot,
+    ds,
+    dx,
+    grad,
+    info,
+    inner,
+    norm,
+    pi,
     project,
+    solve,
+    sqrt,
 )
 
 from .message import Message
@@ -148,9 +148,7 @@ def compute_tentative_velocity(
             else:
                 assert (
                     time_step_method == "crank-nicolson"
-                ), "Unknown time stepper '{}'".format(
-                    time_step_method
-                )
+                ), "Unknown time stepper '{}'".format(time_step_method)
                 self.F0 += 0.5 * (me(u[0], f[0]) + me(ui, f[1]))
 
             self.jacobian = derivative(self.F0, ui)

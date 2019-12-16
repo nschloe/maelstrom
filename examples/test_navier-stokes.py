@@ -6,24 +6,23 @@ Navier-Stokes testbed.
 """
 from __future__ import print_function
 
+import pytest
 from dolfin import (
-    begin,
-    end,
-    parameters,
+    DOLFIN_EPS,
+    MPI,
     Constant,
     Function,
     XDMFFile,
-    DOLFIN_EPS,
+    begin,
+    end,
+    norm,
+    parameters,
     plot,
     project,
-    norm,
-    mpi_comm_world,
 )
-import pytest
 
 import maelstrom.navier_stokes as cyl_ns
 import maelstrom.stokes as cyl_stokes
-
 import problems
 
 parameters["allow_extrapolation"] = True
@@ -84,7 +83,7 @@ def test(problem, max_num_steps=2, show=False):
         p0.vector().zero()
 
     filename = "navier_stokes.xdmf"
-    with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+    with XDMFFile(MPI.comm_world(), filename) as xdmf_file:
         xdmf_file.parameters["flush_output"] = True
         xdmf_file.parameters["rewrite_function_mesh"] = False
 

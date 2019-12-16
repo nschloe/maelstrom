@@ -6,9 +6,11 @@
 #     semicondictor bulk single crystals;
 #     W. Dreyer, P.-E. Druet, O. Klein, J. Sprekels.
 #
-import meshio
-import numpy
 import os
+
+import numpy
+
+import meshio
 import pygmsh
 
 
@@ -34,7 +36,7 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     # sigma: electrical conductivity
     T = 1511.0
     sigma_graphite = 1.0e6 / (
-        28.9 - 18.8 * numpy.exp(-(numpy.log(T / 1023.0) / 2.37) ** 2)
+        28.9 - 18.8 * numpy.exp(-((numpy.log(T / 1023.0) / 2.37) ** 2))
     )
 
     # It exhibits layers where \phi behaves like exp(-x/eps). This also

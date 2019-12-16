@@ -1,35 +1,33 @@
 # -*- coding: utf-8 -*-
 #
-from . import meshes
-from . import my_materials
-from . import tecplot_reader
-
-from maelstrom import heat as cyl_heat
-
-from dolfin import (
-    Mesh,
-    SubMesh,
-    SubDomain,
-    MeshFunction,
-    DirichletBC,
-    dot,
-    grad,
-    FunctionSpace,
-    Expression,
-    FacetNormal,
-    pi,
-    Function,
-    Constant,
-    FiniteElement,
-    MixedElement,
-)
-import materials
-import meshio
-import numpy
 import os
 import warnings
 from tempfile import TemporaryDirectory
 
+import numpy
+from dolfin import (
+    Constant,
+    DirichletBC,
+    Expression,
+    FacetNormal,
+    FiniteElement,
+    Function,
+    FunctionSpace,
+    Mesh,
+    MeshFunction,
+    MixedElement,
+    SubDomain,
+    SubMesh,
+    dot,
+    grad,
+    pi,
+)
+
+import materials
+import meshio
+from maelstrom import heat as cyl_heat
+
+from . import meshes, my_materials, tecplot_reader
 
 DEBUG = False
 

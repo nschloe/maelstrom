@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 #
 from dolfin import (
-    UnitSquareMesh,
-    SubDomain,
-    FunctionSpace,
-    DirichletBC,
     Constant,
+    DirichletBC,
     FiniteElement,
+    FunctionSpace,
     MixedElement,
     SpatialCoordinate,
+    SubDomain,
+    UnitSquareMesh,
 )
 
 

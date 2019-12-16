@@ -3,23 +3,23 @@
 import warnings
 
 from dolfin import (
-    dx,
-    ds,
-    dot,
-    grad,
-    pi,
-    assemble,
-    lhs,
-    rhs,
-    SpatialCoordinate,
-    TrialFunction,
-    TestFunction,
-    KrylovSolver,
     Function,
-    assemble_system,
+    KrylovSolver,
     LUSolver,
-    div,
+    SpatialCoordinate,
+    TestFunction,
+    TrialFunction,
     as_vector,
+    assemble,
+    assemble_system,
+    div,
+    dot,
+    ds,
+    dx,
+    grad,
+    lhs,
+    pi,
+    rhs,
 )
 from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
 

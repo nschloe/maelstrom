@@ -8,7 +8,7 @@ import maelstrom.maxwell as cmx
 
 
 def _convert_to_complex(A):
-    '''Convert from the format
+    """Convert from the format
 
          [ Re(A) -Im(A) ]
          [ Im(A)  Re(A) ]
@@ -19,7 +19,7 @@ def _convert_to_complex(A):
          [ Im(A) -Re(A) ]
 
     into proper complex-valued format.
-    '''
+    """
     m, n = A.shape
     assert m == n
 
@@ -41,7 +41,7 @@ def _convert_to_complex(A):
     elif beta < 1.0e-10:
         ReA = ReA0
     else:
-        raise ValueError('||ReA0 - ReA1||_fro = {:e}'.format(alpha))
+        raise ValueError("||ReA0 - ReA1||_fro = {:e}".format(alpha))
 
     ImA0 = A[I0[:, numpy.newaxis], I1]
     ImA1 = A[I1[:, numpy.newaxis], I0]
@@ -55,7 +55,7 @@ def _convert_to_complex(A):
     elif beta < 1.0e-10:
         ImA = ImA0
     else:
-        raise ValueError('||ImA0 - ImA1||_fro = {:e}'.format(alpha))
+        raise ValueError("||ImA0 - ImA1||_fro = {:e}".format(alpha))
     # Now form the complex-valued matrix.
     return ReA + 1j * ImA
 
@@ -68,19 +68,21 @@ def _pyamg_test(V, dx, Mu, Sigma, omega, coils):
 
     # Only calculate in one coil.
     v_ref = 1.0
-    voltages_list = [{coils[0]['rings'][0]: v_ref}]
+    voltages_list = [{coils[0]["rings"][0]: v_ref}]
 
     # pylint: disable=unused-variable
     voltages_degree = 2
     A, P, b_list, M, W = cmx.build_system(
-            V, dx,
-            Mu, Sigma,  # dictionaries
-            omega,
-            voltages_list,  # dictionary
-            f_degree=voltages_degree,
-            convections={},
-            bcs=[]
-            )
+        V,
+        dx,
+        Mu,
+        Sigma,  # dictionaries
+        omega,
+        voltages_list,  # dictionary
+        f_degree=voltages_degree,
+        convections={},
+        bcs=[],
+    )
 
     # Convert the matrix and rhs into scipy objects.
     rows, cols, values = A.data()
@@ -99,114 +101,95 @@ def _pyamg_test(V, dx, Mu, Sigma, omega, coils):
     if parameter_sweep:
         # Find good AMG parameters for P.
         solver_diagnostics(
-                Pc,
-                fname='my_maxwell_solver_diagnostic',
-                # definiteness='positive',
-                # symmetry='hermitian'
-                )
+            Pc,
+            fname="my_maxwell_solver_diagnostic",
+            # definiteness='positive',
+            # symmetry='hermitian'
+        )
 
     # Do a MINRES iteration for P^{-1}A.
     # Create solver
     ml = pyamg.smoothed_aggregation_solver(
         Pc,
-        strength=('symmetric', {'theta': 0.0}),
+        strength=("symmetric", {"theta": 0.0}),
         smooth=(
-            'energy',
-            {
-                'weighting': 'local',
-                'krylov': 'cg',
-                'degree': 2,
-                'maxiter': 3
-            }
-            ),
-        Bimprove='default',
-        aggregate='standard',
-        presmoother=(
-            'block_gauss_seidel',
-            {'sweep': 'symmetric', 'iterations': 1}
-            ),
-        postsmoother=(
-            'block_gauss_seidel',
-            {'sweep': 'symmetric', 'iterations': 1}
-            ),
+            "energy",
+            {"weighting": "local", "krylov": "cg", "degree": 2, "maxiter": 3},
+        ),
+        Bimprove="default",
+        aggregate="standard",
+        presmoother=("block_gauss_seidel", {"sweep": "symmetric", "iterations": 1}),
+        postsmoother=("block_gauss_seidel", {"sweep": "symmetric", "iterations": 1}),
         max_levels=25,
         max_coarse=300,
-        coarse_solver='pinv'
-        )
+        coarse_solver="pinv",
+    )
 
     def _apply_inverse_prec_exact(rhs):
         x_init = numpy.zeros((n, 1), dtype=complex)
-        out = krypy.linsys.cg(Pc, rhs, x_init,
-                              tol=1.0e-13,
-                              M=ml.aspreconditioner(cycle='V')
-                              )
-        if out['info'] != 0:
-            print('Preconditioner did not converge; last residual: {:g}'.format(
-                  out['relresvec'][-1]
-                  ))
+        out = krypy.linsys.cg(
+            Pc, rhs, x_init, tol=1.0e-13, M=ml.aspreconditioner(cycle="V")
+        )
+        if out["info"] != 0:
+            print(
+                "Preconditioner did not converge; last residual: {:g}".format(
+                    out["relresvec"][-1]
+                )
+            )
         # # Forget about the cycle used to gauge the residual norm.
         # self.tot_amg_cycles += [len(out['relresvec']) - 1]
-        return out['xk']
+        return out["xk"]
 
     # Test preconditioning with approximations of P^{-1}, i.e., systems with
     # P are solved with k number of AMG cycles.
     Cycles = [1, 2, 5, 10]
-    ch = plt.cm.get_cmap('cubehelix')
+    ch = plt.cm.get_cmap("cubehelix")
     # Construct right-hand side.
     m, n = Ac.shape
     b = numpy.random.rand(n) + 1j * numpy.random.rand(n)
     # pylint: disable=cell-var-from-loop
     for k, cycles in enumerate(Cycles):
+
         def _apply_inverse_prec_cycles(rhs):
             x_init = numpy.zeros((n, 1), dtype=complex)
             x = numpy.empty((n, 1), dtype=complex)
             residuals = []
             x[:, 0] = ml.solve(
-                    rhs,
-                    x0=x_init,
-                    maxiter=cycles,
-                    tol=0.0,
-                    accel=None,
-                    residuals=residuals
-                    )
+                rhs, x0=x_init, maxiter=cycles, tol=0.0, accel=None, residuals=residuals
+            )
             # # Alternative for one cycle:
             # amg_prec = ml.aspreconditioner( cycle='V' )
             # x = amg_prec * rhs
             return x
 
         prec = scipy.sparse.linalg.LinearOperator(
-                (n, n),
-                _apply_inverse_prec_cycles,
-                # _apply_inverse_prec_exact,
-                dtype=complex
-                )
+            (n, n),
+            _apply_inverse_prec_cycles,
+            # _apply_inverse_prec_exact,
+            dtype=complex,
+        )
         out = krypy.linsys.gmres(
-                Ac, b,
-                M=prec,
-                maxiter=100,
-                tol=1.0e-13,
-                explicit_residual=True
-                )
+            Ac, b, M=prec, maxiter=100, tol=1.0e-13, explicit_residual=True
+        )
         print(cycles)
         # a lpha = float(cycles-1) / max(Cycles)
         alpha = float(k) / len(Cycles)
         plt.semilogy(
-                out['relresvec'], '.-',
-                label=cycles,
-                color=ch(alpha)
-                # color = '{:e}'.format(alpha)
-                )
-    plt.legend(title='Number of AMG cycles for P^{~1}')
-    plt.title(
-        'GMRES convergence history for P^{~1}A ({:d} x {:d})'.format(Ac.shape)
+            out["relresvec"],
+            ".-",
+            label=cycles,
+            color=ch(alpha)
+            # color = '{:e}'.format(alpha)
         )
+    plt.legend(title="Number of AMG cycles for P^{~1}")
+    plt.title("GMRES convergence history for P^{~1}A ({:d} x {:d})".format(Ac.shape))
     plt.show()
     return
 
 
 def _show_currentloop_field():
-    '''http://www.netdenizen.com/emagnettest/offaxis/?offaxisloop
-    '''
+    """http://www.netdenizen.com/emagnettest/offaxis/?offaxisloop
+    """
     from numpy import sqrt
 
     r = numpy.linspace(0.0, 3.0, 51)
@@ -216,33 +199,45 @@ def _show_currentloop_field():
     a = 1.0
     V = 230 * sqrt(2.0)
     rho = 1.535356e-08
-    II = V/rho
+    II = V / rho
     mu0 = pi * 4e-7
 
     alpha = R / a
     beta = Z / a
     gamma = Z / R
-    Q = (1+alpha)**2 + beta**2
-    k = sqrt(4*alpha / Q)
+    Q = (1 + alpha) ** 2 + beta ** 2
+    k = sqrt(4 * alpha / Q)
 
     from scipy.special import ellipk
     from scipy.special import ellipe
-    Kk = ellipk(k**2)
-    Ek = ellipe(k**2)
 
-    B0 = mu0*II / (2*a)
+    Kk = ellipk(k ** 2)
+    Ek = ellipe(k ** 2)
 
-    V = B0 / (pi*sqrt(Q)) \
-        * (Ek * (1.0 - alpha**2 - beta**2)/(Q - 4*alpha) + Kk)
-    U = B0 * gamma / (pi*sqrt(Q)) \
-        * (Ek * (1.0 + alpha**2 + beta**2)/(Q - 4*alpha) - Kk)
+    B0 = mu0 * II / (2 * a)
+
+    V = (
+        B0
+        / (pi * sqrt(Q))
+        * (Ek * (1.0 - alpha ** 2 - beta ** 2) / (Q - 4 * alpha) + Kk)
+    )
+    U = (
+        B0
+        * gamma
+        / (pi * sqrt(Q))
+        * (Ek * (1.0 + alpha ** 2 + beta ** 2) / (Q - 4 * alpha) - Kk)
+    )
 
     Q = plt.quiver(R, Z, U, V)
     plt.quiverkey(
-            Q, 0.7, 0.92, 1e4, '$1e4$',
-            labelpos='W',
-            fontproperties={'weight': 'bold'},
-            color='r'
-            )
+        Q,
+        0.7,
+        0.92,
+        1e4,
+        "$1e4$",
+        labelpos="W",
+        fontproperties={"weight": "bold"},
+        color="r",
+    )
     plt.show()
     return

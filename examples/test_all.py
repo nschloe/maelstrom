@@ -14,37 +14,35 @@ A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 """
 import warnings
 
-from dolfin import (
-    parameters,
-    Measure,
-    FunctionSpace,
-    Constant,
-    plot,
-    XDMFFile,
-    DOLFIN_EPS,
-    as_vector,
-    info,
-    norm,
-    assemble,
-    MPI,
-    dx,
-    interpolate,
-)
-from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
-
 import matplotlib.pyplot as plt
 import numpy
-from numpy import pi
 import pytest
-import parabolic
+from dolfin import (
+    DOLFIN_EPS,
+    MPI,
+    Constant,
+    FunctionSpace,
+    Measure,
+    XDMFFile,
+    as_vector,
+    assemble,
+    dx,
+    info,
+    interpolate,
+    norm,
+    parameters,
+    plot,
+)
+from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
+from numpy import pi
 
-from maelstrom.helpers import average
+import maelstrom.heat as cyl_heat
 import maelstrom.navier_stokes as cyl_ns
 import maelstrom.stokes_heat as stokes_heat
-import maelstrom.heat as cyl_heat
-from maelstrom.message import Message
-
+import parabolic
 import problems
+from maelstrom.helpers import average
+from maelstrom.message import Message
 from test_maxwell import get_lorentz_joule
 
 # Ignore the deprecation warning, see

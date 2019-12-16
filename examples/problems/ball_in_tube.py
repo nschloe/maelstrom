@@ -3,11 +3,11 @@
 import os
 from tempfile import TemporaryDirectory
 
-from dolfin import Mesh, FunctionSpace, SubDomain, DirichletBC, FiniteElement
+from dolfin import DirichletBC, FiniteElement, FunctionSpace, Mesh, SubDomain
+
 import meshio
 
 from . import meshes
-
 
 GMSH_EPS = 1.0e-15
 
@@ -15,7 +15,7 @@ GMSH_EPS = 1.0e-15
 class Ball_in_tube(object):
     def __init__(self):
         # https://fenicsproject.org/qa/12891/initialize-mesh-from-vertices-connectivities-at-once
-        points, cells, _, cell_data, _ = meshes.ball_in_tube_cyl.generate()
+        mesh = meshes.ball_in_tube_cyl.generate()
         # 2018.1
         # self.mesh = Mesh(
         #     dolfin.mpi_comm_world(), dolfin.cpp.mesh.CellType.Type_triangle,
@@ -25,9 +25,9 @@ class Ball_in_tube(object):
             tmp_filename = os.path.join(temp_dir, "test.xml")
             meshio.write_points_cells(
                 tmp_filename,
-                points,
-                cells,
-                cell_data=cell_data,
+                mesh.points,
+                mesh.cells,
+                cell_data=mesh.cell_data,
                 file_format="dolfin-xml",
             )
             self.mesh = Mesh(tmp_filename)

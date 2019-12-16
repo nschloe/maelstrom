@@ -1,21 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-from dolfin import Function, TimeSeriesHDF5, FunctionSpace, Mesh, \
-    mpi_comm_world
-import numpy as np
 import os
 
+import numpy as np
+from dolfin import (Function, FunctionSpace, Mesh, TimeSeriesHDF5,
+                    mpi_comm_world)
 #try:
 #    import prettyplotlib as ppl
 #    from prettyplotlib import plt as pp
 #except:
 #    from matplotlib import pyplot as pp
 from matplotlib import pyplot as pp
-from mpltools import style
-style.use('ggplot')
 
 import helpers
+from mpltools import style
+
+style.use('ggplot')
+
 
 
 def _main():
