@@ -1,11 +1,26 @@
 version: 2
 
 jobs:
+  lint:
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - checkout
+      - run: |
+          # For isort, must install all "system" dependencies
+          pip3 install .[all] --user
+          pip3 install pytest --user
+      - run: |
+          pip3 install black --user
+          black --check .
+      - run: |
+          pip3 install flake8 --user
+          flake8 .
   build:
     working_directory: ~/maelstrom
     docker:
-      # - image: quay.io/fenicsproject/stable:2018.1.0.r1
-      - image: quay.io/fenicsproject/stable:2017.2.0.r4
+      - image: quay.io/fenicsproject/stable:2019.1.0.r3
+      # - image: quay.io/fenicsproject/stable:2017.2.0.r4
         user: fenics
         environment:
           LD_LIBRARY_PATH: /home/fenics/local/lib
@@ -14,13 +29,8 @@ jobs:
       - run: sudo apt update
       - run: sudo apt install -y git gmsh
       - run: sudo apt remove -y python3-pytest
-      # Can't use black yet as it requires Python 3.6. The FEniCS images are built upon
-      # Ubuntu 16.04 though with Python 3.5
       - run: sudo -H pip3 install pytest pytest-cov flake8 Sphinx
       - checkout
-      # format and lint
-      # - run: LC_ALL=C.UTF-8 black --check maelstrom/ examples/*.py test/*.py
-      - run: flake8 maelstrom/ examples/*.py test/*.py
       # check if documentation builds
       - run: sudo -H pip3 install -r doc/requirements.txt
       - run: cd doc && PYTHONPATH=~/maelstrom/:$PYTHONPATH make html
@@ -30,3 +40,10 @@ jobs:
       # submit to codecov
       - run: sudo apt install -y curl
       - run: bash <(curl -s https://codecov.io/bash)
+
+workflows:
+  version: 2
+  lint_and_build:
+    jobs:
+      - lint
+      - build
