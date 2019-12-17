@@ -4,37 +4,37 @@ from __future__ import print_function
 
 import warnings
 
-from dolfin import (
-    FunctionSpace,
-    errornorm,
-    UnitSquareMesh,
-    Measure,
-    MeshFunction,
-    triangle,
-    Expression,
-    MPI,
-    dot,
-    TestFunction,
-    TrialFunction,
-    grad,
-    pi,
-    Function,
-    solve,
-    DirichletBC,
-    DOLFIN_EPS,
-    norm,
-    Constant,
-    FiniteElement,
-    sqrt,
-    SpatialCoordinate,
-)
-import matplotlib.pyplot as plt
 import numpy
 import pytest
 import sympy
+from dolfin import (
+    DOLFIN_EPS,
+    MPI,
+    Constant,
+    DirichletBC,
+    Expression,
+    FiniteElement,
+    Function,
+    FunctionSpace,
+    Measure,
+    MeshFunction,
+    SpatialCoordinate,
+    TestFunction,
+    TrialFunction,
+    UnitSquareMesh,
+    dot,
+    errornorm,
+    grad,
+    norm,
+    pi,
+    solve,
+    sqrt,
+    triangle,
+)
 
 import helpers
 import maelstrom.maxwell as maxwell
+import matplotlib.pyplot as plt
 
 # Turn down the log level to only error messages.
 # set_log_level(WARNING)

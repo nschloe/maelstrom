@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 #
-from dolfin import Expression, UnitSquareMesh, triangle, plot, RectangleMesh, Point
 import numpy
-from numpy import pi
 import pytest
 import sympy
+from dolfin import Expression, Point, RectangleMesh, UnitSquareMesh, plot, triangle
+from numpy import pi
 
-import maelstrom.navier_stokes as ns_cyl
 import helpers
+import maelstrom.navier_stokes as ns_cyl
 
 # Turn down the log level to only error messages.
 # set_log_level(WARNING)

@@ -4,25 +4,24 @@ from __future__ import print_function
 
 import warnings
 
-from dolfin import (
-    FunctionSpace,
-    errornorm,
-    UnitSquareMesh,
-    triangle,
-    Expression,
-    pi,
-    DirichletBC,
-    MPI,
-    Constant,
-)
-import matplotlib.pyplot as plt
 import numpy
 import pytest
 import sympy
-
-from maelstrom import heat
+from dolfin import (
+    MPI,
+    Constant,
+    DirichletBC,
+    Expression,
+    FunctionSpace,
+    UnitSquareMesh,
+    errornorm,
+    pi,
+    triangle,
+)
 
 import helpers
+import matplotlib.pyplot as plt
+from maelstrom import heat
 
 MAX_DEGREE = 5
 

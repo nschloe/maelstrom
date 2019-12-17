@@ -14,9 +14,13 @@ clean:
 	@find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
 	@rm -rf *.egg-info/ build/ dist/ doc/_build
 
+format:
+	isort -rc .
+	black .
+
 lint:
-	black --check maelstrom/ examples/*.py test/*.py
-	flake8 maelstrom/ examples/*.py test/*.py
+	black --check .
+	flake8 .
 
 black:
-	black maelstrom/ examples/*.py test/*.py
+	black .

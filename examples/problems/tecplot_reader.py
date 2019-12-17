@@ -4,8 +4,9 @@
 Read Tecplot data.
 """
 
-import numpy
 import re
+
+import numpy
 
 
 def read(filename):

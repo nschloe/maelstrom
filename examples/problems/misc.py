@@ -3,27 +3,26 @@
 """
 Collection of (test) problems.
 """
+import numpy
 from dolfin import (
-    Mesh,
-    MeshFunction,
-    pi,
-    SubMesh,
-    SubDomain,
-    FunctionSpace,
-    MixedFunctionSpace,
+    DOLFIN_EPS,
+    CellFunction,
+    Constant,
     DirichletBC,
     Expression,
-    VectorFunctionSpace,
-    UnitSquareMesh,
-    DOLFIN_EPS,
-    Constant,
+    FunctionSpace,
+    Mesh,
+    MeshFunction,
+    MixedFunctionSpace,
     RectangleMesh,
-    near,
+    SubDomain,
+    SubMesh,
+    UnitSquareMesh,
+    VectorFunctionSpace,
     between,
-    CellFunction,
+    near,
+    pi,
 )
-
-import numpy
 
 GMSH_EPS = 1.0e-15
 

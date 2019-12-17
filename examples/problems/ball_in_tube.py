@@ -3,11 +3,11 @@
 import os
 from tempfile import TemporaryDirectory
 
-from dolfin import Mesh, FunctionSpace, SubDomain, DirichletBC, FiniteElement
+from dolfin import DirichletBC, FiniteElement, FunctionSpace, Mesh, SubDomain
+
 import meshio
 
 from . import meshes
-
 
 GMSH_EPS = 1.0e-15
 

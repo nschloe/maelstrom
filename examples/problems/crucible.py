@@ -1,36 +1,34 @@
 # -*- coding: utf-8 -*-
 #
-from . import meshes
-from . import my_materials
-from . import tecplot_reader
-
-from maelstrom import heat as cyl_heat
-
-from dolfin import (
-    Mesh,
-    SubMesh,
-    SubDomain,
-    MeshFunction,
-    DirichletBC,
-    dot,
-    grad,
-    FunctionSpace,
-    UserExpression,
-    Expression,
-    FacetNormal,
-    pi,
-    Function,
-    Constant,
-    FiniteElement,
-    MixedElement,
-)
-import materials
-import meshio
-import numpy
 import os
 import warnings
 from tempfile import TemporaryDirectory
 
+import numpy
+from dolfin import (
+    Constant,
+    DirichletBC,
+    Expression,
+    FacetNormal,
+    FiniteElement,
+    Function,
+    FunctionSpace,
+    Mesh,
+    MeshFunction,
+    MixedElement,
+    SubDomain,
+    SubMesh,
+    UserExpression,
+    dot,
+    grad,
+    pi,
+)
+
+import materials
+import meshio
+from maelstrom import heat as cyl_heat
+
+from . import meshes, my_materials, tecplot_reader
 
 DEBUG = False
 
@@ -404,7 +402,9 @@ class Crucible:
         # theta_bcs_* is replaced by something reasonably cheap.
         self.theta_bcs_d = [
             # <https://www.allanswered.com/post/rraep/2018-1-dirichletbc-function_space-broken/>
-            DirichletBC(FunctionSpace(bc.function_space()), theta_reference, bc.sub_domain)
+            DirichletBC(
+                FunctionSpace(bc.function_space()), theta_reference, bc.sub_domain
+            )
             for bc in self.theta_bcs_d
         ]
         # Adapt Neumann conditions.

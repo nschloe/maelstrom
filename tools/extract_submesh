@@ -7,8 +7,9 @@ parallel. It does so by explicitly extracting a submesh and writing it out to
 a separate XML file. That file can then be read be the main routine.
 '''
 
-from dolfin import Mesh, MeshFunction, File, SubMesh
 import os
+
+from dolfin import File, Mesh, MeshFunction, SubMesh
 
 
 def _main():

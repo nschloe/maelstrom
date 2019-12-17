@@ -6,19 +6,19 @@ Numerical solution schemes for the Stokes equation in cylindrical coordinates.
 from __future__ import print_function
 
 from dolfin import (
-    TrialFunctions,
-    TestFunctions,
-    grad,
-    pi,
-    dx,
-    assemble_system,
-    inner,
-    solve,
-    SpatialCoordinate,
     Constant,
+    SpatialCoordinate,
+    TestFunctions,
+    TrialFunctions,
+    assemble_system,
     dot,
+    dx,
+    grad,
+    inner,
     lhs,
+    pi,
     rhs,
+    solve,
 )
 
 from . import helpers

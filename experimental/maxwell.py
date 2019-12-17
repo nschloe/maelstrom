@@ -1,15 +1,16 @@
 def _adaptive_mesh_refinement(dx, phi, mu, sigma, omega, conv, voltages):
     from dolfin import cells, refine
+
     eta = _error_estimator(dx, phi, mu, sigma, omega, conv, voltages)
     mesh = phi.function_space().mesh()
     level = 0
     TOL = 1.0e-4
     E = sum([e * e for e in eta])
     E = sqrt(MPI.sum(E))
-    info('Level {:d}: E = {:g} (TOL = {:g})'.format(level, E, TOL))
+    info("Level {:d}: E = {:g} (TOL = {:g})".format(level, E, TOL))
     # Mark cells for refinement
     REFINE_RATIO = 0.5
-    cell_markers = MeshFunction('bool', mesh, mesh.topology().dim())
+    cell_markers = MeshFunction("bool", mesh, mesh.topology().dim())
     eta_0 = sorted(eta, reverse=True)[int(len(eta) * REFINE_RATIO)]
     eta_0 = MPI.max(eta_0)
     for c in cells(mesh):
@@ -31,7 +32,7 @@ def _adaptive_mesh_refinement(dx, phi, mu, sigma, omega, conv, voltages):
 
 
 def _error_estimator(dx, phi, mu, sigma, omega, conv, voltages):
-    '''Simple error estimator from
+    """Simple error estimator from
 
         A posteriori error estimation and adaptive mesh-refinement techniques;
         R. Verfürth;
@@ -43,11 +44,12 @@ def _error_estimator(dx, phi, mu, sigma, omega, conv, voltages):
 
         - div(1/(mu r) grad(rphi)) + <u, 1/r grad(rphi)> + i sigma omega phi
       = sigma v_k / (2 pi r).
-    '''
+    """
     from dolfin import cells
+
     mesh = phi.function_space().mesh()
     # Assemble the cell-wise residual in DG space
-    DG = FunctionSpace(mesh, 'DG', 0)
+    DG = FunctionSpace(mesh, "DG", 0)
     # get residual in DG
     v = TestFunction(DG)
     R = _residual_strong(dx, v, phi, mu, sigma, omega, conv, voltages)
@@ -65,12 +67,10 @@ def _error_estimator(dx, phi, mu, sigma, omega, conv, voltages):
         A = assemble(a)
         R2 = Function(DG)
         solve(A, R2.vector(), r)
-        plot(R2, title='||R||^2')
+        plot(R2, title="||R||^2")
         interactive()
     K = r.array()
-    info('{:r}'.format(K))
+    info("{:r}".format(K))
     h = numpy.array([c.diameter() for c in cells(mesh)])
     eta = h * numpy.sqrt(K)
     return eta
-
-

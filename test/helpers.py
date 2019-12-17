@@ -7,23 +7,24 @@ from __future__ import print_function
 
 import warnings
 
-from dolfin import (
-    Expression,
-    assemble,
-    FunctionSpace,
-    interpolate,
-    plot,
-    errornorm,
-    dx,
-    Function,
-    VectorFunctionSpace,
-    DirichletBC,
-    project,
-    Constant,
-)
-import matplotlib.pyplot as plt
 import numpy
 import sympy
+from dolfin import (
+    Constant,
+    DirichletBC,
+    Expression,
+    Function,
+    FunctionSpace,
+    VectorFunctionSpace,
+    assemble,
+    dx,
+    errornorm,
+    interpolate,
+    plot,
+    project,
+)
+
+import matplotlib.pyplot as plt
 
 
 def ccode(*args, **kwargs):
@@ -215,7 +216,10 @@ def compute_time_errors(problem, MethodClass, mesh_sizes, Dt):
             # Prepare previous states for multistepping.
             u = {
                 0: Expression(
-                    (ccode(solution["u"]["value"][0]), ccode(solution["u"]["value"][1])),
+                    (
+                        ccode(solution["u"]["value"][0]),
+                        ccode(solution["u"]["value"][1]),
+                    ),
                     degree=_truncate_degree(solution["u"]["degree"]),
                     t=0.0,
                     cell=cell_type,

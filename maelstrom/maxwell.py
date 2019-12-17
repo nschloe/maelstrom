@@ -73,25 +73,25 @@ Here with no convection in direction :math:`\\theta`:
      + \\text{i} \\sigma \\omega u 2 \\pi r v
    = \\int_\\Omega \\sigma v_k v.
 """
+import numpy
 from dolfin import (
-    info,
     DOLFIN_EPS,
+    MPI,
+    Constant,
     DirichletBC,
     Function,
+    FunctionSpace,
     KrylovSolver,
+    SpatialCoordinate,
+    TestFunctions,
+    TrialFunctions,
+    assemble,
     dot,
     grad,
+    info,
     pi,
-    TrialFunctions,
-    TestFunctions,
-    assemble,
-    Constant,
     project,
-    FunctionSpace,
-    SpatialCoordinate,
-    MPI,
 )
-import numpy
 
 
 def solve(

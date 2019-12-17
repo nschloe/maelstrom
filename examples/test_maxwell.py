@@ -3,31 +3,29 @@
 #
 from __future__ import print_function
 
-from dolfin import (
-    XDMFFile,
-    Measure,
-    FunctionSpace,
-    SubMesh,
-    project,
-    Function,
-    info,
-    VectorFunctionSpace,
-    norm,
-    Constant,
-    plot,
-    SpatialCoordinate,
-    grad,
-    FiniteElement,
-    DOLFIN_EPS,
-    as_vector,
-)
-import matplotlib.pyplot as plt
 import numpy
-from numpy import pi
-from numpy import sin, cos
+from dolfin import (
+    DOLFIN_EPS,
+    Constant,
+    FiniteElement,
+    Function,
+    FunctionSpace,
+    Measure,
+    SpatialCoordinate,
+    SubMesh,
+    VectorFunctionSpace,
+    XDMFFile,
+    as_vector,
+    grad,
+    info,
+    norm,
+    plot,
+    project,
+)
+from numpy import cos, pi, sin
 
 import maelstrom.maxwell as cmx
-
+import matplotlib.pyplot as plt
 import problems
 
 

@@ -6,22 +6,21 @@ Navier-Stokes testbed.
 """
 from __future__ import print_function
 
+import pytest
 from dolfin import (
-    parameters,
+    DOLFIN_EPS,
+    MPI,
     Constant,
     Function,
     XDMFFile,
-    DOLFIN_EPS,
+    norm,
+    parameters,
     plot,
     project,
-    norm,
-    MPI,
 )
-import pytest
 
 import maelstrom.navier_stokes as cyl_ns
 import maelstrom.stokes as cyl_stokes
-
 import problems
 
 parameters["allow_extrapolation"] = True

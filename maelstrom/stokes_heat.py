@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-from dolfin import Function, as_vector, FunctionSpace, MixedElement, info, errornorm
+from dolfin import Function, FunctionSpace, MixedElement, as_vector, errornorm, info
 
-from . import heat
-from . import stokes
+from . import heat, stokes
 
 
 def solve_fixed_point(
