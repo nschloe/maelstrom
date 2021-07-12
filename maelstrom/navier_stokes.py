@@ -40,34 +40,32 @@ An overview of projection methods for incompressible flow can be found in
 """
 
 from dolfin import (
-    TestFunction,
-    Function,
     Constant,
-    dot,
-    grad,
-    inner,
-    pi,
-    dx,
-    solve,
-    derivative,
-    TrialFunction,
-    PETScPreconditioner,
-    PETScKrylovSolver,
-    as_backend_type,
-    info,
-    assemble,
-    norm,
     FacetNormal,
-    sqrt,
-    ds,
-    as_vector,
-    NonlinearProblem,
+    Function,
     NewtonSolver,
+    NonlinearProblem,
+    PETScKrylovSolver,
+    PETScPreconditioner,
     SpatialCoordinate,
+    TestFunction,
+    TrialFunction,
+    as_backend_type,
+    as_vector,
+    assemble,
+    derivative,
+    dot,
+    ds,
+    dx,
+    grad,
+    info,
+    inner,
+    norm,
+    pi,
     project,
+    solve,
+    sqrt,
 )
-
-from .message import Message
 
 
 def _momentum_equation(u, v, p, f, rho, mu, my_dx):
@@ -148,9 +146,7 @@ def compute_tentative_velocity(
             else:
                 assert (
                     time_step_method == "crank-nicolson"
-                ), "Unknown time stepper '{}'".format(
-                    time_step_method
-                )
+                ), "Unknown time stepper '{}'".format(time_step_method)
                 self.F0 += 0.5 * (me(u[0], f[0]) + me(ui, f[1]))
 
             self.jacobian = derivative(self.F0, ui)
@@ -529,29 +525,29 @@ def _step(
     # dt is a Constant() function
     assert dt.values()[0] > 0.0
 
-    with Message("Computing tentative velocity"):
-        ui = compute_tentative_velocity(
-            time_step_method, rho, mu, u, p0, dt, u_bcs, f, W, my_dx, tol
-        )
+    print("Computing tentative velocity")
+    ui = compute_tentative_velocity(
+        time_step_method, rho, mu, u, p0, dt, u_bcs, f, W, my_dx, tol
+    )
 
-    with Message("Computing pressure correction"):
-        p1 = compute_pressure(
-            P,
-            p0,
-            mu,
-            ui,
-            rho * ui / dt,
-            my_dx,
-            p_bcs=p_bcs,
-            rotational_form=rotational_form,
-            tol=tol,
-            verbose=verbose,
-        )
+    print("Computing pressure correction")
+    p1 = compute_pressure(
+        P,
+        p0,
+        mu,
+        ui,
+        rho * ui / dt,
+        my_dx,
+        p_bcs=p_bcs,
+        rotational_form=rotational_form,
+        tol=tol,
+        verbose=verbose,
+    )
 
-    with Message("Computing velocity correction"):
-        u1 = compute_velocity_correction(
-            ui, p0, p1, u_bcs, rho, mu, dt, rotational_form, my_dx, tol, verbose
-        )
+    print("Computing velocity correction")
+    u1 = compute_velocity_correction(
+        ui, p0, p1, u_bcs, rho, mu, dt, rotational_form, my_dx, tol, verbose
+    )
 
     return u1, p1
 

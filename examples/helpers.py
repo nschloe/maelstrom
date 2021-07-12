@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-from dolfin import as_backend_type
-import matplotlib.pyplot as plt
 import scipy.linalg
+from dolfin import as_backend_type
+
+import matplotlib.pyplot as plt
 
 
 def show_matrix(A):

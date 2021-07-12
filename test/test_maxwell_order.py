@@ -4,38 +4,37 @@ from __future__ import print_function
 
 import warnings
 
-from dolfin import (
-    FunctionSpace,
-    errornorm,
-    UnitSquareMesh,
-    Measure,
-    MeshFunction,
-    triangle,
-    Expression,
-    MPI,
-    mpi_comm_world,
-    dot,
-    TestFunction,
-    TrialFunction,
-    grad,
-    pi,
-    Function,
-    solve,
-    DirichletBC,
-    DOLFIN_EPS,
-    norm,
-    Constant,
-    FiniteElement,
-    sqrt,
-    SpatialCoordinate,
-)
-import matplotlib.pyplot as plt
 import numpy
 import pytest
 import sympy
+from dolfin import (
+    DOLFIN_EPS,
+    MPI,
+    Constant,
+    DirichletBC,
+    Expression,
+    FiniteElement,
+    Function,
+    FunctionSpace,
+    Measure,
+    MeshFunction,
+    SpatialCoordinate,
+    TestFunction,
+    TrialFunction,
+    UnitSquareMesh,
+    dot,
+    errornorm,
+    grad,
+    norm,
+    pi,
+    solve,
+    sqrt,
+    triangle,
+)
 
 import helpers
 import maelstrom.maxwell as maxwell
+import matplotlib.pyplot as plt
 
 # Turn down the log level to only error messages.
 # set_log_level(WARNING)
@@ -322,7 +321,7 @@ def _compute_errors(problem, mesh_sizes):
     hmax = numpy.empty(len(mesh_sizes))
     for k, mesh_size in enumerate(mesh_sizes):
         mesh, dx, _ = mesh_generator(mesh_size)
-        hmax[k] = MPI.max(mpi_comm_world(), mesh.hmax())
+        hmax[k] = MPI.max(MPI.comm_world, mesh.hmax())
         V = FunctionSpace(mesh, "CG", 1)
         # TODO don't hardcode Mu, Sigma, ...
         phi_approx = maxwell.solve(

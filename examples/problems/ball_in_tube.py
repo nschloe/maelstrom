@@ -3,11 +3,11 @@
 import os
 from tempfile import TemporaryDirectory
 
-from dolfin import Mesh, FunctionSpace, SubDomain, DirichletBC, FiniteElement
+from dolfin import DirichletBC, FiniteElement, FunctionSpace, Mesh, SubDomain
+
 import meshio
 
 from . import meshes
-
 
 GMSH_EPS = 1.0e-15
 
@@ -18,7 +18,7 @@ class Ball_in_tube(object):
         points, cells, _, cell_data, _ = meshes.ball_in_tube_cyl.generate()
         # 2018.1
         # self.mesh = Mesh(
-        #     dolfin.mpi_comm_world(), dolfin.cpp.mesh.CellType.Type_triangle,
+        #     dolfin.MPI.comm_world, dolfin.cpp.mesh.CellType.Type_triangle,
         #     points[:, :2], cells['triangle']
         #     )
         with TemporaryDirectory() as temp_dir:

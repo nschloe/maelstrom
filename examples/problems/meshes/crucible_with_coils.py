@@ -6,9 +6,11 @@
 #     semicondictor bulk single crystals;
 #     W. Dreyer, P.-E. Druet, O. Klein, J. Sprekels.
 #
-import meshio
-import numpy
 import os
+
+import numpy
+
+import meshio
 import pygmsh
 
 
@@ -34,7 +36,7 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     # sigma: electrical conductivity
     T = 1511.0
     sigma_graphite = 1.0e6 / (
-        28.9 - 18.8 * numpy.exp(-(numpy.log(T / 1023.0) / 2.37) ** 2)
+        28.9 - 18.8 * numpy.exp(-((numpy.log(T / 1023.0) / 2.37) ** 2))
     )
 
     # It exhibits layers where \phi behaves like exp(-x/eps). This also
@@ -52,7 +54,7 @@ def _add_coils(geom, mu0, omega, lcar_coil, z, lcar_far):
     print("lcar boundary: {:f}".format(lcar_b))
     print("Coil boundary layer width: {:f}".format(w_b0))
 
-    # Coils to the right.
+    # Coils on the right.
     step = 0.0132
     coils_right = numpy.array(
         [[0.092, 0.107, 0.2792 + k * step, 0.2892 + k * step] for k in range(15)]
@@ -384,7 +386,14 @@ def generate(verbose=False):
     if os.path.isfile(cache_file):
         print("Using mesh from cache '{}'.".format(cache_file))
         mesh = meshio.read(cache_file)
-        out = mesh.points, mesh.cells, mesh.point_data, mesh.cell_data, mesh.field_data
+        assert numpy.all(numpy.abs(mesh.points[:, 2]) < 1.0e-15)
+        out = (
+            mesh.points[:, :2],
+            mesh.cells,
+            mesh.point_data,
+            mesh.cell_data,
+            mesh.field_data,
+        )
     else:
         out = pygmsh.generate_mesh(_define(), verbose=verbose)
         points, cells, point_data, cell_data, _ = out
@@ -397,10 +406,5 @@ def generate(verbose=False):
 if __name__ == "__main__":
     points, cells, point_data, cell_data, _ = generate()
     meshio.write_points_cells(
-        "out.vtu",
-        points,
-        cells,
-        point_data=point_data,
-        cell_data=cell_data,
-        verbose=True,
+        "out.vtu", points, cells, point_data=point_data, cell_data=cell_data,
     )

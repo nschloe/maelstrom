@@ -4,7 +4,7 @@ import numpy
 
 
 def uniform_dft(time_interval_length, data):
-    '''Discrete Fourier Transform of real-valued data, interpreted
+    """Discrete Fourier Transform of real-valued data, interpreted
     for a uniform time series over an interval of length time_interval_length.
 
     The original data can be recovered from the output of this function by
@@ -13,7 +13,7 @@ def uniform_dft(time_interval_length, data):
     for i, freq in enumerate(freqs):
         alpha = X[i] * numpy.exp(1j * 2*numpy.pi * freq * (t-t0))
         data += alpha.real
-    '''
+    """
     X = numpy.fft.rfft(data)
     n = len(data)
     # The input data is assumed to cover the entire time interval, i.e.,
@@ -22,7 +22,7 @@ def uniform_dft(time_interval_length, data):
     # time_interval_length such that cutting off the end point results in the
     # interval of length time_interval_length.
     time_interval_length *= n / float(n - 1)
-    freqs = numpy.array([i / time_interval_length for i in range(n//2 + 1)])
+    freqs = numpy.arange(n // 2 + 1) / time_interval_length
     #
     # Note that this definition of the frequencies slightly differs from the
     # output of np.fft.freqs which is

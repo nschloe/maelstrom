@@ -14,37 +14,33 @@ A worthwhile read in for the simulation of crystal growth is :cite:`Derby89`.
 """
 import warnings
 
+import numpy
+import pytest
 from dolfin import (
-    parameters,
-    Measure,
-    FunctionSpace,
-    Constant,
-    plot,
-    XDMFFile,
     DOLFIN_EPS,
-    as_vector,
-    info,
-    norm,
-    assemble,
     MPI,
+    Constant,
+    FunctionSpace,
+    Measure,
+    XDMFFile,
+    as_vector,
+    assemble,
     dx,
     interpolate,
+    norm,
+    parameters,
+    plot,
 )
 from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
-
-import matplotlib.pyplot as plt
-import numpy
 from numpy import pi
-import pytest
-import parabolic
 
-from maelstrom.helpers import average
+import maelstrom.heat as cyl_heat
 import maelstrom.navier_stokes as cyl_ns
 import maelstrom.stokes_heat as stokes_heat
-import maelstrom.heat as cyl_heat
-from maelstrom.message import Message
-
+import matplotlib.pyplot as plt
+import parabolic
 import problems
+from maelstrom.helpers import average
 from test_maxwell import get_lorentz_joule
 
 # Ignore the deprecation warning, see
@@ -290,128 +286,128 @@ def _compute_boussinesq(
         successful_steps = 0
         failed_steps = 0
         while t < target_time + DOLFIN_EPS:
-            info(
+            print(
                 "Successful steps: {}    (failed: {}, total: {})".format(
                     successful_steps, failed_steps, successful_steps + failed_steps
                 )
             )
-            with Message("Time step {:e} -> {:e}...".format(t, t + dt)):
-                # Do one heat time step.
-                with Message("Computing heat..."):
-                    # Redefine the heat problem with the new u0.
-                    heat_problem = cyl_heat.Heat(
-                        problem.Q,
-                        kappa=k_wpi,
-                        rho=rho_wpi(theta_average),
-                        cp=cp_wpi,
-                        convection=u0,
-                        source=joule,
-                        dirichlet_bcs=problem.theta_bcs_d,
-                        neumann_bcs=problem.theta_bcs_n,
-                        my_dx=dx(submesh_workpiece),
-                        my_ds=ds_workpiece,
+            print("Time step {:e} -> {:e}...".format(t, t + dt))
+            # Do one heat time step.
+            print("Computing heat...")
+            # Redefine the heat problem with the new u0.
+            heat_problem = cyl_heat.Heat(
+                problem.Q,
+                kappa=k_wpi,
+                rho=rho_wpi(theta_average),
+                cp=cp_wpi,
+                convection=u0,
+                source=joule,
+                dirichlet_bcs=problem.theta_bcs_d,
+                neumann_bcs=problem.theta_bcs_n,
+                my_dx=dx(submesh_workpiece),
+                my_ds=ds_workpiece,
+            )
+
+            # For time-stepping in buoyancy-driven flows, see
+            #
+            # Numerical solution of buoyancy-driven flows;
+            # Einar Rossebø Christensen;
+            # Master's thesis;
+            # <http://www.diva-portal.org/smash/get/diva2:348831/FULLTEXT01.pdf>.
+            #
+            # Similar to the present approach, one first solves for
+            # velocity and pressure, then for temperature.
+            #
+            heat_stepper = parabolic.ImplicitEuler(heat_problem)
+
+            ns_stepper = cyl_ns.IPCS(time_step_method="backward euler")
+            theta1 = heat_stepper.step(theta0, t, dt)
+
+            theta0_average = average(theta0)
+            try:
+                # Do one Navier-Stokes time step.
+                print("Computing flux and pressure...")
+                # Include proper temperature-dependence here to account
+                # for the Boussinesq effect.
+                f0 = rho_wpi(theta0) * g
+                f1 = rho_wpi(theta1) * g
+                if lorentz is not None:
+                    f = as_vector((lorentz[0], lorentz[1], 0.0))
+                    f0 += f
+                    f1 += f
+                u1, p1 = ns_stepper.step(
+                    Constant(dt),
+                    {0: u0},
+                    p0,
+                    problem.W,
+                    problem.P,
+                    problem.u_bcs,
+                    problem.p_bcs,
+                    # Make constant TODO
+                    Constant(rho_wpi(theta0_average)),
+                    Constant(mu_wpi(theta0_average)),
+                    f={0: f0, 1: f1},
+                    tol=1.0e-10,
+                    my_dx=dx(submesh_workpiece),
+                )
+            except RuntimeError as e:
+                print(e.args[0])
+                print(
+                    "Navier--Stokes solver failed to converge. "
+                    "Decrease time step from {:e} to {:e} and try again.".format(
+                        dt, 0.5 * dt
                     )
+                )
+                dt *= 0.5
+                failed_steps += 1
+                continue
+            successful_steps += 1
 
-                    # For time-stepping in buoyancy-driven flows, see
-                    #
-                    # Numerical solution of buoyancy-driven flows;
-                    # Einar Rossebø Christensen;
-                    # Master's thesis;
-                    # <http://www.diva-portal.org/smash/get/diva2:348831/FULLTEXT01.pdf>.
-                    #
-                    # Similar to the present approach, one first solves for
-                    # velocity and pressure, then for temperature.
-                    #
-                    heat_stepper = parabolic.ImplicitEuler(heat_problem)
+            # Assignments and plotting.
+            theta0.assign(theta1)
+            u0.assign(u1)
+            p0.assign(p1)
 
-                    ns_stepper = cyl_ns.IPCS(time_step_method="backward euler")
-                    theta1 = heat_stepper.step(theta0, t, dt)
+            _store(outfile, u0, p0, theta0, t + dt)
+            if show:
+                _plot(p0, theta0)
+                plt.show()
 
-                theta0_average = average(theta0)
-                try:
-                    # Do one Navier-Stokes time step.
-                    with Message("Computing flux and pressure..."):
-                        # Include proper temperature-dependence here to account
-                        # for the Boussinesq effect.
-                        f0 = rho_wpi(theta0) * g
-                        f1 = rho_wpi(theta1) * g
-                        if lorentz is not None:
-                            f = as_vector((lorentz[0], lorentz[1], 0.0))
-                            f0 += f
-                            f1 += f
-                        u1, p1 = ns_stepper.step(
-                            Constant(dt),
-                            {0: u0},
-                            p0,
-                            problem.W,
-                            problem.P,
-                            problem.u_bcs,
-                            problem.p_bcs,
-                            # Make constant TODO
-                            Constant(rho_wpi(theta0_average)),
-                            Constant(mu_wpi(theta0_average)),
-                            f={0: f0, 1: f1},
-                            tol=1.0e-10,
-                            my_dx=dx(submesh_workpiece),
-                        )
-                except RuntimeError as e:
-                    info(e.args[0])
-                    info(
-                        "Navier--Stokes solver failed to converge. "
-                        "Decrease time step from {:e} to {:e} and try again.".format(
-                            dt, 0.5 * dt
-                        )
-                    )
-                    dt *= 0.5
-                    failed_steps += 1
-                    continue
-                successful_steps += 1
-
-                # Assignments and plotting.
-                theta0.assign(theta1)
-                u0.assign(u1)
-                p0.assign(p1)
-
-                _store(outfile, u0, p0, theta0, t + dt)
-                if show:
-                    _plot(p0, theta0)
-                    plt.show()
-
-                t += dt
-                with Message("Diagnostics..."):
-                    # Print some general info on the flow in the crucible.
-                    umax = get_umax(u0)
-                    _print_diagnostics(
-                        theta0,
-                        umax,
-                        submesh_workpiece,
-                        wpi_area,
-                        problem.subdomain_materials,
-                        problem.wpi,
-                        rho_wpi,
-                        mu_wpi,
-                        char_length,
-                        grav,
-                    )
-                    info("")
-                with Message("Step size adaptation..."):
-                    # Some smooth step-size adaption.
-                    target_dt = 0.2 * hmax_workpiece / umax
-                    info("previous dt: {:e}".format(dt))
-                    info("target dt: {:e}".format(target_dt))
-                    # agg is the aggressiveness factor. The distance between
-                    # the current step size and the target step size is reduced
-                    # by |1-agg|. Hence, if agg==1 then dt_next==target_dt.
-                    # Otherwise target_dt is approached more slowly.
-                    agg = 0.5
-                    dt = min(
-                        dt_max,
-                        # At most double the step size from step to step.
-                        dt * min(2.0, 1.0 + agg * (target_dt - dt) / dt),
-                    )
-                    info("new dt:    {:e}".format(dt))
-                    info("")
-                info("")
+            t += dt
+            print("Diagnostics...")
+            # Print some general info on the flow in the crucible.
+            umax = get_umax(u0)
+            _print_diagnostics(
+                theta0,
+                umax,
+                submesh_workpiece,
+                wpi_area,
+                problem.subdomain_materials,
+                problem.wpi,
+                rho_wpi,
+                mu_wpi,
+                char_length,
+                grav,
+            )
+            print()
+            print("Step size adaptation...")
+            # Some smooth step-size adaption.
+            target_dt = 0.2 * hmax_workpiece / umax
+            print("previous dt: {:e}".format(dt))
+            print("target dt: {:e}".format(target_dt))
+            # agg is the aggressiveness factor. The distance between
+            # the current step size and the target step size is reduced
+            # by |1-agg|. Hence, if agg==1 then dt_next==target_dt.
+            # Otherwise target_dt is approached more slowly.
+            agg = 0.5
+            dt = min(
+                dt_max,
+                # At most double the step size from step to step.
+                dt * min(2.0, 1.0 + agg * (target_dt - dt) / dt),
+            )
+            print("new dt:    {:e}".format(dt))
+            print()
+            print()
     return u0, p0, theta0
 
 
@@ -443,12 +439,12 @@ def _print_diagnostics(
     av_temperature = assemble(theta0 * dx(submesh_workpiece)) / wpi_area
     vec = theta0.vector()
     temperature_difference = vec.max() - vec.min()
-    info("Max temperature: {:e}".format(vec.max()))
-    info("Min temperature: {:e}".format(vec.min()))
-    info("Av  temperature: {:e}".format(av_temperature))
-    info("")
-    info("Max velocity: {:e}".format(umax))
-    info("")
+    print("Max temperature: {:e}".format(vec.max()))
+    print("Min temperature: {:e}".format(vec.min()))
+    print("Av  temperature: {:e}".format(av_temperature))
+    print()
+    print("Max velocity: {:e}".format(umax))
+    print()
     char_velocity = umax
     melt_material = subdomain_materials[wpi]
     rho_const = rho(av_temperature)
@@ -462,13 +458,13 @@ def _print_diagnostics(
 
     mu_const = mu(av_temperature)
     #
-    info("Prandtl number: {:e}".format(_get_prandtl(mu_const, rho_const, cp, k)))
-    info(
+    print("Prandtl number: {:e}".format(_get_prandtl(mu_const, rho_const, cp, k)))
+    print(
         "Reynolds number: {:e}".format(
             _get_reynolds(rho_const, mu_const, char_length, char_velocity)
         )
     )
-    info(
+    print(
         "Grashof number: {:e}".format(
             _get_grashof(
                 rho, mu_const, grav, av_temperature, char_length, temperature_difference

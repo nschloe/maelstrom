@@ -3,15 +3,13 @@
 #
 from __future__ import print_function
 
-from dolfin import plot, dx, Constant, Measure, Function, project, XDMFFile
-import matplotlib.pyplot as plt
 import numpy
-
-import problems
+from dolfin import Constant, Function, Measure, XDMFFile, dx, plot, project
 
 import maelstrom
-
+import matplotlib.pyplot as plt
 import parabolic
+import problems
 
 
 def _parameter_quest():

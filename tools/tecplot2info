@@ -6,9 +6,9 @@ Extract useful information from a Tecplot file.
 '''
 
 import numpy as np
-from matplotlib import pyplot as pp
 
 import maelstrom.tecplot_reader
+from matplotlib import pyplot as pp
 
 
 def _main():

@@ -17,7 +17,7 @@ def test_dft():
 
     data2 = numpy.zeros(n, dtype=complex)
     for x, freq in zip(X, freqs):
-        alpha = x * numpy.exp(1j * 2*numpy.pi * freq * (t - t0))
+        alpha = x * numpy.exp(1j * 2 * numpy.pi * freq * (t - t0))
         data2 += alpha
 
     assert (abs(data - data2.real) < 1.0e-14).all()
@@ -25,5 +25,5 @@ def test_dft():
     return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_dft()

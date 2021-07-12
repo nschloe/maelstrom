@@ -1,42 +1,40 @@
 # -*- coding: utf-8 -*-
 #
-from . import meshes
-from . import my_materials
-from . import tecplot_reader
-
-from maelstrom import heat as cyl_heat
-
-from dolfin import (
-    Mesh,
-    SubMesh,
-    SubDomain,
-    MeshFunction,
-    DirichletBC,
-    dot,
-    grad,
-    FunctionSpace,
-    Expression,
-    FacetNormal,
-    pi,
-    Function,
-    Constant,
-    FiniteElement,
-    MixedElement,
-)
-import materials
-import meshio
-import numpy
 import os
 import warnings
 from tempfile import TemporaryDirectory
 
+import numpy
+from dolfin import (
+    Constant,
+    DirichletBC,
+    Expression,
+    FacetNormal,
+    FiniteElement,
+    Function,
+    FunctionSpace,
+    Mesh,
+    MeshFunction,
+    MixedElement,
+    SubDomain,
+    SubMesh,
+    UserExpression,
+    dot,
+    grad,
+    pi,
+)
+
+import materials
+import meshio
+from maelstrom import heat as cyl_heat
+
+from . import meshes, my_materials, tecplot_reader
 
 DEBUG = False
 
 
 class Crucible:
     def __init__(self):
-
         GMSH_EPS = 1.0e-15
 
         # https://fenicsproject.org/qa/12891/initialize-mesh-from-vertices-connectivities-at-once
@@ -105,7 +103,7 @@ class Crucible:
         #             'Submesh file \'{}\' does not exist. Creating... '.format(
         #             filename
         #             ))
-        #         if MPI.size(mpi_comm_world()) > 1:
+        #         if MPI.size(MPI.comm_world) > 1:
         #             raise RuntimeError(
         #                 'Can only write submesh in serial mode.'
         #                 )
@@ -222,9 +220,9 @@ class Crucible:
         #      better [...]."
         #
         # It turns out that adding the bubble space significantly hampers the
-        # convergence of the Stokes solver and also considerably increases the
-        # time it takes to construct the Jacobian matrix of the Navier--Stokes
-        # problem if no optimization is applied.
+        # convergence of the Stokes solver and also considerably increases the time it
+        # takes to construct the Jacobian matrix of the Navier--Stokes problem if no
+        # optimization is applied.
         V_element = FiniteElement("CG", self.submesh_workpiece.ufl_cell(), 2)
         with_bubbles = False
         if with_bubbles:
@@ -263,7 +261,7 @@ class Crucible:
         ]
         T_vals = data["ZONE T"]["node data"]["temp. [K]"]
 
-        class TecplotDirichletBC(Expression):
+        class TecplotDirichletBC(UserExpression):
             def eval(self, value, x):
                 # Find on which edge x sits, and raise exception if it doesn't.
                 edge_found = False
@@ -295,13 +293,12 @@ class Crucible:
                         ]
                         edge_found = True
                         break
-                # This class is supposed to be used for Dirichlet boundary
-                # conditions. For some reason, FEniCS also evaluates
-                # DirichletBC objects at coordinates which do not sit on the
-                # boundary, see
+                # This class is supposed to be used for Dirichlet boundary conditions.
+                # For some reason, FEniCS also evaluates DirichletBC objects at
+                # coordinates which do not sit on the boundary, see
                 # <http://fenicsproject.org/qa/1033/dirichletbc-expressions-evaluated-away-from-the-boundary>.
-                # The assigned values have no meaning though, so not assigning
-                # values[0] here is okay.
+                # The assigned values have no meaning though, so not assigning values[0]
+                # here is okay.
                 #
                 # from matplotlib import pyplot as pp
                 # pp.plot(x[0], x[1], 'xg')
@@ -332,10 +329,10 @@ class Crucible:
         dTdr_vals = data["ZONE T"]["node data"]["dTempdx [K/m]"]
         dTdz_vals = data["ZONE T"]["node data"]["dTempdz [K/m]"]
 
-        class TecplotNeumannBC(Expression):
+        class TecplotNeumannBC(UserExpression):
             def eval(self, value, x):
-                # Same problem as above: This expression is not only evaluated
-                # at boundaries.
+                # Same problem as above: This expression is not only evaluated at
+                # boundaries.
                 for edge in data["ZONE T"]["element data"]:
                     X0 = RZ[edge[0] - 1]
                     X1 = RZ[edge[1] - 1]
@@ -404,7 +401,10 @@ class Crucible:
         # makes sure that the potentially expensive Expression evaluation in
         # theta_bcs_* is replaced by something reasonably cheap.
         self.theta_bcs_d = [
-            DirichletBC(bc.function_space(), theta_reference, bc.domain_args[0])
+            # <https://www.allanswered.com/post/rraep/2018-1-dirichletbc-function_space-broken/>
+            DirichletBC(
+                FunctionSpace(bc.function_space()), theta_reference, bc.sub_domain
+            )
             for bc in self.theta_bcs_d
         ]
         # Adapt Neumann conditions.

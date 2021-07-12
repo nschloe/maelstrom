@@ -6,24 +6,21 @@ Navier-Stokes testbed.
 """
 from __future__ import print_function
 
+import pytest
 from dolfin import (
-    begin,
-    end,
-    parameters,
+    DOLFIN_EPS,
+    MPI,
     Constant,
     Function,
     XDMFFile,
-    DOLFIN_EPS,
+    norm,
+    parameters,
     plot,
     project,
-    norm,
-    mpi_comm_world,
 )
-import pytest
 
 import maelstrom.navier_stokes as cyl_ns
 import maelstrom.stokes as cyl_stokes
-
 import problems
 
 parameters["allow_extrapolation"] = True
@@ -84,7 +81,7 @@ def test(problem, max_num_steps=2, show=False):
         p0.vector().zero()
 
     filename = "navier_stokes.xdmf"
-    with XDMFFile(mpi_comm_world(), filename) as xdmf_file:
+    with XDMFFile(MPI.comm_world, filename) as xdmf_file:
         xdmf_file.parameters["flush_output"] = True
         xdmf_file.parameters["rewrite_function_mesh"] = False
 
@@ -96,7 +93,7 @@ def test(problem, max_num_steps=2, show=False):
         steps = 0
         while t < T + DOLFIN_EPS and steps < max_num_steps:
             steps += 1
-            begin("Time step {:e} -> {:e}...".format(t, t + dt))
+            print("Time step {:e} -> {:e}...".format(t, t + dt))
             try:
                 u1, p1 = stepper.step(
                     Constant(dt),
@@ -119,9 +116,6 @@ def test(problem, max_num_steps=2, show=False):
                     )
                 )
                 dt *= 0.5
-                end()
-                end()
-                end()
                 continue
 
             u0.assign(u1)
@@ -136,7 +130,7 @@ def test(problem, max_num_steps=2, show=False):
                 plot(p0, title="pressure", rescale=True)
                 # interactive()
 
-            begin("Step size adaptation...")
+            print("Step size adaptation...")
             # unorm = project(abs(u[0]) + abs(u[1]) + abs(u[2]),
             #                 P,
             #                 form_compiler_parameters={'quadrature_degree': 4}
@@ -162,8 +156,6 @@ def test(problem, max_num_steps=2, show=False):
             )
             print("next dt:    {:e}".format(dt))
             t += dt
-            end()
-            end()
     return
 
 
